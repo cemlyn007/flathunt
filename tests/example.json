@@ -1,0 +1,2153 @@
+{
+    "properties": [
+        {
+            "id": 135045269,
+            "bedrooms": 3,
+            "bathrooms": 1,
+            "numberOfImages": 11,
+            "numberOfFloorplans": 2,
+            "numberOfVirtualTours": 0,
+            "summary": "This superbly located three double bedroom split level apartment is moments from Angel underground station and the fantastic selection of shops, bars and restaurants along Upper Street. It is light and airy and has an open plan reception room, modern kitchen and wood floors. Ideally sui...",
+            "displayAddress": "Essex Road, Islington, N1",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.536636,
+                "longitude": -0.101048
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_00_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_00_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_01_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_01_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_02_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_02_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_03_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_03_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_04_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_04_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_05_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_05_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_06_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_06_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_07_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_07_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_08_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_08_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_09_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_09_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_10_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_10_0000.jpeg",
+                        "caption": null
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Apartment",
+            "listingUpdate": {
+                "listingUpdateReason": "new",
+                "listingUpdateDate": "2023-05-19T21:56:02Z"
+            },
+            "premiumListing": false,
+            "featuredProperty": true,
+            "price": {
+                "amount": 3250,
+                "frequency": "monthly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£3,250 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£750 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 78489,
+                "brandPlusLogoURI": "/79k/78489/branch_logo_78489_4.jpg",
+                "contactTelephone": "020 8175 5444",
+                "branchDisplayName": "Charles Henry Peppiatt Ltd, Southgate",
+                "branchName": "Southgate",
+                "brandTradingName": "Charles Henry Peppiatt Ltd",
+                "branchLandingPageUrl": "/estate-agents/agent/Charles-Henry-Peppiatt-Ltd/Southgate-78489.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/79k/78489/branch_logo_78489_4_max_100x50.jpg"
+            },
+            "distance": 0.3531,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": null,
+            "displaySize": "78 sq. ft.",
+            "showOnMap": true,
+            "propertyUrl": "/properties/135045269#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=135045269",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-19T21:50:53Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "Featured Property",
+            "addedOrReduced": "Added yesterday",
+            "formattedBranchName": " by Charles Henry Peppiatt Ltd, Southgate",
+            "formattedDistance": "0.35 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "3 bedroom apartment"
+        },
+        {
+            "id": 135046313,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "numberOfImages": 8,
+            "numberOfFloorplans": 0,
+            "numberOfVirtualTours": 0,
+            "summary": "Available immediately, a bright and spacious two double bedroom apartment set within a Victorian building. The furnished property (with some variations in the photos) is located on the second floor and accommodation comprises entrance hall, open plan reception room and brand new kitche...",
+            "displayAddress": "King's Cross Road, WC1X",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.529759,
+                "longitude": -0.115896
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_00_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_00_0000.jpeg",
+                        "caption": "Picture No. 05"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_01_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_01_0000.jpeg",
+                        "caption": "Picture No. 04"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_02_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_02_0000.jpeg",
+                        "caption": "Picture No. 08"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_03_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_03_0000.jpeg",
+                        "caption": "Picture No. 02"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_04_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_04_0000.jpeg",
+                        "caption": "Picture No. 03"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_05_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_05_0000.jpeg",
+                        "caption": "Picture No. 06"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_06_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_06_0000.jpeg",
+                        "caption": "Picture No. 07"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_07_0000_max_476x317.jpeg",
+                        "url": "15k/14543/135046313/14543_CIT200117_L_IMG_07_0000.jpeg",
+                        "caption": "Picture No. 01"
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/15k/14543/135046313/14543_CIT200117_L_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Apartment",
+            "listingUpdate": {
+                "listingUpdateReason": "new",
+                "listingUpdateDate": "2023-05-19T23:22:02Z"
+            },
+            "premiumListing": false,
+            "featuredProperty": false,
+            "price": {
+                "amount": 2750,
+                "frequency": "monthly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£2,750 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£635 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 14543,
+                "brandPlusLogoURI": "/company/clogo_rmchoice_5591_0001.jpeg",
+                "contactTelephone": "020 3840 3899",
+                "branchDisplayName": "Hurford Salvi Carr, Britton Street",
+                "branchName": "Britton Street",
+                "brandTradingName": "Hurford Salvi Carr",
+                "branchLandingPageUrl": "/estate-agents/agent/Hurford-Salvi-Carr/Britton-Street-14543.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/company/clogo_rmchoice_5591_0001_max_100x50.jpeg"
+            },
+            "distance": 0.4729,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": "<b>PERMITTED PAYMENTS</b> - ASSURED SHORTHOLD TENANCIES<br /><br />\r<u><b>Before the Tenancy</b></u><br /><br />\r<b>Holding Deposit</b><br />\r1 Weeks Rent<br /><br />\r<b>Security Deposit (Tenancy Deposit)</b>\rIf the agreed rent is less than £50,000 per annum a deposit equivalent to five weeks rent is required. Should the agreed rent be in excess of £50,000 per annum then a deposit equivalent to six weeks rent is required.<br /><br />\r<u><b>During the Tenancy</b></u><br /><br />\r<b>Variation of the Tenancy Agreement</b><br />\rIf the Tenant requests any changes to the Tenancy Agreement and the Landlord agrees to such changes, Hurford Salvi Carr reserves the right to charge up to £50 to administer each variation of the Tenancy Agreement. Should our reasonable costs exceed £50 we will notify the Tenant in advance.<br /><br />\r<b>Late Payment of Rent</b><br />\rHurford Salvi Carr reserves the right to charge 3% above the prevailing Bank of England base rate on any late payment of rent after 14 days have passed.<br /><br />\r<b>Replacement of Keys or Security Devices</b><br />\rShould the Tenant lose, misplace or damage any keys or security devices, Hurford Salvi Carr reserves the right to charge up to £50 or all reasonably costs incurred for replacement of the keys / security devices.<br /><br />\r<b>Assignment of the Tenancy Agreement</b><br />\rShould the Landlord agree to a change of Tenant, the outgoing Tenant will be responsible for all reasonable costs incurred by Hurford Salvi Carr and/or the Landlord in consideration of administering the request.<br /><br />\r<b>Early Termination of the Tenancy</b><br />\rShould the Landlord agree to an early termination of the Tenancy, the Tenant will be responsible for any financial loss suffered by the Landlord and all reasonable costs incurred by Hurford Salvi Carr in consideration of administering the early termination.<br /><br />\r<b>TENANT PROTECTION</b><br /><br />\rHurford Salvi Carr is a member of ARLA Propertymark which is a client money protection scheme, and also a member of The Property Ombudsman which is a redress scheme. You can find out more details on our website <u>.hurford-salvi-carr.co.uk</u> or by contacting us directly.",
+            "displaySize": "",
+            "showOnMap": true,
+            "propertyUrl": "/properties/135046313#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=135046313",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-19T23:16:09Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "",
+            "addedOrReduced": "Added yesterday",
+            "formattedBranchName": " by Hurford Salvi Carr, Britton Street",
+            "formattedDistance": "0.47 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "2 bedroom apartment"
+        },
+        {
+            "id": 134917613,
+            "bedrooms": 1,
+            "bathrooms": 1,
+            "numberOfImages": 12,
+            "numberOfFloorplans": 1,
+            "numberOfVirtualTours": 1,
+            "summary": "Luxurious one-bedroom apartment set in this exclusive building on City Road. The apartment benefits from floor-to-ceiling windows, with great views over the City. Open-plan reception/kitchen with... ** Property Reference: 1709197 **",
+            "displayAddress": "Chronicle Tower, London, EC1V",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.52986,
+                "longitude": -0.096858
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_00_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_00_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_01_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_01_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_02_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_02_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_03_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_03_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_04_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_04_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_05_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_05_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_06_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_06_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_07_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_07_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_08_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_08_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_09_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_09_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_10_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_10_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_11_0000_max_476x317.jpeg",
+                        "url": "97k/96668/134917613/96668_170919717052023_IMG_11_0000.jpeg",
+                        "caption": null
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/97k/96668/134917613/96668_170919717052023_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Flat",
+            "listingUpdate": {
+                "listingUpdateReason": "price_reduced",
+                "listingUpdateDate": "2023-05-19T22:11:30Z"
+            },
+            "premiumListing": false,
+            "featuredProperty": false,
+            "price": {
+                "amount": 2935,
+                "frequency": "monthly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£2,935 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£677 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 96668,
+                "brandPlusLogoURI": "/company/clogo_rmchoice_37106_0000.png",
+                "contactTelephone": "020 3322 3265",
+                "branchDisplayName": "OpenRent, London",
+                "branchName": "London",
+                "brandTradingName": "OpenRent",
+                "branchLandingPageUrl": "/estate-agents/agent/OpenRent/London-96668.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/company/clogo_rmchoice_37106_0000_max_100x50.png"
+            },
+            "distance": 0.4286,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": "OpenRent is the UK's largest letting agent, using online services to make renting properties cheaper and more convenient than ever before - while holding quality and security as our top priorities. <br /><br />\nOpenRent has never charged any administration or agency fees. <br /><br />\nUnder the Tenant Fees Act 2019, landlords may charge you a fee if you lose keys or other security devices, or pay your rent late. You may also be asked for other permitted payments, such as a holding deposit when you begin your application. <br /><br />\nThere are no hidden fees or other charges when renting an OpenRent property. <br /><br />\nOpenRent is a proud member of the Property Ombudsman and holds comprehensive Client Money Protection via the government-authorised Client Money Protect scheme. <br /><br />\nOpenRent is a registered agent in Scotland with registration number LARN1809026 and is a member of RentSmart Wales with license number #LR-75033-48352. <br /><br />\n",
+            "displaySize": "",
+            "showOnMap": true,
+            "propertyUrl": "/properties/134917613#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=134917613",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-17T17:06:56Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "",
+            "addedOrReduced": "Reduced yesterday",
+            "formattedBranchName": " by OpenRent, London",
+            "formattedDistance": "0.43 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "1 bedroom flat"
+        },
+        {
+            "id": 135045269,
+            "bedrooms": 3,
+            "bathrooms": 1,
+            "numberOfImages": 11,
+            "numberOfFloorplans": 2,
+            "numberOfVirtualTours": 0,
+            "summary": "This superbly located three double bedroom split level apartment is moments from Angel underground station and the fantastic selection of shops, bars and restaurants along Upper Street. It is light and airy and has an open plan reception room, modern kitchen and wood floors. Ideally sui...",
+            "displayAddress": "Essex Road, Islington, N1",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.536636,
+                "longitude": -0.101048
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_00_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_00_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_01_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_01_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_02_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_02_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_03_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_03_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_04_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_04_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_05_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_05_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_06_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_06_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_07_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_07_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_08_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_08_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_09_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_09_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_10_0000_max_476x317.jpeg",
+                        "url": "79k/78489/135045269/78489_32335643_IMG_10_0000.jpeg",
+                        "caption": null
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/79k/78489/135045269/78489_32335643_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Apartment",
+            "listingUpdate": {
+                "listingUpdateReason": "new",
+                "listingUpdateDate": "2023-05-19T21:56:02Z"
+            },
+            "premiumListing": false,
+            "featuredProperty": false,
+            "price": {
+                "amount": 3250,
+                "frequency": "monthly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£3,250 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£750 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 78489,
+                "brandPlusLogoURI": "/79k/78489/branch_logo_78489_4.jpg",
+                "contactTelephone": "020 8175 5444",
+                "branchDisplayName": "Charles Henry Peppiatt Ltd, Southgate",
+                "branchName": "Southgate",
+                "brandTradingName": "Charles Henry Peppiatt Ltd",
+                "branchLandingPageUrl": "/estate-agents/agent/Charles-Henry-Peppiatt-Ltd/Southgate-78489.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/79k/78489/branch_logo_78489_4_max_100x50.jpg"
+            },
+            "distance": 0.3531,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": null,
+            "displaySize": "78 sq. ft.",
+            "showOnMap": true,
+            "propertyUrl": "/properties/135045269#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=135045269",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-19T21:50:53Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "",
+            "addedOrReduced": "Added yesterday",
+            "formattedBranchName": " by Charles Henry Peppiatt Ltd, Southgate",
+            "formattedDistance": "0.35 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "3 bedroom apartment"
+        },
+        {
+            "id": 135038480,
+            "bedrooms": 2,
+            "bathrooms": 2,
+            "numberOfImages": 11,
+            "numberOfFloorplans": 1,
+            "numberOfVirtualTours": 0,
+            "summary": "This fantastic two double bedroom, two bathroom apartment is situated on the garden level within this impressive purpose built development moments from Angel Station. The apartment comprises; reception room, kitchen, two bedrooms and two bathrooms.",
+            "displayAddress": "330-336 City Road, \nAngel Southside, EC1V",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.530719,
+                "longitude": -0.101503
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_00_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_00_0000.jpeg",
+                        "caption": "Picture No. 08"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_01_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_01_0000.jpeg",
+                        "caption": "Picture No. 06"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_02_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_02_0000.jpeg",
+                        "caption": "Picture No. 09"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_03_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_03_0000.jpeg",
+                        "caption": "Picture No. 10"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_04_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_04_0000.jpeg",
+                        "caption": "Picture No. 18"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_05_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_05_0000.jpeg",
+                        "caption": "Picture No. 13"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_06_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_06_0000.jpeg",
+                        "caption": "Picture No. 14"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_07_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_07_0000.jpeg",
+                        "caption": "Picture No. 16"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_08_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_08_0000.jpeg",
+                        "caption": "Picture No. 12"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_09_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_09_0000.jpeg",
+                        "caption": "Picture No. 15"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_10_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135038480/26207_HEA183242_L_IMG_10_0000.jpeg",
+                        "caption": "Picture No. 07"
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135038480/26207_HEA183242_L_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Flat",
+            "listingUpdate": {
+                "listingUpdateReason": "new",
+                "listingUpdateDate": "2023-05-19T18:00:12Z"
+            },
+            "premiumListing": false,
+            "featuredProperty": false,
+            "price": {
+                "amount": 2995,
+                "frequency": "monthly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£2,995 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£691 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 26207,
+                "brandPlusLogoURI": "/company/clogo_rmchoice_17141_0002.jpeg",
+                "contactTelephone": "020 3872 5359",
+                "branchDisplayName": "Chestertons Estate Agents, Islington Lettings",
+                "branchName": "Islington Lettings",
+                "brandTradingName": "Chestertons Estate Agents",
+                "branchLandingPageUrl": "/estate-agents/agent/Chestertons-Estate-Agents/Islington-Lettings-26207.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/company/clogo_rmchoice_17141_0002_max_100x50.jpeg"
+            },
+            "distance": 0.2243,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": "\nPrior to your Tenancy<br />\n<br />\nOnce an offer has been accepted, preliminary monies equivalent to one or two weeks  rent is payable which if you successfully enter into a tenancy agreement will be credited towards your Advance Rent.<br />\n<br />\nRent is payable in advance for each tenancy. You will therefore need to pay, as a minimum, the first months  rent prior to the commencement of your tenancy, although the amount payable may differ dependent on the terms of your tenancy.<br />\n<br />\nDeposit: This is the equivalent of 5 weeks  rent (if the annual rent is less than £50,000) or 6 weeks  rent (if the annual rent is £50,000 or more), payable prior to the commencement of your tenancy.<br />\n<br />\nOther fees - Assured Shorthold Tenancies<br />\n<br />\nInterest on late payment of rent will be charged at a rate of 3% per annum over The Bank of England s base lending rate. This will not be levied until the rent is more than 14 days late.<br />\n<br />\nLost keys or other security devices: In the event that any keys or other security devices are lost and need to be replaced, you will be required to pay the costs of replacing them. If the loss results in locks needing to be changed, you will be required to pay the actual costs of a locksmith, new lock and replacement keys for the tenant, landlord any other persons requiring keys. If extra costs are incurred there will be a charge of £15 per hour (inc. VAT) for the time taken replacing lost key(s) or other security device(s).<br />\n<br />\nContract variation, novation, amendment or change of occupant at the tenants request within an existing tenancy a contract fee of £50 (inc. VAT), will be payable by the tenant. All requests will be subject to the landlords consent and approval.<br />\n<br />\nIn the event that you wish to leave your contract early, you will be required to pay the landlord s costs in re-letting the property as well as all rent, council tax and utilities due under the tenancy until the start date of the replacement tenancy. The costs will be no more than the maximum amount of rent outstanding on the tenancy.<br />\n<br />\nOther fees - Non-Assured Shorthold Tenancies<br />\n<br />\nTenancy agreement fee: £300 (inc. VAT) payable by the tenant after your offer has been accepted and we have proceeded to draw up a tenancy agreement.\nReference fee for each Tenant: £60 (inc. VAT), payable when you have agreed to undergo the independent referencing process.<br />\n<br />\nRight to rent check only: £30 (inc.VAT), payable by each occupier in circumstances where a full reference (as above) is not required.<br />\n<br />\nIn most lets, the tenant will be responsible for paying the inventory check in costs prior to the commencement of a tenancy. The cost is approximately £100- £250 depending on the size of the property.<br />\n<br />\nRenewal agreement fee: £150 (inc. VAT) payable by the tenant upon renewal, should you and your landlord mutually agree to renew the tenancy for a further term.<br />\n<br />\nLate rental payment or unpaid cheques: £30.00 (inc. VAT) will be payable by the tenant in respect of late rental payments or cheques that are returned unpaid. Interest on late payment of rent will also be charged in accordance with the terms as stated in the tenancy agreement, usually at a rate of 5% per annum over The Bank of England s base lending rate.<br />\n<br />\nA tenancy swap fee of £420 (inc. VAT) will be payable by the tenant, together with a reference fee of £60 (inc. VAT) per tenant and / or Guarantor. Tenancy Swaps are subject to the landlord s consent and reference approval.<br />\n<br />\nA variation of contract fee of £50 (inc. VAT) will be payable by the tenant. Variation of contract is subject to the landlords consent.<br />\n<br />\nAdditional Information<br />\n<br />\nChestertons is a member of ARLA.<br />\nChestertons is a member of the Propertymark client money protection scheme.<br />\nChestertons is a member of The Property Ombudsman redress scheme and subscribes to its Code of Practice.\n  \t",
+            "displaySize": "773 sq. ft.",
+            "showOnMap": true,
+            "propertyUrl": "/properties/135038480#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=135038480",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-19T17:54:07Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "",
+            "addedOrReduced": "Added yesterday",
+            "formattedBranchName": " by Chestertons Estate Agents, Islington Lettings",
+            "formattedDistance": "0.22 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "2 bedroom flat"
+        },
+        {
+            "id": 134425868,
+            "bedrooms": 2,
+            "bathrooms": 1,
+            "numberOfImages": 8,
+            "numberOfFloorplans": 0,
+            "numberOfVirtualTours": 0,
+            "summary": "Upon entering the property, you will be greeted by a modern white gloss kitchen with sleek under-counter lighting and a built-in fridge. The kitchen is fully equipped with all the essential appliances you need to cook up a storm. Moving through to the lounge, you'll find a bright and spacious...",
+            "displayAddress": "Wynford Road, Angel / Kings Cross N1 ",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.53434,
+                "longitude": -0.11442
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_00_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_00_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_01_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_01_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_02_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_02_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_03_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_03_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_04_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_04_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_05_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_05_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_06_0000_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_06_0000.jpeg",
+                        "caption": null
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_07_0004_max_476x317.jpeg",
+                        "url": "18k/17882/134425868/17882_38800_IMG_07_0004.jpeg",
+                        "caption": null
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/18k/17882/134425868/17882_38800_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Flat",
+            "listingUpdate": {
+                "listingUpdateReason": "price_reduced",
+                "listingUpdateDate": "2023-05-19T17:26:03Z"
+            },
+            "premiumListing": true,
+            "featuredProperty": false,
+            "price": {
+                "amount": 577,
+                "frequency": "weekly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£2,500 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£577 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 17882,
+                "brandPlusLogoURI": "/18k/17882/branch_rmchoice_logo_17882_0000.png",
+                "contactTelephone": "020 3835 3598",
+                "branchDisplayName": "Black Katz, Islington",
+                "branchName": "Islington",
+                "brandTradingName": "Black Katz",
+                "branchLandingPageUrl": "/estate-agents/agent/Black-Katz/Islington-17882.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/18k/17882/branch_rmchoice_logo_17882_0000_max_100x50.png"
+            },
+            "distance": 0.3909,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "Balcony",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": "<h2>Black Katz Fees</h2>\n<h3>Before the tenancy starts  (payable to Black Katz Lettings)</h3>\n<ul><li>Holding deposit: 1 week's rent  (this will be deducted from the first month's rent)</li><li>Deposit: 5 week's rent if the  annual rent is less than £50,000, and six weeks? otherwise.</li></ul>\n<h3>During the tenancy (payable to  Agent)</h3>\n<ul><li>Payment of £50 (inclusive of  VAT) if you want to change the tenancy agreement</li><li>Payment for any unpaid rent or  other reasonable costs associated with your early termination of the tenancy.</li><li>Default fees? for  replacement of loss of keys or security device from £6 for a Yale up to £300  for security devices. ( payable to Agent / Landlord). </li><li>Payment of interest for  the late payment of rent at a rate of 3% ( payable Agent / Landlord) above the  Bank of England base rate.</li></ul>\n<h3>Fees for Company Let </h3>\n<ul><li>Fees  for Company Let Set Up Cost and Referencing £500 inclusive of VAT </li><li>Administration  Renewal fee of £500 inc V.A.T. to cover preparation of new legal  contracts (not applicable on periodic tenancies) and re-referencing  Tenant(s), where applicable.</li></ul>\n<h3>Fees  for Commom Law Agreements </h3>\n<ul><li>Set  up Fee of £145 inc V.A.T. per person to cover the preparation of all legal  documentation and tenancy negotiations. Please note the set up fee on Managed  Properties is £170 inc V.A.T. per person.</li><li>Reference  Fee of £80 inc V.A.T. per person to cover the processing of collecting and  checking of work, bank, and previous landlord references and collection of  monies and provision of move-in packs.</li><li>Credit  Check Fee payable to external credit agency from £25.00 inc V.A.T. and you will  be notified prior to the Offer being submitted to the landlord if this is  applicable. </li><li>Guarantor  Fee £50 inc V.A.T. (per Guarantor ( if required) </li><li>Administration  Renewal fee of £155 inc V.A.T. per person to cover preparation of new legal  contracts (not applicable on periodic tenancies) and re-referencing Tenant(s) where  applicable. </li><li>Administration  Change of Tenant fee of £225 inc V.A.T. per person for ingoing Tenant.</li><li>To  cover referencing of new tenants, preparation of all necessary legal paperwork  and liaising  with all existing Tenant(s). In addition there is a Contract Breakage Penalty  of £240 inc V.A.T. per Tenant payable by the outgoing Tenant.</li><li>Default  fees? for replacement of loss of keys or security device from £6 for a Yale up  to £300 for security devices. ( payable to Agent / Landlord). </li><li>Payment of interest for the  late payment of rent at a rate of 3% ( payable Agent / Landlord) above the Bank  of England base rate.</li></ul>\n<h3>During the tenancy (payable to  the provider) if permitted, and applicable</h3>\n<ul><li>Utilities - Gas, Electricity  and Water</li><li>Communications - telephone and  broadband</li><li>Installation of  cable/satellite</li><li>Television licence</li><li>Council Tax</li></ul>\n\n<p>Redress scheme provided by: Safe Agent Accreditation: Number A3469</p>\n<p>Client Money Protection provided by: Safe Agent Client Protection Scheme </p>\n\n<p>Black Katz is a member  of NALS (Client Money Protect), which is a client money protection scheme, and  also a member of The Property Ombudsman which is a redress scheme. You can find  out more details on the agent's website or by contacting the agent directly.</p>\n<p><img src=\" \" alt=\"w\" width=\"105\" height=\"37\" /><img src=\" \" alt=\"w\" width=\"94\" height=\"73\" /></p>\n",
+            "displaySize": "",
+            "showOnMap": true,
+            "propertyUrl": "/properties/134425868#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=134425868",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-04T11:32:03Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "",
+            "addedOrReduced": "Reduced yesterday",
+            "formattedBranchName": " by Black Katz, Islington",
+            "formattedDistance": "0.39 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "2 bedroom flat"
+        },
+        {
+            "id": 135033470,
+            "bedrooms": 2,
+            "bathrooms": 2,
+            "numberOfImages": 16,
+            "numberOfFloorplans": 1,
+            "numberOfVirtualTours": 0,
+            "summary": "Spanning over 900 sq ft, this light filled two bedroom, two bathroom apartment is situated on the fourth floor of this popular development, moments from the Regents Canal and within easy access of Angel Underground.",
+            "displayAddress": "Graham Street, \nAngel Southside, N1",
+            "countryCode": "GB",
+            "location": {
+                "latitude": 51.531755,
+                "longitude": -0.098985
+            },
+            "propertyImages": {
+                "images": [
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_00_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_00_0000.jpeg",
+                        "caption": "Picture No. 17"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_01_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_01_0000.jpeg",
+                        "caption": "Picture No. 11"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_02_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_02_0000.jpeg",
+                        "caption": "Picture No. 12"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_03_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_03_0000.jpeg",
+                        "caption": "Picture No. 13"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_04_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_04_0000.jpeg",
+                        "caption": "Picture No. 16"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_05_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_05_0000.jpeg",
+                        "caption": "Picture No. 20"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_06_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_06_0000.jpeg",
+                        "caption": "Picture No. 22"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_07_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_07_0000.jpeg",
+                        "caption": "Picture No. 24"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_08_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_08_0000.jpeg",
+                        "caption": "Picture No. 21"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_09_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_09_0000.jpeg",
+                        "caption": "Picture No. 06"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_10_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_10_0000.jpeg",
+                        "caption": "Picture No. 03"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_11_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_11_0000.jpeg",
+                        "caption": "Picture No. 05"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_12_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_12_0000.jpeg",
+                        "caption": "Picture No. 25"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_13_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_13_0000.jpeg",
+                        "caption": "Picture No. 01"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_14_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_14_0000.jpeg",
+                        "caption": "Picture No. 09"
+                    },
+                    {
+                        "srcUrl": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_15_0000_max_476x317.jpeg",
+                        "url": "27k/26207/135033470/26207_IUL220450_L_IMG_15_0000.jpeg",
+                        "caption": "Picture No. 08"
+                    }
+                ],
+                "mainImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_00_0000_max_476x317.jpeg",
+                "mainMapImageSrc": "https://media.rightmove.co.uk:443/dir/crop/10:9-16:9/27k/26207/135033470/26207_IUL220450_L_IMG_00_0000_max_296x197.jpeg"
+            },
+            "propertySubType": "Flat",
+            "listingUpdate": {
+                "listingUpdateReason": "new",
+                "listingUpdateDate": "2023-05-19T17:00:03Z"
+            },
+            "premiumListing": false,
+            "featuredProperty": false,
+            "price": {
+                "amount": 3500,
+                "frequency": "monthly",
+                "currencyCode": "GBP",
+                "displayPrices": [
+                    {
+                        "displayPrice": "£3,500 pcm",
+                        "displayPriceQualifier": ""
+                    },
+                    {
+                        "displayPrice": "£808 pw",
+                        "displayPriceQualifier": ""
+                    }
+                ]
+            },
+            "customer": {
+                "branchId": 26207,
+                "brandPlusLogoURI": "/company/clogo_rmchoice_17141_0002.jpeg",
+                "contactTelephone": "020 3872 5359",
+                "branchDisplayName": "Chestertons Estate Agents, Islington Lettings",
+                "branchName": "Islington Lettings",
+                "brandTradingName": "Chestertons Estate Agents",
+                "branchLandingPageUrl": "/estate-agents/agent/Chestertons-Estate-Agents/Islington-Lettings-26207.html",
+                "development": false,
+                "showReducedProperties": true,
+                "commercial": false,
+                "showOnMap": true,
+                "enhancedListing": false,
+                "developmentContent": null,
+                "buildToRent": false,
+                "buildToRentBenefits": [],
+                "brandPlusLogoUrl": "https://media.rightmove.co.uk:443/dir/company/clogo_rmchoice_17141_0002_max_100x50.jpeg"
+            },
+            "distance": 0.3005,
+            "transactionType": "rent",
+            "productLabel": {
+                "productLabelText": "",
+                "spotlightLabel": false
+            },
+            "commercial": false,
+            "development": false,
+            "residential": true,
+            "students": false,
+            "auction": false,
+            "feesApply": true,
+            "feesApplyText": "\nPrior to your Tenancy<br />\n<br />\nOnce an offer has been accepted, preliminary monies equivalent to one or two weeks  rent is payable which if you successfully enter into a tenancy agreement will be credited towards your Advance Rent.<br />\n<br />\nRent is payable in advance for each tenancy. You will therefore need to pay, as a minimum, the first months  rent prior to the commencement of your tenancy, although the amount payable may differ dependent on the terms of your tenancy.<br />\n<br />\nDeposit: This is the equivalent of 5 weeks  rent (if the annual rent is less than £50,000) or 6 weeks  rent (if the annual rent is £50,000 or more), payable prior to the commencement of your tenancy.<br />\n<br />\nOther fees - Assured Shorthold Tenancies<br />\n<br />\nInterest on late payment of rent will be charged at a rate of 3% per annum over The Bank of England s base lending rate. This will not be levied until the rent is more than 14 days late.<br />\n<br />\nLost keys or other security devices: In the event that any keys or other security devices are lost and need to be replaced, you will be required to pay the costs of replacing them. If the loss results in locks needing to be changed, you will be required to pay the actual costs of a locksmith, new lock and replacement keys for the tenant, landlord any other persons requiring keys. If extra costs are incurred there will be a charge of £15 per hour (inc. VAT) for the time taken replacing lost key(s) or other security device(s).<br />\n<br />\nContract variation, novation, amendment or change of occupant at the tenants request within an existing tenancy a contract fee of £50 (inc. VAT), will be payable by the tenant. All requests will be subject to the landlords consent and approval.<br />\n<br />\nIn the event that you wish to leave your contract early, you will be required to pay the landlord s costs in re-letting the property as well as all rent, council tax and utilities due under the tenancy until the start date of the replacement tenancy. The costs will be no more than the maximum amount of rent outstanding on the tenancy.<br />\n<br />\nOther fees - Non-Assured Shorthold Tenancies<br />\n<br />\nTenancy agreement fee: £300 (inc. VAT) payable by the tenant after your offer has been accepted and we have proceeded to draw up a tenancy agreement.\nReference fee for each Tenant: £60 (inc. VAT), payable when you have agreed to undergo the independent referencing process.<br />\n<br />\nRight to rent check only: £30 (inc.VAT), payable by each occupier in circumstances where a full reference (as above) is not required.<br />\n<br />\nIn most lets, the tenant will be responsible for paying the inventory check in costs prior to the commencement of a tenancy. The cost is approximately £100- £250 depending on the size of the property.<br />\n<br />\nRenewal agreement fee: £150 (inc. VAT) payable by the tenant upon renewal, should you and your landlord mutually agree to renew the tenancy for a further term.<br />\n<br />\nLate rental payment or unpaid cheques: £30.00 (inc. VAT) will be payable by the tenant in respect of late rental payments or cheques that are returned unpaid. Interest on late payment of rent will also be charged in accordance with the terms as stated in the tenancy agreement, usually at a rate of 5% per annum over The Bank of England s base lending rate.<br />\n<br />\nA tenancy swap fee of £420 (inc. VAT) will be payable by the tenant, together with a reference fee of £60 (inc. VAT) per tenant and / or Guarantor. Tenancy Swaps are subject to the landlord s consent and reference approval.<br />\n<br />\nA variation of contract fee of £50 (inc. VAT) will be payable by the tenant. Variation of contract is subject to the landlords consent.<br />\n<br />\nAdditional Information<br />\n<br />\nChestertons is a member of ARLA.<br />\nChestertons is a member of the Propertymark client money protection scheme.<br />\nChestertons is a member of The Property Ombudsman redress scheme and subscribes to its Code of Practice.\n  \t",
+            "displaySize": "904 sq. ft.",
+            "showOnMap": true,
+            "propertyUrl": "/properties/135033470#/?channel=RES_LET",
+            "contactUrl": "/property-to-rent/contactBranch.html?propertyId=135033470",
+            "staticMapUrl": null,
+            "channel": "RENT",
+            "firstVisibleDate": "2023-05-19T16:54:07Z",
+            "keywords": [],
+            "keywordMatchType": "no_keyword",
+            "saved": false,
+            "hidden": false,
+            "onlineViewingsAvailable": false,
+            "lozengeModel": {
+                "matchingLozenges": []
+            },
+            "hasBrandPlus": true,
+            "displayStatus": "",
+            "enquiredTimestamp": null,
+            "heading": "",
+            "addedOrReduced": "Added yesterday",
+            "formattedBranchName": " by Chestertons Estate Agents, Islington Lettings",
+            "formattedDistance": "0.30 miles",
+            "isRecent": true,
+            "enhancedListing": false,
+            "propertyTypeFullDescription": "2 bedroom flat"
+        }
+    ],
+    "resultCount": "6",
+    "searchParametersDescription": "Properties To Rent near Angel Station, London, within 0.5 miles, up to £6,000, furnished, part furnished, added in the last 24 hours, don't show house share, retirement, student, at least 1 bed",
+    "radiusOptions": [
+        {
+            "value": "0.0",
+            "description": "+ 0 miles"
+        },
+        {
+            "value": "0.25",
+            "description": "+ 1/4 mile"
+        },
+        {
+            "value": "0.5",
+            "description": "+ 1/2 mile"
+        },
+        {
+            "value": "1.0",
+            "description": "+ 1 mile"
+        },
+        {
+            "value": "3.0",
+            "description": "+ 3 miles"
+        },
+        {
+            "value": "5.0",
+            "description": "+ 5 miles"
+        },
+        {
+            "value": "10.0",
+            "description": "+ 10 miles"
+        },
+        {
+            "value": "15.0",
+            "description": "+ 15 miles"
+        },
+        {
+            "value": "20.0",
+            "description": "+ 20 miles"
+        },
+        {
+            "value": "30.0",
+            "description": "+ 30 miles"
+        },
+        {
+            "value": "40.0",
+            "description": "+ 40 miles"
+        }
+    ],
+    "priceOptions": [
+        {
+            "value": "100",
+            "description": "£100 PCM"
+        },
+        {
+            "value": "150",
+            "description": "£150 PCM"
+        },
+        {
+            "value": "200",
+            "description": "£200 PCM"
+        },
+        {
+            "value": "250",
+            "description": "£250 PCM"
+        },
+        {
+            "value": "300",
+            "description": "£300 PCM"
+        },
+        {
+            "value": "350",
+            "description": "£350 PCM"
+        },
+        {
+            "value": "400",
+            "description": "£400 PCM"
+        },
+        {
+            "value": "450",
+            "description": "£450 PCM"
+        },
+        {
+            "value": "500",
+            "description": "£500 PCM"
+        },
+        {
+            "value": "600",
+            "description": "£600 PCM"
+        },
+        {
+            "value": "700",
+            "description": "£700 PCM"
+        },
+        {
+            "value": "800",
+            "description": "£800 PCM"
+        },
+        {
+            "value": "900",
+            "description": "£900 PCM"
+        },
+        {
+            "value": "1000",
+            "description": "£1,000 PCM"
+        },
+        {
+            "value": "1100",
+            "description": "£1,100 PCM"
+        },
+        {
+            "value": "1200",
+            "description": "£1,200 PCM"
+        },
+        {
+            "value": "1250",
+            "description": "£1,250 PCM"
+        },
+        {
+            "value": "1300",
+            "description": "£1,300 PCM"
+        },
+        {
+            "value": "1400",
+            "description": "£1,400 PCM"
+        },
+        {
+            "value": "1500",
+            "description": "£1,500 PCM"
+        },
+        {
+            "value": "1750",
+            "description": "£1,750 PCM"
+        },
+        {
+            "value": "2000",
+            "description": "£2,000 PCM"
+        },
+        {
+            "value": "2250",
+            "description": "£2,250 PCM"
+        },
+        {
+            "value": "2500",
+            "description": "£2,500 PCM"
+        },
+        {
+            "value": "2750",
+            "description": "£2,750 PCM"
+        },
+        {
+            "value": "3000",
+            "description": "£3,000 PCM"
+        },
+        {
+            "value": "3500",
+            "description": "£3,500 PCM"
+        },
+        {
+            "value": "4000",
+            "description": "£4,000 PCM"
+        },
+        {
+            "value": "4500",
+            "description": "£4,500 PCM"
+        },
+        {
+            "value": "5000",
+            "description": "£5,000 PCM"
+        },
+        {
+            "value": "5500",
+            "description": "£5,500 PCM"
+        },
+        {
+            "value": "6000",
+            "description": "£6,000 PCM"
+        },
+        {
+            "value": "6500",
+            "description": "£6,500 PCM"
+        },
+        {
+            "value": "7000",
+            "description": "£7,000 PCM"
+        },
+        {
+            "value": "8000",
+            "description": "£8,000 PCM"
+        },
+        {
+            "value": "9000",
+            "description": "£9,000 PCM"
+        },
+        {
+            "value": "10000",
+            "description": "£10,000 PCM"
+        },
+        {
+            "value": "12500",
+            "description": "£12,500 PCM"
+        },
+        {
+            "value": "15000",
+            "description": "£15,000 PCM"
+        },
+        {
+            "value": "17500",
+            "description": "£17,500 PCM"
+        },
+        {
+            "value": "20000",
+            "description": "£20,000 PCM"
+        },
+        {
+            "value": "25000",
+            "description": "£25,000 PCM"
+        },
+        {
+            "value": "30000",
+            "description": "£30,000 PCM"
+        },
+        {
+            "value": "35000",
+            "description": "£35,000 PCM"
+        },
+        {
+            "value": "40000",
+            "description": "£40,000 PCM"
+        }
+    ],
+    "bedroomOptions": [
+        {
+            "value": "0",
+            "description": "Studio"
+        },
+        {
+            "value": "1",
+            "description": "1 Bed"
+        },
+        {
+            "value": "2",
+            "description": "2 Bed"
+        },
+        {
+            "value": "3",
+            "description": "3 Bed"
+        },
+        {
+            "value": "4",
+            "description": "4 Bed"
+        },
+        {
+            "value": "5",
+            "description": "5 Bed"
+        },
+        {
+            "value": "6",
+            "description": "6 Bed"
+        },
+        {
+            "value": "7",
+            "description": "7 Bed"
+        },
+        {
+            "value": "8",
+            "description": "8 Bed"
+        },
+        {
+            "value": "9",
+            "description": "9 Bed"
+        },
+        {
+            "value": "10",
+            "description": "10 Bed"
+        }
+    ],
+    "addedToSiteOptions": [
+        {
+            "value": null,
+            "description": "Anytime"
+        },
+        {
+            "value": "1",
+            "description": "Last 24 hours"
+        },
+        {
+            "value": "3",
+            "description": "Last 3 days"
+        },
+        {
+            "value": "7",
+            "description": "Last 7 days"
+        },
+        {
+            "value": "14",
+            "description": "Last 14 days"
+        }
+    ],
+    "mustHaveOptions": [
+        {
+            "value": "garden",
+            "description": "Garden"
+        },
+        {
+            "value": "parking",
+            "description": "Parking"
+        },
+        {
+            "value": "houseShare",
+            "description": "House Share"
+        },
+        {
+            "value": "retirement",
+            "description": "Retirement Home"
+        },
+        {
+            "value": "student",
+            "description": "Student Accommodation"
+        }
+    ],
+    "dontShowOptions": [
+        {
+            "value": "houseShare",
+            "description": "House Share"
+        },
+        {
+            "value": "retirement",
+            "description": "Retirement Home"
+        },
+        {
+            "value": "student",
+            "description": "Student Accommodation"
+        }
+    ],
+    "furnishOptions": [
+        {
+            "value": "furnished",
+            "description": "Furnished"
+        },
+        {
+            "value": "partFurnished",
+            "description": "Part-furnished"
+        },
+        {
+            "value": "unfurnished",
+            "description": "Unfurnished"
+        }
+    ],
+    "letTypeOptions": [
+        {
+            "value": null,
+            "description": "Any"
+        },
+        {
+            "value": "longTerm",
+            "description": "Long Term"
+        },
+        {
+            "value": "shortTerm",
+            "description": "Short Term"
+        }
+    ],
+    "sortOptions": [
+        {
+            "value": "6",
+            "description": "Newest Listed"
+        },
+        {
+            "value": "10",
+            "description": "Oldest Listed"
+        },
+        {
+            "value": "2",
+            "description": "Highest Price"
+        },
+        {
+            "value": "1",
+            "description": "Lowest Price"
+        },
+        {
+            "value": "4",
+            "description": "Nearest First"
+        }
+    ],
+    "staticMapUrl": "https://media.rightmove.co.uk:443/map/_generate?width=360&height=380&polygonFillColor=%232E8E8914&polygonLineColor=%232E8E89FF&mapPolygon=%7D%7BoyH%60lQyA%40%7BAHyAPwAZwAd%40uAl%40sAt%40qA%7C%40oAfAkAlAiAtAeA%7CAaAbB%7D%40hBy%40pBs%40tBo%40zBk%40%7EBe%40bC_%40fC%5BhCUlCQlCIpCEpC%40nCDpCJnCNnCVjCZjC%60%40dCf%40bCj%40%7EBn%40xBt%40tBz%40lB%7C%40hB%60AbBdAzAhAtAlAjAnAdApA%7C%40rAr%40vAj%40vAb%40vAXxAPzAFxA%3FzAIxASvA%5BvAc%40tAm%40rAw%40pA%7D%40nAeAjAoAhAuAdA%7DA%60AcB%7C%40iBv%40qBt%40uBn%40%7BBj%40_Cd%40cC%5EgCZiCTmCPmCHqCDoCAqCEqCKoCOoCWkC%5BiCa%40gCg%40cCk%40%7DBq%40%7BBs%40sB%7B%40oB%7D%40iBaAcBeA%7BAiAsAmAmAoAeAqA%7B%40sAu%40wAk%40wAc%40wAYyAQ%7BAG&signature=GdqEwP7LvfWJ4_PGzfn0zoci9Eg=",
+    "shortLocationDescription": "near Angel Station",
+    "timestamp": 1684597422784,
+    "bot": false,
+    "deviceType": "desktop",
+    "propertySchema": {
+        "id": 0,
+        "bedrooms": 0,
+        "bathrooms": 0,
+        "numberOfImages": 0,
+        "numberOfFloorplans": 0,
+        "numberOfVirtualTours": 0,
+        "summary": null,
+        "displayAddress": null,
+        "countryCode": null,
+        "location": {
+            "latitude": null,
+            "longitude": null
+        },
+        "propertyImages": {
+            "images": [],
+            "mainImageSrc": "",
+            "mainMapImageSrc": ""
+        },
+        "propertySubType": null,
+        "listingUpdate": {
+            "listingUpdateReason": null,
+            "listingUpdateDate": "2016-12-03T23:53:38Z"
+        },
+        "premiumListing": false,
+        "featuredProperty": false,
+        "price": {
+            "amount": 0,
+            "frequency": "",
+            "currencyCode": "",
+            "displayPrices": [
+                {
+                    "displayPrice": "",
+                    "displayPriceQualifier": ""
+                }
+            ]
+        },
+        "customer": {
+            "branchId": null,
+            "brandPlusLogoURI": null,
+            "contactTelephone": null,
+            "branchDisplayName": null,
+            "branchName": null,
+            "brandTradingName": null,
+            "branchLandingPageUrl": null,
+            "development": false,
+            "showReducedProperties": false,
+            "commercial": false,
+            "showOnMap": false,
+            "enhancedListing": false,
+            "developmentContent": null,
+            "buildToRent": false,
+            "buildToRentBenefits": null,
+            "brandPlusLogoUrl": ""
+        },
+        "distance": null,
+        "transactionType": null,
+        "productLabel": {
+            "productLabelText": null,
+            "spotlightLabel": false
+        },
+        "commercial": false,
+        "development": false,
+        "residential": false,
+        "students": false,
+        "auction": false,
+        "feesApply": false,
+        "feesApplyText": "fees apply text",
+        "displaySize": "size label",
+        "showOnMap": false,
+        "propertyUrl": "",
+        "contactUrl": "",
+        "staticMapUrl": "",
+        "channel": "BUY",
+        "firstVisibleDate": "2017-11-05T23:53:38Z",
+        "keywords": [],
+        "keywordMatchType": "no_keyword",
+        "saved": false,
+        "hidden": false,
+        "onlineViewingsAvailable": false,
+        "lozengeModel": {
+            "matchingLozenges": []
+        },
+        "hasBrandPlus": false,
+        "displayStatus": "",
+        "enquiredTimestamp": null,
+        "heading": "",
+        "addedOrReduced": "",
+        "formattedBranchName": "",
+        "formattedDistance": "",
+        "isRecent": false,
+        "enhancedListing": false,
+        "propertyTypeFullDescription": "Property"
+    },
+    "sidebarModel": {
+        "soldHousePricesLinks": {
+            "heading": "Sold House Prices",
+            "subHeading": "What did properties sell for near Angel Station?",
+            "model": [
+                {
+                    "text": "View house prices near Angel Station",
+                    "url": "/house-prices/Angel-Station.html",
+                    "noFollow": false
+                }
+            ],
+            "headingLink": null
+        },
+        "relatedHouseSearches": null,
+        "relatedFlatSearches": null,
+        "relatedPopularSearches": null,
+        "relatedRegionsSearches": null,
+        "channelSwitchLink": {
+            "heading": "Channel Switch",
+            "subHeading": null,
+            "model": [
+                {
+                    "text": "See properties for sale in Angel Station",
+                    "url": "/property-for-sale/find.html?locationIdentifier=STATION^245",
+                    "noFollow": false
+                }
+            ],
+            "headingLink": null
+        },
+        "relatedStudentLinks": null,
+        "branchMPU": null,
+        "countryGuideMPU": null,
+        "suggestedLinks": {
+            "heading": "Suggested Links",
+            "subHeading": null,
+            "model": [
+                {
+                    "text": "Estate agents near Angel Station",
+                    "url": "/estate-agents/find.html?locationIdentifier=STATION^245",
+                    "noFollow": false
+                }
+            ],
+            "headingLink": null
+        }
+    },
+    "seoModel": {
+        "canonicalUrl": "",
+        "metaRobots": ""
+    },
+    "mapViewUrl": "/property-to-rent/map.html?minBedrooms=1&keywords=&includeLetAgreed=false&dontShow=houseShare%2Cretirement%2Cstudent&channel=RENT&index=0&retirement=false&houseFlatShare=false&sortType=6&viewType=MAP&maxPrice=6000&radius=0.5&maxDaysSinceAdded=1&locationIdentifier=STATION%5E245",
+    "legacyUrl": "/property-to-rent/find.html?minBedrooms=1&keywords=&includeLetAgreed=false&dontShow=houseShare%2Cretirement%2Cstudent&channel=RENT&index=0&retirement=false&houseFlatShare=false&sortType=6&viewType=LIST&maxPrice=6000&radius=0.5&maxDaysSinceAdded=1&locationIdentifier=STATION%5E245",
+    "listViewUrl": "/property-to-rent/find.html?minBedrooms=1&keywords=&includeLetAgreed=false&dontShow=houseShare%2Cretirement%2Cstudent&channel=RENT&index=0&retirement=false&houseFlatShare=false&sortType=6&viewType=LIST&maxPrice=6000&radius=0.5&maxDaysSinceAdded=1&locationIdentifier=STATION%5E245",
+    "pageTitle": "Properties To Rent near Angel Station | Rightmove",
+    "metaDescription": "Flats & Houses To Rent near Angel Station - Find properties with Rightmove - the UK's largest selection of properties.",
+    "recentSearchModel": {
+        "linkDisplayText": "Angel Statio... (+ 0.5 miles) added: 24 hrs",
+        "titleDisplayText": "To Rent – up to £6,000, at least 1 bed, Flats & Houses",
+        "searchCriteriaMobile": "<h3>Angel Station, to rent, </h3><span>within 0.5 miles, </span><p>up to £6,000, at least 1 bed, added in the last 24 hours, don't show house share, retirement, student</p>",
+        "createDate": 1684597422780,
+        "locationIdentifierAndSearchType": "STATION^245_RENT"
+    },
+    "maxCardsPerPage": 25,
+    "countryCode": "gb",
+    "countryId": -1,
+    "currencyCodeOptions": [
+        {
+            "value": "GBP",
+            "description": "£"
+        },
+        {
+            "value": "EUR",
+            "description": "€"
+        },
+        {
+            "value": "USD",
+            "description": "USD $"
+        },
+        {
+            "value": "NZD",
+            "description": "NZD $"
+        },
+        {
+            "value": "AUD",
+            "description": "AUD $"
+        },
+        {
+            "value": "SEK",
+            "description": "SEK"
+        },
+        {
+            "value": "CHF",
+            "description": "CHF"
+        }
+    ],
+    "areaSizeUnitOptions": [
+        {
+            "value": "sqft",
+            "description": "Square Feet",
+            "abbreviation": "sq. ft."
+        },
+        {
+            "value": "sqm",
+            "description": "Square Metres",
+            "abbreviation": "sq. m."
+        },
+        {
+            "value": "acres",
+            "description": "Acres",
+            "abbreviation": "ac."
+        },
+        {
+            "value": "hectares",
+            "description": "Hectares",
+            "abbreviation": "ha."
+        }
+    ],
+    "sizeOptions": [
+        {
+            "value": "10",
+            "description": "10",
+            "abbreviation": "10"
+        },
+        {
+            "value": "50",
+            "description": "50",
+            "abbreviation": "50"
+        },
+        {
+            "value": "100",
+            "description": "100",
+            "abbreviation": "100"
+        },
+        {
+            "value": "250",
+            "description": "250",
+            "abbreviation": "250"
+        },
+        {
+            "value": "500",
+            "description": "500",
+            "abbreviation": "500"
+        },
+        {
+            "value": "1000",
+            "description": "1,000",
+            "abbreviation": "1K"
+        },
+        {
+            "value": "1500",
+            "description": "1,500",
+            "abbreviation": "1.5K"
+        },
+        {
+            "value": "2500",
+            "description": "2,500",
+            "abbreviation": "2.5K"
+        },
+        {
+            "value": "5000",
+            "description": "5,000",
+            "abbreviation": "5K"
+        },
+        {
+            "value": "7500",
+            "description": "7,500",
+            "abbreviation": "7.5K"
+        },
+        {
+            "value": "10000",
+            "description": "10,000",
+            "abbreviation": "10K"
+        },
+        {
+            "value": "15000",
+            "description": "15,000",
+            "abbreviation": "15K"
+        },
+        {
+            "value": "25000",
+            "description": "25,000",
+            "abbreviation": "25K"
+        },
+        {
+            "value": "50000",
+            "description": "50,000",
+            "abbreviation": "50K"
+        },
+        {
+            "value": "75000",
+            "description": "75,000",
+            "abbreviation": "75K"
+        },
+        {
+            "value": "100000",
+            "description": "100,000",
+            "abbreviation": "100K"
+        },
+        {
+            "value": "200000",
+            "description": "200,000",
+            "abbreviation": "200K"
+        },
+        {
+            "value": "500000",
+            "description": "500,000",
+            "abbreviation": "500K"
+        }
+    ],
+    "priceTypeOptions": [
+        {
+            "value": "ppu",
+            "description": "Price per unit",
+            "abbreviation": "PPU"
+        },
+        {
+            "value": "pcm",
+            "description": "Price per calendar month",
+            "abbreviation": "PCM"
+        }
+    ],
+    "showFeaturedAgent": true,
+    "showNewDrawASearch": true,
+    "commercialChannel": false,
+    "disambiguationPagePath": "search.html",
+    "dfpModel": {
+        "sidebarSlots": [
+            {
+                "id": "searchSidebar-mpuSlot-1",
+                "adUnitPath": "/5029762/Rightmove_Property_Web/Property_Results_Sidebar/MPU1",
+                "sizes": [
+                    [
+                        300,
+                        250
+                    ]
+                ],
+                "mappings": []
+            }
+        ],
+        "targeting": [
+            {
+                "key": "CT",
+                "value": "property-to-rent"
+            }
+        ]
+    },
+    "noResultsModel": {
+        "suggestionPods": [],
+        "intelligentSuggestion": null
+    },
+    "urlPath": null,
+    "tileGeometry": null,
+    "comscore": "pageview_candidate",
+    "cookiePolicies": {
+        "functional": false,
+        "targeting": false,
+        "strictly necessary": true
+    },
+    "formattedExchangeRateDate": "",
+    "authenticated": false,
+    "applicationProperties": {
+        "media.server.host": "https://media.rightmove.co.uk:443",
+        "location.product.web.server.host": "//product.rightmove.co.uk",
+        "location.product.web.server.port": "80",
+        "publicsite.server.host": "//www.rightmove.co.uk",
+        "publicsite.server.port": "80",
+        "location.search.server.host": "https://los.rightmove.co.uk",
+        "location.search.server.port": "80",
+        "my.rightmove.web.server.host": "https://my.rightmove.co.uk",
+        "my.rightmove.web.server.port": "443",
+        "analytics.typeform.url": "https://s3-eu-west-1.amazonaws.com/share.typeform.com/share.js",
+        "clickstream.enabled": true,
+        "gtm.enabled": true,
+        "gtm.id": "GTM-MTLF4W9",
+        "gtm.auth": "g2ndo_352oWlGwJG7HHfyw",
+        "gtm.preview": "env-7",
+        "comscore.enabled": true,
+        "info.build.version": "@version@",
+        "metadata.service.url": "https://rightmoveanalytics.co.uk",
+        "sidebar.mpu.adUnitTimeout": "60000",
+        "sidebar.mpu.adUnitPath": "/5029762/Rightmove_Property_Web/Property_Results_Sidebar/MPU1",
+        "dfp.interstitial1.adUnitPath": "/5029762/Rightmove_Property_Web/PropertyWebInterstitial/Interstitial1",
+        "dfp.interstitial2.adUnitPath": "/5029762/Rightmove_Property_Web/PropertyWebInterstitial/Interstitial2",
+        "dfp.interstitial3.adUnitPath": "/5029762/Rightmove_Property_Web/PropertyWebInterstitial/Interstitial3",
+        "dfp.overseas.interstitial1.adUnitPath": "/5029762/Rightmove_Overseas/OverseasPropertyWebInterstitial/Interstitial1",
+        "dfp.overseas.interstitial2.adUnitPath": "/5029762/Rightmove_Overseas/OverseasPropertyWebInterstitial/Interstitial2",
+        "dfp.overseas.interstitial3.adUnitPath": "/5029762/Rightmove_Overseas/OverseasPropertyWebInterstitial/Interstitial3",
+        "dfp.sold-by-me.interstitial.adUnitPath": "/5029762/Rightmove_Property_Web/Sold_by_me",
+        "dfp.sold-by-me.interstitial.commercial-sales.adUnitPath": "/5029762/Rightmove_Property_Web/UK_Commercial_Sales_SearchMPU",
+        "dfp.sold-by-me.interstitial.commercial-lettings.adUnitPath": "/5029762/Rightmove_Property_Web/UK_Commercial_Lettings_SearchMPU",
+        "dfp.sidebar.uk-credit-check-sponsorship.adUnitPath": "/5029762/Rightmove_Property_Web/UK_Sponsorship_Text-link_Search-Results",
+        "optimize.map.pins": true,
+        "rightmovePlusLandingPageUrl": "https://rmplusportal.rightmove.co.uk",
+        "seo.global.consumerFooter.url": "http://seo.preferred.h1.prod.rightmove.com/global/consumer-footer",
+        "seo.global.consumerHeader.url": "http://seo.preferred.h1.prod.rightmove.com/global/consumer-nav/assist",
+        "recaptchaEnabled": true,
+        "recaptchaSiteKey": "6LeZmXUUAAAAACr8BTPYPeJhRTJzH1UCv7d5O7_X",
+        "labsHostname": "labs.rightmove.co.uk"
+    },
+    "termsOfUse": "This Application Programming Interface (API) is for the use of Rightmove Group Limited only. No other individual or business may link to, or make use of, this API without the express written permission of Rightmove’s Legal Team. Any unauthorised use of this API will constitute a breach of Rightmove’s Terms of Use, available at https://www.rightmove.co.uk/this-site/terms-of-use.html, and Rightmove will enforce its rights to the fullest extent permitted by law.",
+    "location": {
+        "id": 245,
+        "displayName": "Angel Station, London",
+        "shortDisplayName": "Angel Station",
+        "locationType": "STATION",
+        "listingCurrency": "GBP"
+    },
+    "searchParameters": {
+        "locationIdentifier": "STATION^245",
+        "minBedrooms": "1",
+        "maxPrice": "6000",
+        "numberOfPropertiesPerPage": "24",
+        "radius": "0.5",
+        "sortType": "6",
+        "index": "0",
+        "propertyTypes": [],
+        "maxDaysSinceAdded": "1",
+        "includeLetAgreed": false,
+        "viewType": "LIST",
+        "mustHave": [],
+        "dontShow": [
+            "houseShare",
+            "retirement",
+            "student"
+        ],
+        "furnishTypes": [
+            "furnished",
+            "partFurnished"
+        ],
+        "channel": "RENT",
+        "areaSizeUnit": "sqft",
+        "currencyCode": "GBP",
+        "keywords": []
+    },
+    "pagination": {
+        "total": 1,
+        "options": [
+            {
+                "value": "0",
+                "description": "1"
+            }
+        ],
+        "first": "0",
+        "last": "0",
+        "page": "1"
+    },
+    "locationBranchSearchPath": null,
+    "featureSwitchStateForUser": {
+        "individualFeatureSwitchStates": [
+            {
+                "label": "PropertyWebFeatures.LOAD_GEO_EDGE_SCRIPT",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.MORTGAGE_WIDGET_MIP_ILLUSTRATION",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "CookieBarSwitches.SHOW_NON_PERSONALIZED_ADS_INITIALLY",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "CookieBarSwitches.LOAD_COMSCORE",
+                "state": "off",
+                "shouldLog": true
+            },
+            {
+                "label": "PropertyWebFeatures.COLLAPSE_PROPERTY_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "CommercialPALSwitches.COMMERCIAL_PAL_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "SharedConsumerFeatures.CONSUMER_SURVEY_ENABLED",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.FEATURED_CUSTOMER_PREVIOUS_SEARCHES_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "GoogleTagManagerSwitch.GTM_THIRD_PARTY_TAG_SWITCH",
+                "state": "on",
+                "shouldLog": true
+            },
+            {
+                "label": "PropertyWebFeatures.SHOW_SIDEBAR_MPU_AD",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.USE_RM_DATALAYER",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "CookieBarSwitches.ENABLE_ONE_TRUST_COOKIE_SCRIPT",
+                "state": "on",
+                "shouldLog": true
+            },
+            {
+                "label": "PropertyWebFeatures.POPULATE_TCUID_COOKIE",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.SHOW_FEEDBACK_BAR",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.PROPERTY_CARD_UPDATES_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.SHOW_SUGGESTED_SEARCHES",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "OverseasWebFeatures.OVERSEAS_LOS_TYPEAHEAD_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.SAVE_SEARCH_SUPPORT_MAP_POLYLINE",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.MODAL_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "CookieBarSwitches.BLOCK_UNKNOWN_COOKIES",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.COLLAPSE_PROPERTY_LABS_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.BUYING_SCHEMES_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "CentralisedComponentsSwitches.GLOBAL_CONSUMER_FOOTER_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.AFFORDABLE_BUYING_SCHEMES_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.PROPERTY_DETAILS_URL_MIGRATION_COMMERCIAL_LETTING_ENABLED",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.PROPERTY_DETAILS_URL_MIGRATION_COMMERCIAL_RESALE_ENABLED",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.COMMERCIAL_KEYWORD_SEARCH",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "GlobalSwitches.SHOW_RM_ASSISTANT_BUTTON_PVW",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "DrawASearchFeatures.LABS_DRAW_A_SEARCH_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.HIDE_FEEDBACK_CALL_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "SoldByMeSwitches.SOLD_BY_ME_MULTI_PAGE_SUPPORT_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "GlobalSwitches.SHOW_RM_ASSISTANT_BUTTON",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.SAVED_SEARCH_EXPERIMENT",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.USE_RM_ASSISTANT_COMPONENT",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "SoldByMeSwitches.DFP_FALLBACK",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.OS_INTERSTITIAL_TABLET_SIZE_ENABLED",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "CentralisedComponentsSwitches.GLOBAL_CONSUMER_HEADER_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "DrawASearchCopyMVT",
+                "state": "COPY_PRESENT",
+                "shouldLog": true
+            },
+            {
+                "label": "PropertyWebFeatures.FEATURED_CUSTOMER_V2_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "OverseasWebFeatures.SHOW_OVERSEAS_SPECIFIC_FILTERS",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.STAMP_DUTY_LINK_IN_FOOTER_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "GdprSwitches.SHOW_CONSENT_MODAL_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.STUDENT_MUST_HAVE_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "DrawASearchFeatures.NEW_DRAW_A_SEARCH_ENABLED",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.SHOW_UK_CREDIT_CHECK_SPONSORSHIP_AD",
+                "state": "on",
+                "shouldLog": false
+            },
+            {
+                "label": "PropertyWebFeatures.SHOW_COVID_BANNER",
+                "state": "off",
+                "shouldLog": false
+            },
+            {
+                "label": "SoldByMeSwitches.COMMERCIAL_DFP_FALLBACK",
+                "state": "on",
+                "shouldLog": false
+            }
+        ],
+        "featureUser": {
+            "uniqueIdentifier": "230520XZNH9CTJETW148Z40HCGW0ICEJ"
+        }
+    }
+}

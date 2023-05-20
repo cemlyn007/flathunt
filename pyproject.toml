@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "rightmove"
+version = "0.0.0"
+description = "Rightmove application for improving the search experience"
+authors = ["Cemlyn <cemlynwaters@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+requests = "^2.30.0"
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+semantic-release = "^0.1.0"
+pre-commit = "^3.3.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.semantic_release]
+version_toml = "pyproject.toml:tool.poetry.version"
+branch = "main"
+upload_to_pypi = false
+upload_to_release = true
+build_command = "pip install poetry && poetry build"
