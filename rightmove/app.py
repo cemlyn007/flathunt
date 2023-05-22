@@ -34,7 +34,7 @@ class App:
         for property in new_properties:
             self._show(property)
             if property != properties[-1]:
-                input("Press enter for next property...", flush=True)
+                input("Press enter for next property...")
 
             self._cache.add(property)
 
