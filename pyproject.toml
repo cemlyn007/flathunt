@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rightmove"
-version = "0.1.1"
+version = "0.2.0"
 description = "Rightmove application for improving the search experience"
 authors = ["Cemlyn <cemlynwaters@gmail.com>"]
 readme = "README.md"
