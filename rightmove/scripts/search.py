@@ -1,4 +1,5 @@
 import argparse
+import json
 import rightmove.app
 import rightmove.property_cache
 
@@ -6,6 +7,7 @@ import rightmove.property_cache
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true", default=False)
+    parser.add_argument("--search-locations", type=str, default="search_locations.json")
     args = parser.parse_args()
 
     commute_coordinates = {
@@ -19,33 +21,8 @@ def main() -> None:
     )
     # These location IDs can be found by inspecting the URL
     # of a search result on rightmove.
-    search_locations = {
-        "Aldgate East Station": "STATION^143",
-        "Tower Hill Station": "STATION^9290",
-        "Barbican Station": "STATION^569",
-        "Angel Station": "STATION^245",
-        "Victoria Station": "STATION^9491",
-        "Pimlico Station": "STATION^7232",
-        "Liverpool Street Station": "STATION^5615",
-        "Regent's Park": "REGION^96921",
-        "Paddington Station": "STATION^6965",
-        "Royal Oak Station": "STATION^7832",
-        "Farringdon Station": "STATION^3431",
-        "Kilburn Station": "STATION^5120",
-        "Holborn Station": "STATION^4655",
-        "London Bridge Station": "STATION^5792",
-        "Green Park Station": "STATION^3971",
-        "Lancaster Gate Station": "STATION^5354",
-        "Baker Street Station": "STATION^488",
-        "Vauxhall Station": "STATION^9485",
-        "Canning Town Station": "STATION^1733",
-        "Islington": "REGION^93965",
-        "Maida Value Station": "STATION^5945",
-        "Hampstead Station": "STATION^4190",
-        "Notting Hill Gate Station": "STATION^6818",
-        "Caledonian Road Station": "STATION^1679",
-        "Holloway Road Station": "STATION^4670",
-    }
+    with open(args.search_locations, "r") as file:
+        search_locations = json.load(file)
     search_prices = {
         "Aldgate East Station": 2000,
         "Islington": 2500,
