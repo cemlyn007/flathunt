@@ -57,20 +57,11 @@ class App:
     def _show_route(
         self, property: dict[str, Any], start_coordinate: tuple[float, float]
     ) -> None:
-        saddr = ",".join(map(str, start_coordinate))
-        daddr = ",".join(
-            map(
-                str,
-                [
-                    property["location"]["latitude"],
-                    property["location"]["longitude"],
-                ],
-            )
+        destination = (
+            property["location"]["latitude"],
+            property["location"]["longitude"],
         )
-        if sys.platform == "darwin":
-            map_url = f"https://maps.apple.com/?saddr={saddr}&daddr={daddr}&dirflg=r"
-        else:
-            map_url = f"https://www.google.com/maps/?saddr={saddr}&daddr={daddr}&directionsmode=transit"
+        map_url = get_map_url(start_coordinate, destination)
         webbrowser.open_new_tab(map_url)
 
     def _skip(self) -> bool:
@@ -79,3 +70,13 @@ class App:
 
     def _wait(self, message: str) -> bool:
         input(" ".join((message, "Press enter to continue...")))
+
+
+def get_map_url(source: tuple[float, float], destination: tuple[float, float]) -> str:
+    saddr = ",".join(map(str, source))
+    daddr = ",".join(map(str, destination))
+    if sys.platform == "darwin":
+        map_url = f"https://maps.apple.com/?saddr={saddr}&daddr={daddr}&dirflg=r"
+    else:
+        map_url = f"https://www.google.com/maps/?saddr={saddr}&daddr={daddr}&directionsmode=transit"
+    return map_url
