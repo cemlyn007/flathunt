@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.0 (2025-03-30)
+
+### Continuous Integration
+
+- Run semantic-release version before publish
+  ([`43d2044`](https://github.com/cemlyn007/rightmove/commit/43d20449fd4fdd3fd55749f69ba31df7fafd40b7))
+
+### Features
+
+- `get_map_url`
+  ([`d8f6b29`](https://github.com/cemlyn007/rightmove/commit/d8f6b29801b25a28bed3b2e217d7aea8fc4d82d2))
+
+
 ## v0.3.0 (2025-03-30)
 
 ### Bug Fixes
