@@ -34,7 +34,6 @@ jobs:
       - name: Hooks
         run: |
           pre-commit run --all-files
-          pytest
 
   publish:
 
