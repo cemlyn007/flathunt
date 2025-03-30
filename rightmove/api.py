@@ -1,10 +1,17 @@
-import requests
+import gzip
+import http
+import http.client
+import json
 from typing import Any
 import copy
+import urllib.parse
+
+
+class HTTPError(Exception): ...
 
 
 class Rightmove:
-    BASE_URL = "https://www.rightmove.co.uk"
+    BASE_HOST = "www.rightmove.co.uk"
 
     def search(
         self,
@@ -36,16 +43,62 @@ class Rightmove:
             params["maxDaysSinceAdded"] = max_days_since_added
         return self._search(params)
 
-    def _search(self, params: dict[str, Any]) -> dict[str, Any]:
-        url = f"{self.BASE_URL}/api/_search"
-        reponse = requests.get(url, params=params).json()
-        full_reponse = copy.deepcopy(reponse)
-        while len(full_reponse["properties"]) < int(reponse["resultCount"]):
-            params = copy.deepcopy(params)
-            params["index"] = len(full_reponse["properties"])
-            reponse = requests.get(url, params=params).json()
-            full_reponse["properties"].extend(reponse["properties"])
-        return full_reponse
-
     def property_url(self, property_url: str) -> str:
-        return self.BASE_URL + property_url
+        return self.BASE_HOST + property_url
+
+    def _search(self, params: dict[str, Any]) -> dict[str, Any]:
+        connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
+        try:
+            endpoint_url = "/api/_search"
+            response = self._request(
+                connection,
+                "GET",
+                endpoint_url,
+                params,
+            )
+            full_response = copy.deepcopy(response)
+            while len(full_response["properties"]) < int(response["resultCount"]):
+                params = copy.deepcopy(params)
+                params["index"] = len(full_response["properties"])
+                response = self._request(
+                    connection,
+                    "GET",
+                    endpoint_url,
+                    params,
+                )
+                full_response["properties"].extend(response["properties"])
+            return full_response
+        finally:
+            connection.close()
+
+    def _request(
+        self,
+        connection: http.client.HTTPSConnection,
+        method: str,
+        url: str,
+        parameters: dict[str, Any],
+    ) -> Any:
+        query_string = urllib.parse.urlencode(parameters, doseq=True)
+        urlparse = urllib.parse.urlparse(url)
+        urlparse = urlparse._replace(query=query_string)
+        url = urllib.parse.urlunparse(urlparse)
+        connection.request(
+            method,
+            url,
+            headers={
+                "User-Agent": "IAmLookingToRent/0.0.0",
+                "Accept-Encoding": "gzip",
+                "Accept": "*/*",
+                "Connection": "keep-alive",
+            },
+        )
+        http_response = connection.getresponse()
+        if http_response.status != http.HTTPStatus.OK:
+            raise HTTPError(
+                f"HTTP error {http_response.status}: {http_response.reason}"
+            )
+        raw_response = http_response.read()
+        if http_response.getheader("Content-Encoding") == "gzip":
+            raw_response = gzip.decompress(raw_response)
+        response = json.loads(raw_response)
+        return response

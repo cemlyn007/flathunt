@@ -10,9 +10,7 @@ authors = [{name = "Cemlyn Neil Waters", email = "cemlynwaters@gmail.com"},]
 readme = "README.md"
 requires-python = ">=3.11"
 
-dependencies = [
-    "requests",
-]
+dependencies = []
 
 [project.optional-dependencies]
 dev = [
