@@ -62,7 +62,9 @@ def main():
     if os.path.exists(file_path):
         with open(file_path, "r") as file:
             existing_entries = json.load(file)
-            entries.update(existing_entries)
+            for key, value in entries.items():
+                existing_entries[key] = value
+            entries = existing_entries
     with open(file_path, "w") as file:
         json.dump(entries, file, indent=4)
 
