@@ -7,12 +7,11 @@ import sys
 class App:
     def __init__(
         self,
-        cache_file_path: str,
         commute_coordinates: list[tuple[float, float]],
-        reset_cache: bool,
+        cache: property_cache.PropertyCache | None,
     ) -> None:
         self._api = api.Rightmove()
-        self._cache = property_cache.PropertyCache(cache_file_path, reset_cache)
+        self._cache = cache
         self._commute_coordinates = commute_coordinates
 
     def search(
@@ -29,14 +28,15 @@ class App:
         new_properties = [
             property
             for property in properties
-            if not self._cache.contains_property_id(property["id"])
+            if not self._cache or not self._cache.contains_property_id(property["id"])
         ]
         for index, property in enumerate(new_properties):
             self._show(property)
             if index != len(new_properties) - 1:
                 self._wait("Press enter for next property...")
 
-            self._cache.add(property)
+            if self._cache:
+                self._cache.add(property)
 
     def _show(self, property: dict[str, Any]) -> None:
         self._show_advert(property)

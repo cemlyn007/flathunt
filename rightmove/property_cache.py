@@ -4,7 +4,7 @@ import os
 
 
 class PropertyCache:
-    def __init__(self, filepath: str, reset: bool) -> None:
+    def __init__(self, filepath: str, reset: bool = False) -> None:
         self._filepath = filepath
         if reset:
             self._reset()

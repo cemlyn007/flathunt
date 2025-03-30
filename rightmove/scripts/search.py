@@ -1,5 +1,6 @@
 import argparse
 import rightmove.app
+import rightmove.property_cache
 
 
 def main() -> None:
@@ -11,10 +12,10 @@ def main() -> None:
         "Paddington Station": (51.5167, 0.1769),
         "Big Ben": (51.5007, 0.1246),
     }
+    cache = rightmove.property_cache.PropertyCache("history.json", args.reset)
     app = rightmove.app.App(
-        "history.json",
         list(commute_coordinates.values()),
-        args.reset,
+        cache,
     )
     # These location IDs can be found by inspecting the URL
     # of a search result on rightmove.
