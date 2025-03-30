@@ -1,7 +1,8 @@
-if __name__ == "__main__":
-    import argparse
-    import rightmove.app
+import argparse
+import rightmove.app
 
+
+def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true", default=False)
     args = parser.parse_args()
@@ -53,3 +54,7 @@ if __name__ == "__main__":
     for location, location_id in search_locations.items():
         print(f"Searching for properties near {location}...", flush=True)
         app.search(location_id, search_prices.get(location, 2200), 0.5, 7)
+
+
+if __name__ == "__main__":
+    main()
