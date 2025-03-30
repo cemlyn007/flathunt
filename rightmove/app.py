@@ -68,7 +68,7 @@ class App:
         ans = input('Press "s" to skip, anything else is continue: ')
         return ans == "s"
 
-    def _wait(self, message: str) -> bool:
+    def _wait(self, message: str) -> None:
         input(" ".join((message, "Press enter to continue...")))
 
 
