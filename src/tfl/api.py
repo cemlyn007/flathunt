@@ -30,8 +30,8 @@ class Journey(typing.NamedTuple):
 class JourneyApi:
     def __init__(
         self,
-        from_location: str,
-        to_location: str,
+        from_location: tuple[float, float],
+        to_location: tuple[float, float],
         app_key: str,
         arrival_time: datetime.time | None = None,
     ) -> None:
@@ -92,13 +92,13 @@ class JourneyApi:
 
 
 def get_journey(
-    from_location: str,
-    to_location: str,
+    from_location: tuple[float, float],
+    to_location: tuple[float, float],
     arrival_datetime: datetime.datetime | None,
     app_key: str,
 ) -> Any:
-    from_location_encoded = urllib.parse.quote(from_location)
-    to_location_encoded = urllib.parse.quote(to_location)
+    from_location_encoded = urllib.parse.quote(",".join(map(str, from_location)))
+    to_location_encoded = urllib.parse.quote(",".join(map(str, to_location)))
     url = f"/Journey/JourneyResults/{from_location_encoded}/to/{to_location_encoded}"
     parameters = {
         "app_key": app_key,
