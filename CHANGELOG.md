@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.4.1 (2025-03-30)
+
+### Bug Fixes
+
+- Release with correct version
+  ([`4c8b669`](https://github.com/cemlyn007/rightmove/commit/4c8b6695d86fa6a58df77c1b04c2cbe736d66498))
+
+### Continuous Integration
+
+- Pre-commit hook to run pytest
+  ([`a60f07b`](https://github.com/cemlyn007/rightmove/commit/a60f07bd79d673927989b3c2ff4ae64319f1f787))
+
+
 ## v0.4.0 (2025-03-30)
 
 ### Continuous Integration
