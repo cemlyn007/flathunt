@@ -44,7 +44,7 @@ class Rightmove:
         return self._search(params)
 
     def property_url(self, property_url: str) -> str:
-        return self.BASE_HOST + property_url
+        return f"https://{self.BASE_HOST}{property_url}"
 
     def _search(self, params: dict[str, Any]) -> dict[str, Any]:
         connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
