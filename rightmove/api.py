@@ -12,6 +12,37 @@ class HTTPError(Exception): ...
 
 class Rightmove:
     BASE_HOST = "www.rightmove.co.uk"
+    LOS_HOST = "los.rightmove.co.uk"
+    LOS_LIMIT = 20
+
+    def lookup(
+        self,
+        query: str,
+    ) -> dict[str, Any]:
+        """Get the location IDs related to a search query.
+
+        Args:
+            query (str): Search location query.
+
+        Returns:
+            dict[str, Any]: Matches
+        """
+        # https://los.rightmove.co.uk/typeahead?query=Station&limit=10&exclude=
+        # https://los.rightmove.co.uk/typeahead?query=Station&exclude=
+        connection = http.client.HTTPSConnection(self.LOS_HOST, port=443)
+        try:
+            return self._request(
+                connection,
+                "GET",
+                "/typeahead",
+                {
+                    "query": query,
+                    "limit": self.LOS_LIMIT,
+                    "exclude": "",
+                },
+            )
+        finally:
+            connection.close()
 
     def search(
         self,

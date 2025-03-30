@@ -22,6 +22,7 @@ dev = [
 
 [project.scripts]
 search = "rightmove.scripts.search:main"
+update-search-locations = "rightmove.scripts.update_search_locations:main"
 
 [tool.semantic_release]
 version_toml = [
