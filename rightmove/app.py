@@ -31,24 +31,28 @@ class App:
             for property in properties
             if not self._cache.contains_property_id(property["id"])
         ]
-        for property in new_properties:
+        for index, property in enumerate(new_properties):
             self._show(property)
-            if property != properties[-1]:
-                input("Press enter for next property...")
+            if index != len(new_properties) - 1:
+                self._wait("Press enter for next property...")
 
             self._cache.add(property)
 
     def _show(self, property: dict[str, Any]) -> None:
         self._show_advert(property)
-        for commute_coordinate in self._commute_coordinates:
-            if self._skip():
-                break
-            # else...
+        if not self._commute_coordinates or self._skip():
+            return
+        # else...
+        for index, commute_coordinate in enumerate(self._commute_coordinates):
             self._show_route(property, commute_coordinate)
+            if index != len(self._commute_coordinates) - 1:
+                self._wait("Press enter for next commute location...")
 
     def _show_advert(self, property: dict[str, Any]) -> None:
-        url = self._api.property_url(property["propertyUrl"])
-        webbrowser.open_new_tab(url)
+        # Some properties don't have a URL.
+        if property["propertyUrl"]:
+            url = self._api.property_url(property["propertyUrl"])
+            webbrowser.open_new_tab(url)
 
     def _show_route(
         self, property: dict[str, Any], start_coordinate: tuple[float, float]
@@ -72,3 +76,6 @@ class App:
     def _skip(self) -> bool:
         ans = input('Press "s" to skip, anything else is continue: ')
         return ans == "s"
+
+    def _wait(self, message: str) -> bool:
+        input(" ".join((message, "Press enter to continue...")))
