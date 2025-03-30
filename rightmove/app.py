@@ -44,13 +44,13 @@ class App:
             if self._skip():
                 break
             # else...
-            self._show_commute(property, commute_coordinate)
+            self._show_route(property, commute_coordinate)
 
     def _show_advert(self, property: dict[str, Any]) -> None:
         url = self._api.property_url(property["propertyUrl"])
         webbrowser.open_new_tab(url)
 
-    def _show_commute(
+    def _show_route(
         self, property: dict[str, Any], start_coordinate: tuple[float, float]
     ) -> None:
         saddr = ",".join(map(str, start_coordinate))
