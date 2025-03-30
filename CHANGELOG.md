@@ -1,6 +1,28 @@
 # CHANGELOG
 
 
+## v0.5.0 (2025-03-30)
+
+### Continuous Integration
+
+- Remove pytest as it is run by pre-commit
+  ([`8690bdf`](https://github.com/cemlyn007/rightmove/commit/8690bdf08fbf0c2983e63d06ddac61bad89c227c))
+
+### Features
+
+- `update-search-locations` script
+  ([`f0543a6`](https://github.com/cemlyn007/rightmove/commit/f0543a640c7f25e25774c6c4fd716005517858e3))
+
+- Make cache optional
+  ([`5f14cd9`](https://github.com/cemlyn007/rightmove/commit/5f14cd9aaf45268d6fcb8b81c142ac4dd86317b6))
+
+- Search script uses search locations JSON file
+  ([`4cceb7f`](https://github.com/cemlyn007/rightmove/commit/4cceb7fd7c56c049c630c8c694fd88f161a7b984))
+
+- Update search locations preserves order of original file
+  ([`4d59bde`](https://github.com/cemlyn007/rightmove/commit/4d59bdeaec33e621f753c869ad6e73acd6ed346a))
+
+
 ## v0.4.1 (2025-03-30)
 
 ### Bug Fixes

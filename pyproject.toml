@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rightmove"
-version = "0.4.1"
+version = "0.5.0"
 description = "Rightmove application for improving the search experience"
 authors = [{name = "Cemlyn Neil Waters", email = "cemlynwaters@gmail.com"},]
 readme = "README.md"
