@@ -51,9 +51,12 @@ def main() -> None:
         "Barbican Station": 3000,
     }
 
-    for location, location_id in search_locations.items():
-        print(f"Searching for properties near {location}...", flush=True)
-        app.search(location_id, search_prices.get(location, 2200), 0.5, 7)
+    try:
+        for location, location_id in search_locations.items():
+            print(f"Searching for properties near {location}...", flush=True)
+            app.search(location_id, search_prices.get(location, 2200), 0.5, 7)
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
