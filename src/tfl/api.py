@@ -58,8 +58,12 @@ class Tfl:
             journeys.sort(key=lambda journey: journey.arrival_datetime.timestamp())
         else:
             journeys.sort(
-                key=lambda journey: arrival_datetime.timestamp()
-                - journey.arrival_datetime.timestamp()
+                key=lambda journey: (
+                    abs(
+                        arrival_datetime.timestamp()
+                        - journey.departure_datetime.timestamp()
+                    )
+                )
             )
         return journeys
 
@@ -86,6 +90,12 @@ def get_journey_options(
         parameters["date"] = date
         parameters["time"] = time
         parameters["timeIs"] = "departing"
+    else:
+        date = arrival_datetime.strftime("%Y%m%d")
+        time = arrival_datetime.strftime("%H%M")
+        parameters["date"] = date
+        parameters["time"] = time
+        parameters["timeIs"] = "arriving"
 
     connection = http.client.HTTPSConnection("api.tfl.gov.uk", port=443)
     try:
@@ -120,7 +130,7 @@ def parse_journey(journey: dict[str, Any], time_zone: datetime.timezone) -> Jour
             name = next(option["name"] for option in leg["routeOptions"])
             if name:
                 route_names.append(name)
-    route_name = "->".join(route_names)
+    route_name = "->".join(route_names) or "walking"
     return Journey(
         duration=datetime.timedelta(minutes=duration_minutes),
         departure_datetime=departure_datetime,
