@@ -15,6 +15,10 @@ class Rightmove:
     LOS_HOST = "los.rightmove.co.uk"
     LOS_LIMIT = 20
 
+    # The maximum number of results the API
+    # will return indices up to.
+    SEARCH_MAX_RESULTS = 1000
+
     def lookup(
         self,
         query: str,
@@ -27,8 +31,6 @@ class Rightmove:
         Returns:
             dict[str, Any]: Matches
         """
-        # https://los.rightmove.co.uk/typeahead?query=Station&limit=10&exclude=
-        # https://los.rightmove.co.uk/typeahead?query=Station&exclude=
         connection = http.client.HTTPSConnection(self.LOS_HOST, port=443)
         try:
             return self._request(
@@ -88,7 +90,9 @@ class Rightmove:
                 params,
             )
             full_response = copy.deepcopy(response)
-            while len(full_response["properties"]) < int(response["resultCount"]):
+            while len(full_response["properties"]) < min(
+                int(response["resultCount"].replace(",", "")), self.SEARCH_MAX_RESULTS
+            ):
                 params = copy.deepcopy(params)
                 params["index"] = len(full_response["properties"])
                 response = self._request(
