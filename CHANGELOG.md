@@ -1,6 +1,36 @@
 # CHANGELOG
 
 
+## v0.6.0 (2025-03-31)
+
+### Bug Fixes
+
+- `get_journey_options` when arrival datetime is not None
+  ([`0d93ab7`](https://github.com/cemlyn007/rightmove/commit/0d93ab724e0d67bccb4436f394d329a411b701c2))
+
+- Rightmove api search when 1000 or more results
+  ([`ed83658`](https://github.com/cemlyn007/rightmove/commit/ed8365844fed052a80b26e847047f7edfe4762f7))
+
+### Features
+
+- Improve types for `get_journey`
+  ([`6c05eb6`](https://github.com/cemlyn007/rightmove/commit/6c05eb63fde2687ec60f2b286233697cca47ae7c))
+
+- Make tfl api more generic
+  ([`97bd6bc`](https://github.com/cemlyn007/rightmove/commit/97bd6bcc1b00d1490588700950f56c920d50f037))
+
+- Tfl api
+  ([`9e8cc54`](https://github.com/cemlyn007/rightmove/commit/9e8cc544ec2b90f89a2ca8f29a00a369f6f47204))
+
+### Refactoring
+
+- Clean up signature
+  ([`32bb34d`](https://github.com/cemlyn007/rightmove/commit/32bb34da5e228f92d034278f35bb7b11122f0b71))
+
+- Move rightmove into src
+  ([`fc2692c`](https://github.com/cemlyn007/rightmove/commit/fc2692c320627efc20f702c2ef22f124209b89fc))
+
+
 ## v0.5.0 (2025-03-30)
 
 ### Continuous Integration
