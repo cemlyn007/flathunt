@@ -26,14 +26,13 @@ def main():
     entries = {}
     for location in locations:
         logger.info(f"Searching for '{location}'...")
-        result = api.lookup(location)
-        logger.info(f"Result: {result}")
-        matches = result["matches"]
+        matches = api.lookup(location).matches
+        logger.info(f"Result: {matches}")
 
         locations = {
-            location_metadata["displayName"]: location_metadata["type"]
+            location_metadata.display_name: location_metadata.type
             + "^"
-            + location_metadata["id"]
+            + location_metadata.type
             for location_metadata in matches
         }
 

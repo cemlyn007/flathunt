@@ -1,5 +1,4 @@
-from typing import Any
-from rightmove import api, property_cache
+from rightmove import api, property_cache, models
 import webbrowser
 import sys
 
@@ -21,14 +20,13 @@ class App:
         max_miles_radius: float,
         max_days_since_added: int | None,
     ) -> None:
-        response = self._api.search(
+        properties = self._api.search(
             location_id, max_price, max_miles_radius, max_days_since_added
         )
-        properties = response["properties"]
         new_properties = [
             property
             for property in properties
-            if not self._cache or not self._cache.contains_property_id(property["id"])
+            if not self._cache or not self._cache.contains_property_id(property.id)
         ]
         for index, property in enumerate(new_properties):
             self._show(property)
@@ -36,9 +34,9 @@ class App:
                 self._wait("Press enter for next property...")
 
             if self._cache:
-                self._cache.add(property)
+                self._cache.add(property.model_dump())
 
-    def _show(self, property: dict[str, Any]) -> None:
+    def _show(self, property: models.Property) -> None:
         self._show_advert(property)
         if not self._commute_coordinates or self._skip():
             return
@@ -48,18 +46,18 @@ class App:
             if index != len(self._commute_coordinates) - 1:
                 self._wait("Press enter for next commute location...")
 
-    def _show_advert(self, property: dict[str, Any]) -> None:
+    def _show_advert(self, property: models.Property) -> None:
         # Some properties don't have a URL.
-        if property["propertyUrl"]:
-            url = self._api.property_url(property["propertyUrl"])
+        if property.property_url:
+            url = self._api.property_url(property.property_url)
             webbrowser.open_new_tab(url)
 
     def _show_route(
-        self, property: dict[str, Any], start_coordinate: tuple[float, float]
+        self, property: models.Property, start_coordinate: tuple[float, float]
     ) -> None:
         destination = (
-            property["location"]["latitude"],
-            property["location"]["longitude"],
+            property.location.latitude,
+            property.location.longitude,
         )
         map_url = get_map_url(start_coordinate, destination)
         webbrowser.open_new_tab(map_url)

@@ -5,12 +5,54 @@ import json
 from typing import Any
 import copy
 import urllib.parse
+from rightmove import models
 
 
 class HTTPError(Exception): ...
 
 
 class Rightmove:
+    def __init__(self) -> None:
+        self._raw_api = _RawRightmove()
+
+    def lookup(
+        self,
+        query: str,
+    ) -> models.LookupMatches:
+        """Get the location IDs related to a search query.
+
+        Args:
+            query (str): Search location query.
+
+        Returns:
+            models.LookupMatches: Matches
+        """
+        lookup_results = self._raw_api.lookup(query=query)
+        return models.LookupMatches.model_validate(lookup_results)
+
+    def search(
+        self,
+        location_id: str,
+        max_price: int,
+        max_miles_radius: float,
+        max_days_since_added: int | None,
+    ) -> list[models.Property]:
+        search_results = self._raw_api.search(
+            location_id=location_id,
+            max_price=max_price,
+            max_miles_radius=max_miles_radius,
+            max_days_since_added=max_days_since_added,
+        )
+        return [
+            models.Property.model_validate(property)
+            for property in search_results["properties"]
+        ]
+
+    def property_url(self, property_url: str) -> str:
+        return f"https://{self._raw_api.BASE_HOST}{property_url}"
+
+
+class _RawRightmove:
     BASE_HOST = "www.rightmove.co.uk"
     LOS_HOST = "los.rightmove.co.uk"
     LOS_LIMIT = 20
