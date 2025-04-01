@@ -1,5 +1,5 @@
 import pydantic
-from typing import List, Optional
+from typing import Optional
 
 import pydantic.alias_generators
 
@@ -11,6 +11,29 @@ class CamelCaseModel(pydantic.BaseModel):
         from_attributes=True,
         serialize_by_alias=True,
     )
+
+
+# Lookup Models
+
+
+class Highlight(CamelCaseModel):
+    text: str
+    highlighted: bool
+
+
+class LookupMatch(CamelCaseModel):
+    id: str
+    type: str
+    display_name: str
+    highlighting: str
+    highlights: list[Highlight]
+
+
+class LookupMatches(CamelCaseModel):
+    matches: list[LookupMatch]
+
+
+# Property Models
 
 
 class Location(CamelCaseModel):
@@ -25,7 +48,7 @@ class PropertyImage(CamelCaseModel):
 
 
 class PropertyImages(CamelCaseModel):
-    images: List[PropertyImage]
+    images: list[PropertyImage]
     main_image_src: str
     main_map_image_src: str
 
@@ -44,7 +67,7 @@ class Price(CamelCaseModel):
     amount: int
     frequency: str
     currency_code: Optional[str] = None
-    display_prices: Optional[List[DisplayPrice]] = None
+    display_prices: Optional[list[DisplayPrice]] = None
 
 
 class BuildToRentBenefits(CamelCaseModel):
@@ -69,7 +92,7 @@ class Customer(CamelCaseModel):
     enhanced_listing: Optional[bool] = None
     development_content: Optional[str] = None
     build_to_rent: Optional[bool] = None
-    build_to_rent_benefits: List[BuildToRentBenefits]
+    build_to_rent_benefits: list[BuildToRentBenefits]
     brand_plus_logo_url: Optional[str] = None
 
 
@@ -84,7 +107,7 @@ class MatchingLozenges(CamelCaseModel):
 
 
 class LozengeModel(CamelCaseModel):
-    matching_lozenges: List[MatchingLozenges]
+    matching_lozenges: list[MatchingLozenges]
 
 
 class Property(CamelCaseModel):
@@ -122,7 +145,7 @@ class Property(CamelCaseModel):
     static_map_url: Optional[str] = None
     channel: str
     first_visible_date: Optional[str] = None
-    keywords: Optional[List[str]] = None
+    keywords: Optional[list[str]] = None
     keyword_match_type: Optional[str] = None
     saved: bool
     hidden: bool
