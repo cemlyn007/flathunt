@@ -91,6 +91,7 @@ def get_journey_options(
         parameters["time"] = time
         parameters["timeIs"] = "departing"
     else:
+        arrival_datetime = arrival_datetime.astimezone(datetime.UTC)
         date = arrival_datetime.strftime("%Y%m%d")
         time = arrival_datetime.strftime("%H%M")
         parameters["date"] = date
@@ -107,16 +108,12 @@ def get_journey_options(
 
 def parse_journey(journey: dict[str, Any], time_zone: datetime.timezone) -> Journey:
     duration_minutes = int(journey["duration"])
-    departure_datetime = (
-        datetime.datetime.strptime(journey["startDateTime"], "%Y-%m-%dT%H:%M:%S")
-        .replace(tzinfo=time_zone)
-        .astimezone(time_zone)
-    )
-    arrival_datetime = (
-        datetime.datetime.strptime(journey["arrivalDateTime"], "%Y-%m-%dT%H:%M:%S")
-        .replace(tzinfo=time_zone)
-        .astimezone(time_zone)
-    )
+    departure_datetime = datetime.datetime.strptime(
+        journey["startDateTime"], "%Y-%m-%dT%H:%M:%S"
+    ).replace(tzinfo=time_zone)
+    arrival_datetime = datetime.datetime.strptime(
+        journey["arrivalDateTime"], "%Y-%m-%dT%H:%M:%S"
+    ).replace(tzinfo=time_zone)
     modes = [Mode(leg["mode"]["id"]) for leg in journey["legs"]]
     if Mode.TUBE in modes:
         mode = Mode.TUBE
