@@ -32,7 +32,7 @@ class Journey(typing.NamedTuple):
 class Tfl:
     def __init__(
         self,
-        from_location: tuple[float, float],
+        from_location: tuple[float, float] | str,
         to_location: tuple[float, float],
         app_key: str,
         arrival_datetime: datetime.datetime | None = None,
@@ -69,17 +69,21 @@ class Tfl:
 
 
 def get_journey_options(
-    from_location: tuple[float, float],
+    from_location: tuple[float, float] | str,
     to_location: tuple[float, float],
     arrival_datetime: datetime.datetime | None,
     app_key: str,
 ) -> Any:
-    from_location_encoded = urllib.parse.quote(",".join(map(str, from_location)))
+    from_location_encoded = urllib.parse.quote(
+        from_location
+        if isinstance(from_location, str)
+        else ",".join(map(str, from_location))
+    )
     to_location_encoded = urllib.parse.quote(",".join(map(str, to_location)))
     url = f"/Journey/JourneyResults/{from_location_encoded}/to/{to_location_encoded}"
     parameters = {
         "app_key": app_key,
-        "mode": "bus",
+        "mode": ",".join(mode.value for mode in Mode),
     }
     if arrival_datetime is None:
         departure_datetime = datetime.datetime.now(
