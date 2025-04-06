@@ -5,7 +5,7 @@ import sys
 import datetime
 import tfl.api
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 logger = logging.Logger(__name__)
 
@@ -90,7 +90,7 @@ class App:
 
     def _check_journey(
         self,
-        location: tuple[float, float] | str,
+        location: Union[tuple[float, float], str],
         journey_coordinates: dict[str, tuple[float, float]],
         max_journey_timedelta: datetime.timedelta,
     ) -> bool:
