@@ -1,6 +1,40 @@
 # CHANGELOG
 
 
+## v0.7.0 (2025-04-06)
+
+### Bug Fixes
+
+- Handling of timezone with tfl api
+  ([`7aff023`](https://github.com/cemlyn007/rightmove/commit/7aff023e73e7965e9e41f1af9c2928f44755b1d6))
+
+### Features
+
+- Add lookup models
+  ([`1b905e8`](https://github.com/cemlyn007/rightmove/commit/1b905e8f171d3d119f8388634a10661af14855df))
+
+- Add rightmove pydantic models
+  ([`126ecbf`](https://github.com/cemlyn007/rightmove/commit/126ecbf46112389177a10e0015574e3509ee756e))
+
+- Flathunt search with tfl journey
+  ([`3140924`](https://github.com/cemlyn007/rightmove/commit/3140924cd8f3339e2b0d63d8e32cb680d66178cf))
+
+- Stronger typing
+  ([`44be0de`](https://github.com/cemlyn007/rightmove/commit/44be0de7a7e39d6caf97701d473623280f82917c))
+
+- Support python 3.9
+  ([`44f4a27`](https://github.com/cemlyn007/rightmove/commit/44f4a271f5729888dcc18f24c434031601b237ed))
+
+- Support python 3.9
+  ([`3f94e06`](https://github.com/cemlyn007/rightmove/commit/3f94e06b8f04bfa92e91b236db3007dfc72fa47a))
+
+- Support python 3.9
+  ([`68ffb7d`](https://github.com/cemlyn007/rightmove/commit/68ffb7d66891747c028ead3ef79ea212de21269d))
+
+- Support python 3.9
+  ([`8040845`](https://github.com/cemlyn007/rightmove/commit/80408452113bca113567c2cd10917c38bdc950c6))
+
+
 ## v0.6.0 (2025-03-31)
 
 ### Bug Fixes
