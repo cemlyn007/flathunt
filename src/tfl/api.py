@@ -8,7 +8,7 @@ import typing
 import urllib.parse
 import datetime
 import zoneinfo
-from typing import Optional
+from typing import Optional, Union
 
 TIMEZONE = zoneinfo.ZoneInfo("Europe/London")
 
@@ -16,7 +16,7 @@ TIMEZONE = zoneinfo.ZoneInfo("Europe/London")
 class HTTPError(Exception): ...
 
 
-class Mode(enum.StrEnum):
+class Mode(enum.Enum):
     BUS = "bus"
     TUBE = "tube"
     WALKING = "walking"
@@ -33,7 +33,7 @@ class Journey(typing.NamedTuple):
 class Tfl:
     def __init__(
         self,
-        from_location: tuple[float, float] | str,
+        from_location: Union[tuple[float, float], str],
         to_location: tuple[float, float],
         app_key: str,
         arrival_datetime: Optional[datetime.datetime] = None,
@@ -70,7 +70,7 @@ class Tfl:
 
 
 def get_journey_options(
-    from_location: tuple[float, float] | str,
+    from_location: Union[tuple[float, float], str],
     to_location: tuple[float, float],
     arrival_datetime: Optional[datetime.datetime],
     app_key: str,
