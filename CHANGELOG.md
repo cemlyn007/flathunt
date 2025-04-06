@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.8.0 (2025-04-06)
+
+### Features
+
+- Rename repository to flathunt
+  ([`fee2622`](https://github.com/cemlyn007/flathunt/commit/fee2622ef8fb8be4fcdf028fbe9d83155ba63328))
+
+
 ## v0.7.0 (2025-04-06)
 
 ### Bug Fixes
@@ -13,7 +21,7 @@
 - Add lookup models
   ([`1b905e8`](https://github.com/cemlyn007/flathunt/commit/1b905e8f171d3d119f8388634a10661af14855df))
 
-- Add flathunt pydantic models
+- Add rightmove pydantic models
   ([`126ecbf`](https://github.com/cemlyn007/flathunt/commit/126ecbf46112389177a10e0015574e3509ee756e))
 
 - Flathunt search with tfl journey
@@ -61,7 +69,7 @@
 - Clean up signature
   ([`32bb34d`](https://github.com/cemlyn007/flathunt/commit/32bb34da5e228f92d034278f35bb7b11122f0b71))
 
-- Move flathunt into src
+- Move rightmove into src
   ([`fc2692c`](https://github.com/cemlyn007/flathunt/commit/fc2692c320627efc20f702c2ef22f124209b89fc))
 
 
@@ -117,7 +125,7 @@
 
 ### Bug Fixes
 
-- `flathunt.property_url` to return https
+- `rightmove.property_url` to return https
   ([`8fd86b9`](https://github.com/cemlyn007/flathunt/commit/8fd86b957ff07c15a564adcbee12c496aafeeba7))
 
 ### Continuous Integration
