@@ -52,7 +52,8 @@ class Tfl:
         )
         raw_journeys = response["journeys"]
         journeys = [
-            parse_journey(raw_journey, datetime.UTC) for raw_journey in raw_journeys
+            parse_journey(raw_journey, datetime.timezone.utc)
+            for raw_journey in raw_journeys
         ]
         arrival_datetime = self._arrival_datetime
         if arrival_datetime is None:
@@ -96,7 +97,7 @@ def get_journey_options(
         parameters["time"] = time
         parameters["timeIs"] = "departing"
     else:
-        arrival_datetime = arrival_datetime.astimezone(datetime.UTC)
+        arrival_datetime = arrival_datetime.astimezone(datetime.timezone.utc)
         date = arrival_datetime.strftime("%Y%m%d")
         time = arrival_datetime.strftime("%H%M")
         parameters["date"] = date
