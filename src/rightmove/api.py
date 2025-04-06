@@ -6,6 +6,7 @@ from typing import Any
 import copy
 import urllib.parse
 from rightmove import models
+from typing import Optional
 
 
 class HTTPError(Exception): ...
@@ -35,7 +36,7 @@ class Rightmove:
         location_id: str,
         max_price: int,
         max_miles_radius: float,
-        max_days_since_added: int | None,
+        max_days_since_added: Optional[int],
     ) -> list[models.Property]:
         search_results = self._raw_api.search(
             location_id=location_id,
@@ -93,7 +94,7 @@ class _RawRightmove:
         location_id: str,
         max_price: int,
         max_miles_radius: float,
-        max_days_since_added: int | None,
+        max_days_since_added: Optional[int],
     ) -> dict[str, Any]:
         params = {
             "locationIdentifier": location_id,

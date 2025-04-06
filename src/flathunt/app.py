@@ -5,6 +5,7 @@ import sys
 import datetime
 import tfl.api
 import logging
+from typing import Optional
 
 logger = logging.Logger(__name__)
 
@@ -13,7 +14,7 @@ class App:
     def __init__(
         self,
         commute_coordinates: list[tuple[float, float]],
-        cache: property_cache.PropertyCache | None,
+        cache: Optional[property_cache.PropertyCache],
         tfl_app_key: str,
     ) -> None:
         self._api = api.Rightmove()
@@ -27,7 +28,7 @@ class App:
         location_id: str,
         max_price: int,
         max_miles_radius: float,
-        max_days_since_added: int | None,
+        max_days_since_added: Optional[int],
         journey_coordinates: dict[str, tuple[float, float]],
         max_journey_timedelta: datetime.timedelta,
     ) -> None:

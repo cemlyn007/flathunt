@@ -1,13 +1,14 @@
 from rightmove import api, property_cache, models
 import webbrowser
 import sys
+from typing import Optional
 
 
 class App:
     def __init__(
         self,
         commute_coordinates: list[tuple[float, float]],
-        cache: property_cache.PropertyCache | None,
+        cache: Optional[property_cache.PropertyCache],
     ) -> None:
         self._api = api.Rightmove()
         self._cache = cache
@@ -18,7 +19,7 @@ class App:
         location_id: str,
         max_price: int,
         max_miles_radius: float,
-        max_days_since_added: int | None,
+        max_days_since_added: Optional[int],
     ) -> None:
         properties = self._api.search(
             location_id, max_price, max_miles_radius, max_days_since_added

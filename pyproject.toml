@@ -8,7 +8,7 @@ version = "0.6.0"
 description = "Rightmove application for improving the search experience"
 authors = [{name = "Cemlyn Neil Waters", email = "cemlynwaters@gmail.com"},]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 
 dependencies = [
     "pydantic>=2.0.0",

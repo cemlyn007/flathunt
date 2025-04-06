@@ -8,6 +8,7 @@ import typing
 import urllib.parse
 import datetime
 import zoneinfo
+from typing import Optional
 
 TIMEZONE = zoneinfo.ZoneInfo("Europe/London")
 
@@ -35,7 +36,7 @@ class Tfl:
         from_location: tuple[float, float] | str,
         to_location: tuple[float, float],
         app_key: str,
-        arrival_datetime: datetime.datetime | None = None,
+        arrival_datetime: Optional[datetime.datetime] = None,
     ) -> None:
         self._from_location = from_location
         self._to_location = to_location
@@ -71,7 +72,7 @@ class Tfl:
 def get_journey_options(
     from_location: tuple[float, float] | str,
     to_location: tuple[float, float],
-    arrival_datetime: datetime.datetime | None,
+    arrival_datetime: Optional[datetime.datetime],
     app_key: str,
 ) -> Any:
     from_location_encoded = urllib.parse.quote(
