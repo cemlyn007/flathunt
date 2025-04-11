@@ -1,6 +1,8 @@
 import json
 from typing import Any
 
+import pytest
+
 from rightmove.models import (
     Property,
     Location,
@@ -13,42 +15,72 @@ from rightmove.models import (
     ProductLabel,
     LozengeModel,
 )
+import os
+
+example_file_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "fixtures", "example_search.json"
+)
+with open(example_file_path) as file:
+    MOCKED_RESPONSE = json.load(file)
+PROPERTIES = MOCKED_RESPONSE["properties"]
 
 
-class TestPropertyModel:
+def test_multiple_properties(search_response: dict[str, Any]) -> None:
+    """Test that multiple Property models can be created from the search response data"""
+    # GIVEN: property data from multiple properties in the search response
+    properties_data = search_response["properties"]
+
+    # WHEN: creating Property models from the data
+    property_models: list[Property] = [
+        Property.model_validate(prop) for prop in properties_data
+    ]
+
+    # THEN: the correct number of models should be created
+    assert len(property_models) == len(properties_data)
+
+    # THEN: each model should contain the expected property information
+    # Test some values from the second property
+    assert property_models[1].id == properties_data[1]["id"]
+    assert property_models[1].bedrooms == properties_data[1]["bedrooms"]
+    assert property_models[1].bathrooms == properties_data[1]["bathrooms"]
+    assert property_models[1].property_sub_type == properties_data[1]["propertySubType"]
+
+
+@pytest.mark.parametrize(
+    "property",
+    PROPERTIES,
+)
+class TestPropertyModels:
     def test_property_model_from_search_response(
-        self, search_response: dict[str, Any]
+        self, property: dict[str, Any]
     ) -> None:
         """Test that a Property model can be created from the search response data"""
         # GIVEN: a property from the search response
-        property_data = search_response["properties"][0]
 
         # WHEN: creating a Property model from the data
-        property_model = Property.model_validate(property_data)
+        property_model = Property.model_validate(property)
 
         # THEN: the model should be created correctly with all expected fields
-        assert property_model.id == property_data["id"]
-        assert property_model.bedrooms == property_data["bedrooms"]
-        assert property_model.bathrooms == property_data["bathrooms"]
-        assert property_model.summary == property_data["summary"]
-        assert property_model.display_address == property_data["displayAddress"]
-        assert property_model.property_sub_type == property_data["propertySubType"]
-        assert property_model.transaction_type == property_data["transactionType"]
+        assert property_model.id == property["id"]
+        assert property_model.bedrooms == property["bedrooms"]
+        assert property_model.bathrooms == property["bathrooms"]
+        assert property_model.summary == property["summary"]
+        assert property_model.display_address == property["displayAddress"]
+        assert property_model.property_sub_type == property["propertySubType"]
+        assert property_model.transaction_type == property["transactionType"]
         assert (
             property_model.property_type_full_description
-            == property_data["propertyTypeFullDescription"]
+            == property["propertyTypeFullDescription"]
         )
 
         # THEN: formatted values should match expected values
-        assert property_model.formatted_distance == property_data["formattedDistance"]
-        assert (
-            property_model.formatted_branch_name == property_data["formattedBranchName"]
-        )
+        assert property_model.formatted_distance == property["formattedDistance"]
+        assert property_model.formatted_branch_name == property["formattedBranchName"]
 
-    def test_location_model(self, search_response: dict[str, Any]) -> None:
+    def test_location_model(self, property: dict[str, Any]) -> None:
         """Test that a Location model can be created from search response data"""
         # GIVEN: location data from a property in the search response
-        location_data = search_response["properties"][0]["location"]
+        location_data = property["location"]
 
         # WHEN: creating a Location model from the data
         location_model = Location.model_validate(location_data)
@@ -57,10 +89,10 @@ class TestPropertyModel:
         assert location_model.latitude == location_data["latitude"]
         assert location_model.longitude == location_data["longitude"]
 
-    def test_property_images_model(self, search_response: dict[str, Any]) -> None:
+    def test_property_images_model(self, property: dict[str, Any]) -> None:
         """Test that a PropertyImages model can be created from search response data"""
         # GIVEN: property images data from the search response
-        images_data = search_response["properties"][0]["propertyImages"]
+        images_data = property["propertyImages"]
 
         # WHEN: creating a PropertyImages model from the data
         images_model = PropertyImages.model_validate(images_data)
@@ -77,10 +109,10 @@ class TestPropertyModel:
         assert first_image.src_url == images_data["images"][0]["srcUrl"]
         assert first_image.caption == images_data["images"][0]["caption"]
 
-    def test_listing_update_model(self, search_response: dict[str, Any]) -> None:
+    def test_listing_update_model(self, property: dict[str, Any]) -> None:
         """Test that a ListingUpdate model can be created from search response data"""
         # GIVEN: listing update data from a property in the search response
-        listing_update_data = search_response["properties"][0]["listingUpdate"]
+        listing_update_data = property["listingUpdate"]
 
         # WHEN: creating a ListingUpdate model from the data
         listing_update_model = ListingUpdate.model_validate(listing_update_data)
@@ -95,10 +127,10 @@ class TestPropertyModel:
             == listing_update_data["listingUpdateDate"]
         )
 
-    def test_price_model(self, search_response: dict[str, Any]) -> None:
+    def test_price_model(self, property: dict[str, Any]) -> None:
         """Test that a Price model can be created from search response data"""
         # GIVEN: price data from a property in the search response
-        price_data = search_response["properties"][0]["price"]
+        price_data = property["price"]
 
         # WHEN: creating a Price model from the data
         price_model = Price.model_validate(price_data)
@@ -122,10 +154,10 @@ class TestPropertyModel:
             == price_data["displayPrices"][0]["displayPriceQualifier"]
         )
 
-    def test_customer_model(self, search_response: dict[str, Any]) -> None:
+    def test_customer_model(self, property: dict[str, Any]) -> None:
         """Test that a Customer model can be created from search response data"""
         # GIVEN: customer data from a property in the search response
-        customer_data = search_response["properties"][0]["customer"]
+        customer_data = property["customer"]
 
         # WHEN: creating a Customer model from the data
         customer_model = Customer.model_validate(customer_data)
@@ -140,10 +172,10 @@ class TestPropertyModel:
         assert customer_model.commercial == customer_data["commercial"]
         assert customer_model.brand_plus_logo_url == customer_data["brandPlusLogoUrl"]
 
-    def test_product_label_model(self, search_response: dict[str, Any]) -> None:
+    def test_product_label_model(self, property: dict[str, Any]) -> None:
         """Test that a ProductLabel model can be created from search response data"""
         # GIVEN: product label data from a property in the search response
-        product_label_data = search_response["properties"][0]["productLabel"]
+        product_label_data = property["productLabel"]
 
         # WHEN: creating a ProductLabel model from the data
         product_label_model = ProductLabel.model_validate(product_label_data)
@@ -157,10 +189,10 @@ class TestPropertyModel:
             product_label_model.spotlight_label == product_label_data["spotlightLabel"]
         )
 
-    def test_lozenge_model(self, search_response: dict[str, Any]) -> None:
+    def test_lozenge_model(self, property: dict[str, Any]) -> None:
         """Test that a LozengeModel model can be created from search response data"""
         # GIVEN: lozenge model data from a property in the search response
-        lozenge_data = search_response["properties"][0]["lozengeModel"]
+        lozenge_data = property["lozengeModel"]
 
         # WHEN: creating a LozengeModel model from the data
         lozenge_model = LozengeModel.model_validate(lozenge_data)
@@ -170,62 +202,40 @@ class TestPropertyModel:
             lozenge_data["matchingLozenges"]
         )
 
-    def test_multiple_properties(self, search_response: dict[str, Any]) -> None:
-        """Test that multiple Property models can be created from the search response data"""
-        # GIVEN: property data from multiple properties in the search response
-        properties_data = search_response["properties"]
 
-        # WHEN: creating Property models from the data
-        property_models: list[Property] = [
-            Property.model_validate(prop) for prop in properties_data
-        ]
-
-        # THEN: the correct number of models should be created
-        assert len(property_models) == len(properties_data)
-
-        # THEN: each model should contain the expected property information
-        # Test some values from the second property
-        assert property_models[1].id == properties_data[1]["id"]
-        assert property_models[1].bedrooms == properties_data[1]["bedrooms"]
-        assert property_models[1].bathrooms == properties_data[1]["bathrooms"]
-        assert (
-            property_models[1].property_sub_type
-            == properties_data[1]["propertySubType"]
-        )
-
-    def test_property_serialization_to_json(
-        self, search_response: dict[str, Any]
-    ) -> None:
+@pytest.mark.parametrize(
+    "property",
+    PROPERTIES,
+)
+class TestPropertyModelSerialization:
+    def test_property_serialization_to_json(self, property: dict[str, Any]) -> None:
         """Test that a Property model can be serialized to JSON"""
         # GIVEN: a property model created from search response data
-        property_data = search_response["properties"][0]
-        property_model = Property.model_validate(property_data)
+        property_model = Property.model_validate(property)
 
         # WHEN: serializing the model to JSON
         json_str = property_model.model_dump_json()
         json_dict = json.loads(json_str)
 
         # THEN: the JSON should contain the expected data in camelCase format
-        assert json_dict["id"] == property_data["id"]
-        assert json_dict["bedrooms"] == property_data["bedrooms"]
-        assert json_dict["bathrooms"] == property_data["bathrooms"]
-        assert json_dict["summary"] == property_data["summary"]
-        assert json_dict["displayAddress"] == property_data["displayAddress"]
-        assert json_dict["propertySubType"] == property_data["propertySubType"]
-        assert json_dict["transactionType"] == property_data["transactionType"]
+        assert json_dict["id"] == property["id"]
+        assert json_dict["bedrooms"] == property["bedrooms"]
+        assert json_dict["bathrooms"] == property["bathrooms"]
+        assert json_dict["summary"] == property["summary"]
+        assert json_dict["displayAddress"] == property["displayAddress"]
+        assert json_dict["propertySubType"] == property["propertySubType"]
+        assert json_dict["transactionType"] == property["transactionType"]
         assert (
             json_dict["propertyTypeFullDescription"]
-            == property_data["propertyTypeFullDescription"]
+            == property["propertyTypeFullDescription"]
         )
-        assert json_dict["formattedDistance"] == property_data["formattedDistance"]
-        assert json_dict["formattedBranchName"] == property_data["formattedBranchName"]
+        assert json_dict["formattedDistance"] == property["formattedDistance"]
+        assert json_dict["formattedBranchName"] == property["formattedBranchName"]
 
-    def test_location_serialization_to_json(
-        self, search_response: dict[str, Any]
-    ) -> None:
+    def test_location_serialization_to_json(self, property: dict[str, Any]) -> None:
         """Test that a Location model can be serialized to JSON"""
         # GIVEN: a location model created from search response data
-        location_data = search_response["properties"][0]["location"]
+        location_data = property["location"]
         location_model = Location.model_validate(location_data)
 
         # WHEN: serializing the model to JSON
@@ -237,11 +247,11 @@ class TestPropertyModel:
         assert json_dict["longitude"] == location_data["longitude"]
 
     def test_property_images_serialization_to_json(
-        self, search_response: dict[str, Any]
+        self, property: dict[str, Any]
     ) -> None:
         """Test that a PropertyImages model can be serialized to JSON"""
         # GIVEN: a property images model created from search response data
-        images_data = search_response["properties"][0]["propertyImages"]
+        images_data = property["propertyImages"]
         images_model = PropertyImages.model_validate(images_data)
 
         # WHEN: serializing the model to JSON
@@ -260,11 +270,11 @@ class TestPropertyModel:
         assert first_image["caption"] == images_data["images"][0]["caption"]
 
     def test_listing_update_serialization_to_json(
-        self, search_response: dict[str, Any]
+        self, property: dict[str, Any]
     ) -> None:
         """Test that a ListingUpdate model can be serialized to JSON"""
         # GIVEN: a listing update model created from search response data
-        listing_update_data = search_response["properties"][0]["listingUpdate"]
+        listing_update_data = property["listingUpdate"]
         listing_update_model = ListingUpdate.model_validate(listing_update_data)
 
         # WHEN: serializing the model to JSON
@@ -280,10 +290,10 @@ class TestPropertyModel:
             json_dict["listingUpdateDate"] == listing_update_data["listingUpdateDate"]
         )
 
-    def test_price_serialization_to_json(self, search_response: dict[str, Any]) -> None:
+    def test_price_serialization_to_json(self, property: dict[str, Any]) -> None:
         """Test that a Price model can be serialized to JSON"""
         # GIVEN: a price model created from search response data
-        price_data = search_response["properties"][0]["price"]
+        price_data = property["price"]
         price_model = Price.model_validate(price_data)
 
         # WHEN: serializing the model to JSON
@@ -307,12 +317,10 @@ class TestPropertyModel:
             == price_data["displayPrices"][0]["displayPriceQualifier"]
         )
 
-    def test_customer_serialization_to_json(
-        self, search_response: dict[str, Any]
-    ) -> None:
+    def test_customer_serialization_to_json(self, property: dict[str, Any]) -> None:
         """Test that a Customer model can be serialized to JSON"""
         # GIVEN: a customer model created from search response data
-        customer_data = search_response["properties"][0]["customer"]
+        customer_data = property["customer"]
         customer_model = Customer.model_validate(customer_data)
 
         # WHEN: serializing the model to JSON
@@ -329,11 +337,10 @@ class TestPropertyModel:
         assert json_dict["commercial"] == customer_data["commercial"]
         assert json_dict["brandPlusLogoUrl"] == customer_data["brandPlusLogoUrl"]
 
-    def test_round_trip_serialization(self, search_response: dict[str, Any]) -> None:
+    def test_round_trip_serialization(self, property: dict[str, Any]) -> None:
         """Test a complete round-trip serialization and deserialization of a Property model"""
         # GIVEN: a property model created from search response data
-        property_data = search_response["properties"][0]
-        original_model = Property.model_validate(property_data)
+        original_model = Property.model_validate(property)
 
         # WHEN: serializing the model to JSON and then deserializing back to a model
         json_str = original_model.model_dump_json()
