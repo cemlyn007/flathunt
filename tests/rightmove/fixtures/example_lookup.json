@@ -1,0 +1,16 @@
+{
+    "matches": [
+        {
+            "id": "569",
+            "type": "STATION",
+            "displayName": "Barbican Station",
+            "highlighting": "<span class='highlightLetter'>Barbican Station</span>",
+            "highlights": [
+                {
+                    "text": "Barbican Station",
+                    "highlighted": true
+                }
+            ]
+        }
+    ]
+}
