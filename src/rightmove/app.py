@@ -16,14 +16,9 @@ class App:
 
     def search(
         self,
-        location_id: str,
-        max_price: int,
-        max_miles_radius: float,
-        max_days_since_added: Optional[int],
+        query: api.SearchQuery,
     ) -> None:
-        properties = self._api.search(
-            location_id, max_price, max_miles_radius, max_days_since_added
-        )
+        properties = self._api.search(query)
         new_properties = [
             property
             for property in properties

@@ -1,15 +1,39 @@
+import enum
 import gzip
 import http
 import http.client
 import json
-from typing import Any
+from typing import Any, Literal, Optional
 import copy
 import urllib.parse
 from rightmove import models
-from typing import Optional
+import pydantic
 
 
 class HTTPError(Exception): ...
+
+
+class SortType(enum.IntEnum):
+    MOST_RECENT = 6
+
+
+class SearchQuery(pydantic.BaseModel):
+    location_identifier: str
+    min_bedrooms: int
+    max_price: int
+    number_of_properties_per_page: int
+    radius: float
+    "In Miles."
+    sort_type: SortType
+    include_let_agreed: bool
+    view_type: Literal["LIST"]
+    dont_show: list[Literal["houseShare", "retirement", "student", "commercial"]]
+    furnish_types: list[Literal["furnished", "partFurnished", "unfurnished"]]
+    channel: Literal["RENT", "BUY"]
+    area_size_unit: Literal["sqft", "sqm"]
+    currency_code: Literal["GBP"]
+    is_fetching: bool
+    max_days_since_added: Optional[int]
 
 
 class Rightmove:
@@ -33,17 +57,17 @@ class Rightmove:
 
     def search(
         self,
-        location_id: str,
-        max_price: int,
-        max_miles_radius: float,
-        max_days_since_added: Optional[int],
+        query: SearchQuery,
     ) -> list[models.Property]:
-        search_results = self._raw_api.search(
-            location_id=location_id,
-            max_price=max_price,
-            max_miles_radius=max_miles_radius,
-            max_days_since_added=max_days_since_added,
-        )
+        """Search for properties using the provided configuration.
+
+        Args:
+            query (SearchQuery): Search configuration parameters
+
+        Returns:
+            list[models.Property]: List of properties matching the search criteria
+        """
+        search_results = self._raw_api.search(query=query)
         return [
             models.Property.model_validate(property)
             for property in search_results["properties"]
@@ -91,32 +115,32 @@ class _RawRightmove:
 
     def search(
         self,
-        location_id: str,
-        max_price: int,
-        max_miles_radius: float,
-        max_days_since_added: Optional[int],
+        query: SearchQuery,
     ) -> dict[str, Any]:
         params = {
-            "locationIdentifier": location_id,
-            "minBedrooms": 1,
-            "maxPrice": max_price,
-            "numberOfPropertiesPerPage": 24,
-            "radius": max_miles_radius,
-            "sortType": 6,  # Most recent.
-            "includeLetAgreed": False,
-            "viewType": "LIST",
-            "dontShow[0]": "houseShare",
-            "dontShow[1]": "retirement",
-            "dontShow[2]": "student",
-            "furnishTypes[0]": "furnished",
-            "furnishTypes[1]": "partFurnished",
-            "channel": "RENT",
-            "areaSizeUnit": "sqm",
-            "currencyCode": "GBP",
-            "isFetching": False,
+            "locationIdentifier": query.location_identifier,
+            "minBedrooms": query.min_bedrooms,
+            "maxPrice": query.max_price,
+            "numberOfPropertiesPerPage": query.number_of_properties_per_page,
+            "radius": query.radius,
+            "sortType": query.sort_type,
+            "includeLetAgreed": query.include_let_agreed,
+            "viewType": query.view_type,
         }
-        if max_days_since_added is not None:
-            params["maxDaysSinceAdded"] = max_days_since_added
+        for index, value in enumerate(query.dont_show):
+            params[f"dontShow[{index}]"] = value
+        for index, value in enumerate(query.furnish_types):
+            params[f"furnishTypes[{index}]"] = value
+        params.update(
+            {
+                "channel": query.channel,
+                "areaSizeUnit": query.area_size_unit,
+                "currencyCode": query.currency_code,
+                "isFetching": query.is_fetching,
+            }
+        )
+        if query.max_days_since_added is not None:
+            params["maxDaysSinceAdded"] = query.max_days_since_added
         return self._search(params)
 
     def property_url(self, property_url: str) -> str:
