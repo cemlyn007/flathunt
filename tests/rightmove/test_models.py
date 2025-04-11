@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 from rightmove.models import (
@@ -191,3 +192,160 @@ class TestPropertyModel:
             property_models[1].property_sub_type
             == properties_data[1]["propertySubType"]
         )
+
+    def test_property_serialization_to_json(
+        self, search_response: dict[str, Any]
+    ) -> None:
+        """Test that a Property model can be serialized to JSON"""
+        # GIVEN: a property model created from search response data
+        property_data = search_response["properties"][0]
+        property_model = Property.model_validate(property_data)
+
+        # WHEN: serializing the model to JSON
+        json_str = property_model.model_dump_json()
+        json_dict = json.loads(json_str)
+
+        # THEN: the JSON should contain the expected data in camelCase format
+        assert json_dict["id"] == property_data["id"]
+        assert json_dict["bedrooms"] == property_data["bedrooms"]
+        assert json_dict["bathrooms"] == property_data["bathrooms"]
+        assert json_dict["summary"] == property_data["summary"]
+        assert json_dict["displayAddress"] == property_data["displayAddress"]
+        assert json_dict["propertySubType"] == property_data["propertySubType"]
+        assert json_dict["transactionType"] == property_data["transactionType"]
+        assert (
+            json_dict["propertyTypeFullDescription"]
+            == property_data["propertyTypeFullDescription"]
+        )
+        assert json_dict["formattedDistance"] == property_data["formattedDistance"]
+        assert json_dict["formattedBranchName"] == property_data["formattedBranchName"]
+
+    def test_location_serialization_to_json(
+        self, search_response: dict[str, Any]
+    ) -> None:
+        """Test that a Location model can be serialized to JSON"""
+        # GIVEN: a location model created from search response data
+        location_data = search_response["properties"][0]["location"]
+        location_model = Location.model_validate(location_data)
+
+        # WHEN: serializing the model to JSON
+        json_str = location_model.model_dump_json()
+        json_dict = json.loads(json_str)
+
+        # THEN: the JSON should contain the expected location data
+        assert json_dict["latitude"] == location_data["latitude"]
+        assert json_dict["longitude"] == location_data["longitude"]
+
+    def test_property_images_serialization_to_json(
+        self, search_response: dict[str, Any]
+    ) -> None:
+        """Test that a PropertyImages model can be serialized to JSON"""
+        # GIVEN: a property images model created from search response data
+        images_data = search_response["properties"][0]["propertyImages"]
+        images_model = PropertyImages.model_validate(images_data)
+
+        # WHEN: serializing the model to JSON
+        json_str = images_model.model_dump_json()
+        json_dict = json.loads(json_str)
+
+        # THEN: the JSON should contain the expected image data in camelCase format
+        assert json_dict["mainImageSrc"] == images_data["mainImageSrc"]
+        assert json_dict["mainMapImageSrc"] == images_data["mainMapImageSrc"]
+        assert len(json_dict["images"]) == len(images_data["images"])
+
+        # THEN: the first image should be correctly serialized
+        first_image = json_dict["images"][0]
+        assert first_image["url"] == images_data["images"][0]["url"]
+        assert first_image["srcUrl"] == images_data["images"][0]["srcUrl"]
+        assert first_image["caption"] == images_data["images"][0]["caption"]
+
+    def test_listing_update_serialization_to_json(
+        self, search_response: dict[str, Any]
+    ) -> None:
+        """Test that a ListingUpdate model can be serialized to JSON"""
+        # GIVEN: a listing update model created from search response data
+        listing_update_data = search_response["properties"][0]["listingUpdate"]
+        listing_update_model = ListingUpdate.model_validate(listing_update_data)
+
+        # WHEN: serializing the model to JSON
+        json_str = listing_update_model.model_dump_json()
+        json_dict = json.loads(json_str)
+
+        # THEN: the JSON should contain the expected listing update data in camelCase format
+        assert (
+            json_dict["listingUpdateReason"]
+            == listing_update_data["listingUpdateReason"]
+        )
+        assert (
+            json_dict["listingUpdateDate"] == listing_update_data["listingUpdateDate"]
+        )
+
+    def test_price_serialization_to_json(self, search_response: dict[str, Any]) -> None:
+        """Test that a Price model can be serialized to JSON"""
+        # GIVEN: a price model created from search response data
+        price_data = search_response["properties"][0]["price"]
+        price_model = Price.model_validate(price_data)
+
+        # WHEN: serializing the model to JSON
+        json_str = price_model.model_dump_json()
+        json_dict = json.loads(json_str)
+
+        # THEN: the JSON should contain the expected price data in camelCase format
+        assert json_dict["amount"] == price_data["amount"]
+        assert json_dict["frequency"] == price_data["frequency"]
+        assert json_dict["currencyCode"] == price_data["currencyCode"]
+        assert len(json_dict["displayPrices"]) == len(price_data["displayPrices"])
+
+        # THEN: the first display price should be correctly serialized
+        first_display_price = json_dict["displayPrices"][0]
+        assert (
+            first_display_price["displayPrice"]
+            == price_data["displayPrices"][0]["displayPrice"]
+        )
+        assert (
+            first_display_price["displayPriceQualifier"]
+            == price_data["displayPrices"][0]["displayPriceQualifier"]
+        )
+
+    def test_customer_serialization_to_json(
+        self, search_response: dict[str, Any]
+    ) -> None:
+        """Test that a Customer model can be serialized to JSON"""
+        # GIVEN: a customer model created from search response data
+        customer_data = search_response["properties"][0]["customer"]
+        customer_model = Customer.model_validate(customer_data)
+
+        # WHEN: serializing the model to JSON
+        json_str = customer_model.model_dump_json()
+        json_dict = json.loads(json_str)
+
+        # THEN: the JSON should contain the expected customer data in camelCase format
+        assert json_dict["branchId"] == customer_data["branchId"]
+        assert json_dict["contactTelephone"] == customer_data["contactTelephone"]
+        assert json_dict["branchDisplayName"] == customer_data["branchDisplayName"]
+        assert json_dict["branchName"] == customer_data["branchName"]
+        assert json_dict["brandTradingName"] == customer_data["brandTradingName"]
+        assert json_dict["development"] == customer_data["development"]
+        assert json_dict["commercial"] == customer_data["commercial"]
+        assert json_dict["brandPlusLogoUrl"] == customer_data["brandPlusLogoUrl"]
+
+    def test_round_trip_serialization(self, search_response: dict[str, Any]) -> None:
+        """Test a complete round-trip serialization and deserialization of a Property model"""
+        # GIVEN: a property model created from search response data
+        property_data = search_response["properties"][0]
+        original_model = Property.model_validate(property_data)
+
+        # WHEN: serializing the model to JSON and then deserializing back to a model
+        json_str = original_model.model_dump_json()
+        deserialized_model = Property.model_validate_json(json_str)
+
+        # THEN: the deserialized model should equal the original model
+        assert deserialized_model == original_model
+
+        # THEN: key properties should match
+        assert deserialized_model.id == original_model.id
+        assert deserialized_model.bedrooms == original_model.bedrooms
+        assert deserialized_model.bathrooms == original_model.bathrooms
+        assert deserialized_model.summary == original_model.summary
+        assert deserialized_model.display_address == original_model.display_address
+        assert deserialized_model.property_sub_type == original_model.property_sub_type
