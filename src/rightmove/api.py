@@ -161,7 +161,7 @@ class _RawRightmove:
                 int(response["resultCount"].replace(",", "")), self.SEARCH_MAX_RESULTS
             ):
                 params = copy.deepcopy(params)
-                params["index"] = len(full_response["properties"])
+                params["index"] = int(full_response["pagination"]["next"])
                 response = self._request(
                     connection,
                     "GET",
