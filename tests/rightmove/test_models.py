@@ -14,6 +14,7 @@ from rightmove.models import (
     Customer,
     ProductLabel,
     LozengeModel,
+    MatchingLozenges,
 )
 import os
 
@@ -201,6 +202,36 @@ class TestPropertyModels:
         assert len(lozenge_model.matching_lozenges) == len(
             lozenge_data["matchingLozenges"]
         )
+
+        # AND: each matching lozenge should have the correct values
+        for i, lozenge in enumerate(lozenge_model.matching_lozenges):
+            original_lozenge = lozenge_data["matchingLozenges"][i]
+            assert isinstance(lozenge, MatchingLozenges)
+            assert lozenge.type == original_lozenge["type"]
+            assert lozenge.priority == original_lozenge["priority"]
+
+        # AND: verify we can find specific lozenges by type
+        if lozenge_model.matching_lozenges:
+            # Get a specific lozenge type from the original data to test against
+            test_type = lozenge_data["matchingLozenges"][0]["type"]
+
+            # Find the matching lozenge in our model
+            matching_lozenge = next(
+                (
+                    matching_lozenge
+                    for matching_lozenge in lozenge_model.matching_lozenges
+                    if matching_lozenge.type == test_type
+                ),
+                None,
+            )
+
+            # Verify we found it and its properties match
+            assert matching_lozenge is not None
+            assert matching_lozenge.type == test_type
+            assert (
+                matching_lozenge.priority
+                == lozenge_data["matchingLozenges"][0]["priority"]
+            )
 
 
 @pytest.mark.parametrize(
