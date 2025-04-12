@@ -124,7 +124,7 @@ class TestPropertyModels:
             == listing_update_data["listingUpdateReason"]
         )
         assert (
-            listing_update_model.listing_update_date
+            listing_update_model.listing_update_date.isoformat().replace("+00:00", "Z")
             == listing_update_data["listingUpdateDate"]
         )
 

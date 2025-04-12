@@ -30,7 +30,7 @@ class App:
                 self._wait("Press enter for next property...")
 
             if self._cache:
-                self._cache.add(property.model_dump())
+                self._cache.add(property.model_dump(mode="json"))
 
     def _show(self, property: models.Property) -> None:
         self._show_advert(property)

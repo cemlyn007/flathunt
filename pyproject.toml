@@ -26,6 +26,12 @@ dev = [
 search = "rightmove.scripts.search:main"
 update-search-locations = "rightmove.scripts.update_search_locations:main"
 
+[tool.pytest.ini_options]
+markers = [
+    "regression: marks tests as regression tests",
+]
+addopts = "-m 'not regression'"
+
 [tool.semantic_release]
 version_toml = [
     "pyproject.toml:project.version",
