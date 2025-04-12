@@ -1,6 +1,30 @@
 # CHANGELOG
 
 
+## v0.9.0 (2025-04-12)
+
+### Documentation
+
+- Update readme
+  ([`30bd898`](https://github.com/cemlyn007/flathunt/commit/30bd8986dc83ce90dc3b0206c42e32660c002d92))
+
+### Features
+
+- Rightmove search historical properties ([#10](https://github.com/cemlyn007/flathunt/pull/10),
+  [`16d7a47`](https://github.com/cemlyn007/flathunt/commit/16d7a478eb4c3ab7b8bcf810ee54fc8fe4c3f2ee))
+
+### Testing
+
+- Refactor and fix tests
+  ([`da869f5`](https://github.com/cemlyn007/flathunt/commit/da869f5da5c568327e2ccc1d8a3a4cfb75e23f48))
+
+- Refactor and fix tests
+  ([`97a1cfa`](https://github.com/cemlyn007/flathunt/commit/97a1cfaa0f12a3df48776afc485e203cac8b5f72))
+
+- Serialization of property models
+  ([`439ce02`](https://github.com/cemlyn007/flathunt/commit/439ce025fd24769d47dbb3c7f84714dc95f9cd19))
+
+
 ## v0.8.0 (2025-04-06)
 
 ### Features
