@@ -1,7 +1,26 @@
 import pydantic
-from typing import Optional
+from typing import Any, Optional
 
 import pydantic.alias_generators
+
+__all__ = [
+    "Highlight",
+    "LookupMatch",
+    "LookupMatches",
+    "Location",
+    "PropertyImage",
+    "PropertyImages",
+    "ListingUpdate",
+    "DisplayPrice",
+    "Price",
+    "BuildToRentBenefits",
+    "DevelopmentContent",
+    "Customer",
+    "ProductLabel",
+    "MatchingLozenges",
+    "LozengeModel",
+    "Property",
+]
 
 
 class CamelCaseModel(pydantic.BaseModel):
@@ -27,6 +46,10 @@ class LookupMatch(CamelCaseModel):
     display_name: str
     highlighting: str
     highlights: list[Highlight]
+
+    @property
+    def location_identifier(self) -> str:
+        return f"{self.type}^{self.id}"
 
 
 class LookupMatches(CamelCaseModel):
@@ -54,8 +77,8 @@ class PropertyImages(CamelCaseModel):
 
 
 class ListingUpdate(CamelCaseModel):
-    listing_update_reason: str
-    listing_update_date: pydantic.AwareDatetime
+    listing_update_reason: Optional[str]
+    listing_update_date: Optional[pydantic.AwareDatetime]
 
 
 class DisplayPrice(CamelCaseModel):
@@ -77,6 +100,13 @@ class BuildToRentBenefits(CamelCaseModel):
     position_on_page: int
 
 
+class DevelopmentContent(CamelCaseModel):
+    headline: Optional[Any] = None
+    "Currently the type is not known."
+    features: Optional[Any] = None
+    "Currently the type is not known."
+
+
 class Customer(CamelCaseModel):
     branch_id: Optional[int] = None
     brand_plus_logo_uri: Optional[str] = None
@@ -90,7 +120,7 @@ class Customer(CamelCaseModel):
     commercial: bool
     show_on_map: Optional[bool] = None
     enhanced_listing: Optional[bool] = None
-    development_content: Optional[str] = None
+    development_content: Optional[DevelopmentContent] = None
     build_to_rent: Optional[bool] = None
     build_to_rent_benefits: list[BuildToRentBenefits]
     brand_plus_logo_url: Optional[str] = None
