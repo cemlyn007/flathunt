@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.9.1 (2025-04-12)
+
+### Bug Fixes
+
+- Cache model dump
+  ([`4bbbce1`](https://github.com/cemlyn007/flathunt/commit/4bbbce1257f3dafa791644a2c649866cfa42449f))
+
+
 ## v0.9.0 (2025-04-12)
 
 ### Documentation
