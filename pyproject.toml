@@ -26,6 +26,9 @@ dev = [
 search = "rightmove.scripts.search:main"
 update-search-locations = "rightmove.scripts.update_search_locations:main"
 
+[tool.ruff]
+extend-include = ["*.ipynb"]
+
 [tool.pytest.ini_options]
 markers = [
     "regression: marks tests as regression tests",
