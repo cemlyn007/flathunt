@@ -42,9 +42,19 @@ class App:
         except tfl.api.HTTPError:
             logger.exception('Location name "%s"')
 
-        properties = self._api.search(
-            location_id, max_price, max_miles_radius, max_days_since_added
+        query = api.SearchQuery(
+            location_identifier=location_id,
+            min_bedrooms=1,
+            min_price=0,
+            max_price=max_price,
+            number_of_properties_per_page=24,
+            radius=max_miles_radius,
+            sort_type=api.SortType.MOST_RECENT,
+            include_let_agreed=False,
+            is_fetching=True,
+            max_days_since_added=max_days_since_added,
         )
+        properties = self._api.search(query)
         logger.info("Search returned %d properties", len(properties))
         new_properties = [
             property

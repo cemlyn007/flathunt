@@ -1,15 +1,106 @@
+from collections.abc import Sequence
+import enum
 import gzip
 import http
 import http.client
 import json
-from typing import Any
+from typing import Any, Literal, Optional
 import copy
 import urllib.parse
 from rightmove import models
-from typing import Optional
+import pydantic
 
 
 class HTTPError(Exception): ...
+
+
+class SortType(enum.IntEnum):
+    """Sort type for search results."""
+
+    LOWEST_PRICE = 1
+    HIGHEST_PRICE = 2
+    NEAREST_FIRST = 4
+    MOST_RECENT = 6
+    OLDEST_LISTED = 10
+
+
+class MustHave(enum.Enum):
+    """Must have property features."""
+
+    GARDEN = "garden"
+    PARKING = "parking"
+
+
+class DontShow(enum.Enum):
+    """Property types to exclude from search results."""
+
+    HOUSE_SHARE = "houseShare"
+    RETIREMENT = "retirement"
+    STUDENT = "student"
+
+
+class FurnishType(enum.Enum):
+    """Furnish type for properties."""
+
+    FURNISHED = "furnished"
+    PART_FURNISHED = "partFurnished"
+    UNFURNISHED = "unfurnished"
+
+
+class PropertyType(enum.Enum):
+    """Property types for search results."""
+
+    FLAT = "flat"
+    LAND = "land"
+    PARK_HOME = "park-home"
+    PRIVATE_HALLS = "private-halls"
+    DETACHED = "detached"
+    SEMI_DETACHED = "semi-detached"
+    TERRACED = "terraced"
+
+
+class SearchQuery(pydantic.BaseModel):
+    location_identifier: str
+    min_bedrooms: int = 1
+    max_bedrooms: int = 10
+    min_price: int = 0
+    max_price: int
+    min_bathrooms: int = 1
+    max_bathrooms: int = 5
+    number_of_properties_per_page: int = pydantic.Field(gt=0, le=25)
+    radius: float = pydantic.Field(gt=0, le=25)
+    "In Miles."
+    sort_type: SortType = SortType.NEAREST_FIRST
+    must_have: Sequence[MustHave] = ()
+    dont_show: Sequence[DontShow] = pydantic.Field(
+        default=(
+            DontShow.HOUSE_SHARE,
+            DontShow.RETIREMENT,
+            DontShow.STUDENT,
+        )
+    )
+    furnish_types: Sequence[FurnishType] = pydantic.Field(
+        default=(
+            FurnishType.FURNISHED,
+            FurnishType.PART_FURNISHED,
+            FurnishType.UNFURNISHED,
+        )
+    )
+    property_types: Sequence[PropertyType] = pydantic.Field(
+        default=(
+            PropertyType.FLAT,
+            PropertyType.DETACHED,
+            PropertyType.SEMI_DETACHED,
+            PropertyType.TERRACED,
+        )
+    )
+    is_fetching: bool
+    max_days_since_added: Optional[int] = None
+    channel: Literal["RENT", "BUY"] = "RENT"
+    view_type: Literal["LIST"] = "LIST"
+    area_size_unit: Literal["sqm"] = "sqm"
+    currency_code: Literal["GBP"] = "GBP"
+    include_let_agreed: bool = False
 
 
 class Rightmove:
@@ -33,17 +124,17 @@ class Rightmove:
 
     def search(
         self,
-        location_id: str,
-        max_price: int,
-        max_miles_radius: float,
-        max_days_since_added: Optional[int],
+        query: SearchQuery,
     ) -> list[models.Property]:
-        search_results = self._raw_api.search(
-            location_id=location_id,
-            max_price=max_price,
-            max_miles_radius=max_miles_radius,
-            max_days_since_added=max_days_since_added,
-        )
+        """Search for properties using the provided configuration.
+
+        Args:
+            query (SearchQuery): Search configuration parameters
+
+        Returns:
+            list[models.Property]: List of properties matching the search criteria
+        """
+        search_results = self._raw_api.search(query=query)
         return [
             models.Property.model_validate(property)
             for property in search_results["properties"]
@@ -91,36 +182,58 @@ class _RawRightmove:
 
     def search(
         self,
-        location_id: str,
-        max_price: int,
-        max_miles_radius: float,
-        max_days_since_added: Optional[int],
+        query: SearchQuery,
     ) -> dict[str, Any]:
-        params = {
-            "locationIdentifier": location_id,
-            "minBedrooms": 1,
-            "maxPrice": max_price,
-            "numberOfPropertiesPerPage": 24,
-            "radius": max_miles_radius,
-            "sortType": 6,  # Most recent.
-            "includeLetAgreed": False,
-            "viewType": "LIST",
-            "dontShow[0]": "houseShare",
-            "dontShow[1]": "retirement",
-            "dontShow[2]": "student",
-            "furnishTypes[0]": "furnished",
-            "furnishTypes[1]": "partFurnished",
-            "channel": "RENT",
-            "areaSizeUnit": "sqm",
-            "currencyCode": "GBP",
-            "isFetching": False,
-        }
-        if max_days_since_added is not None:
-            params["maxDaysSinceAdded"] = max_days_since_added
+        params = self._get_params(query)
         return self._search(params)
 
     def property_url(self, property_url: str) -> str:
         return f"https://{self.BASE_HOST}{property_url}"
+
+    def _get_params(self, query: SearchQuery) -> dict[str, Any]:
+        params = {
+            "locationIdentifier": query.location_identifier,
+            "minPrice": query.min_price,
+            "maxPrice": query.max_price,
+            "numberOfPropertiesPerPage": query.number_of_properties_per_page,
+            "radius": query.radius,
+            "sortType": query.sort_type.value,
+            "includeLetAgreed": query.include_let_agreed,
+            "viewType": query.view_type,
+            "channel": query.channel,
+            "areaSizeUnit": query.area_size_unit,
+            "currencyCode": query.currency_code,
+            "isFetching": query.is_fetching,
+        }
+        if query.dont_show:
+            params["dontShow"] = ",".join(
+                dont_show.value for dont_show in query.dont_show
+            )
+        if query.furnish_types:
+            params["furnishTypes"] = ",".join(
+                furnish_type.value for furnish_type in query.furnish_types
+            )
+        if query.must_have:
+            params["mustHave"] = ",".join(
+                must_have.value for must_have in query.must_have
+            )
+        if query.property_types:
+            params["propertyTypes"] = ",".join(
+                property_type.value for property_type in query.property_types
+            )
+        if query.include_let_agreed:
+            params["_includeLetAgreed"] = "on"
+        if query.max_days_since_added is not None:
+            params["maxDaysSinceAdded"] = query.max_days_since_added
+        if query.min_bedrooms:
+            params["minBedrooms"] = query.min_bedrooms
+        if query.max_bedrooms:
+            params["maxBedrooms"] = query.max_bedrooms
+        if query.min_bathrooms:
+            params["minBathrooms"] = query.min_bathrooms
+        if query.max_bathrooms:
+            params["maxBathrooms"] = query.max_bathrooms
+        return params
 
     def _search(self, params: dict[str, Any]) -> dict[str, Any]:
         connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
@@ -137,7 +250,7 @@ class _RawRightmove:
                 int(response["resultCount"].replace(",", "")), self.SEARCH_MAX_RESULTS
             ):
                 params = copy.deepcopy(params)
-                params["index"] = len(full_response["properties"])
+                params["index"] = int(response["pagination"]["next"])
                 response = self._request(
                     connection,
                     "GET",
@@ -152,7 +265,7 @@ class _RawRightmove:
     def _request(
         self,
         connection: http.client.HTTPSConnection,
-        method: str,
+        method: Literal["GET"],
         url: str,
         parameters: dict[str, Any],
     ) -> Any:

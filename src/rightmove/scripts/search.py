@@ -1,5 +1,6 @@
 import argparse
 import json
+from rightmove import api
 import rightmove.app
 import rightmove.property_cache
 
@@ -32,7 +33,17 @@ def main() -> None:
     try:
         for location, location_id in search_locations.items():
             print(f"Searching for properties near {location}...", flush=True)
-            app.search(location_id, search_prices.get(location, 2200), 0.5, 7)
+            query = api.SearchQuery(
+                location_identifier=location_id,
+                min_bedrooms=1,
+                max_price=search_prices.get(location, 2200),
+                number_of_properties_per_page=24,
+                radius=0.5,
+                sort_type=api.SortType.MOST_RECENT,
+                include_let_agreed=False,
+                is_fetching=True,
+            )
+            app.search(query)
     except KeyboardInterrupt:
         pass
 

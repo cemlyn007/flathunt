@@ -16,14 +16,9 @@ class App:
 
     def search(
         self,
-        location_id: str,
-        max_price: int,
-        max_miles_radius: float,
-        max_days_since_added: Optional[int],
+        query: api.SearchQuery,
     ) -> None:
-        properties = self._api.search(
-            location_id, max_price, max_miles_radius, max_days_since_added
-        )
+        properties = self._api.search(query)
         new_properties = [
             property
             for property in properties
@@ -35,7 +30,7 @@ class App:
                 self._wait("Press enter for next property...")
 
             if self._cache:
-                self._cache.add(property.model_dump())
+                self._cache.add(property.model_dump(mode="json"))
 
     def _show(self, property: models.Property) -> None:
         self._show_advert(property)

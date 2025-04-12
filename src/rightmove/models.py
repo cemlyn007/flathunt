@@ -55,7 +55,7 @@ class PropertyImages(CamelCaseModel):
 
 class ListingUpdate(CamelCaseModel):
     listing_update_reason: str
-    listing_update_date: str
+    listing_update_date: pydantic.AwareDatetime
 
 
 class DisplayPrice(CamelCaseModel):
@@ -144,7 +144,7 @@ class Property(CamelCaseModel):
     contact_url: Optional[str] = None
     static_map_url: Optional[str] = None
     channel: str
-    first_visible_date: Optional[str] = None
+    first_visible_date: Optional[pydantic.AwareDatetime] = None
     keywords: Optional[list[str]] = None
     keyword_match_type: Optional[str] = None
     saved: bool
