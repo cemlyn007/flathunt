@@ -10,6 +10,22 @@ import urllib.parse
 from rightmove import models
 import pydantic
 
+__all__ = [
+    "HTTPError",
+    "SortType",
+    "MustHave",
+    "DontShow",
+    "FurnishType",
+    "PropertyType",
+    "SearchQuery",
+    "Rightmove",
+    "SEARCH_MAX_RESULTS",
+]
+
+
+SEARCH_MAX_RESULTS = 1000
+"The maximum number of results the API will return indices up to."
+
 
 class HTTPError(Exception): ...
 
@@ -64,12 +80,12 @@ class SearchQuery(pydantic.BaseModel):
     min_bedrooms: int = 1
     max_bedrooms: int = 10
     min_price: int = 0
-    max_price: int
+    max_price: Optional[int] = None
     min_bathrooms: int = 1
     max_bathrooms: int = 5
-    number_of_properties_per_page: int = pydantic.Field(gt=0, le=25)
-    radius: float = pydantic.Field(gt=0, le=25)
-    "In Miles."
+    number_of_properties_per_page: int = pydantic.Field(gt=0, le=25, default=24)
+    radius: float = pydantic.Field(gt=-1, default=0)
+    "In Miles. Set to 0 to only return properties in area."
     sort_type: SortType = SortType.NEAREST_FIRST
     must_have: Sequence[MustHave] = ()
     dont_show: Sequence[DontShow] = pydantic.Field(
@@ -110,16 +126,18 @@ class Rightmove:
     def lookup(
         self,
         query: str,
+        limit: Optional[int] = None,
     ) -> models.LookupMatches:
         """Get the location IDs related to a search query.
 
         Args:
             query (str): Search location query.
+            limit (int): Limit, defaulting to the API max limit.
 
         Returns:
             models.LookupMatches: Matches
         """
-        lookup_results = self._raw_api.lookup(query=query)
+        lookup_results = self._raw_api.lookup(query=query, limit=limit)
         return models.LookupMatches.model_validate(lookup_results)
 
     def search(
@@ -148,19 +166,14 @@ class _RawRightmove:
     BASE_HOST = "www.rightmove.co.uk"
     LOS_HOST = "los.rightmove.co.uk"
     LOS_LIMIT = 20
+    "The maximum search results the lookup service will return."
 
-    # The maximum number of results the API
-    # will return indices up to.
-    SEARCH_MAX_RESULTS = 1000
-
-    def lookup(
-        self,
-        query: str,
-    ) -> dict[str, Any]:
+    def lookup(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
         """Get the location IDs related to a search query.
 
         Args:
             query (str): Search location query.
+            limit (int): Limit, defaulting to the API max limit.
 
         Returns:
             dict[str, Any]: Matches
@@ -173,7 +186,7 @@ class _RawRightmove:
                 "/typeahead",
                 {
                     "query": query,
-                    "limit": self.LOS_LIMIT,
+                    "limit": limit or self.LOS_LIMIT,
                     "exclude": "",
                 },
             )
@@ -193,8 +206,6 @@ class _RawRightmove:
     def _get_params(self, query: SearchQuery) -> dict[str, Any]:
         params = {
             "locationIdentifier": query.location_identifier,
-            "minPrice": query.min_price,
-            "maxPrice": query.max_price,
             "numberOfPropertiesPerPage": query.number_of_properties_per_page,
             "radius": query.radius,
             "sortType": query.sort_type.value,
@@ -205,6 +216,10 @@ class _RawRightmove:
             "currencyCode": query.currency_code,
             "isFetching": query.is_fetching,
         }
+        if query.min_price:
+            params["minPrice"] = query.min_price
+        if query.max_price:
+            params["maxPrice"] = query.max_price
         if query.dont_show:
             params["dontShow"] = ",".join(
                 dont_show.value for dont_show in query.dont_show
@@ -247,7 +262,7 @@ class _RawRightmove:
             )
             full_response = copy.deepcopy(response)
             while len(full_response["properties"]) < min(
-                int(response["resultCount"].replace(",", "")), self.SEARCH_MAX_RESULTS
+                int(response["resultCount"].replace(",", "")), SEARCH_MAX_RESULTS
             ):
                 params = copy.deepcopy(params)
                 params["index"] = int(response["pagination"]["next"])
