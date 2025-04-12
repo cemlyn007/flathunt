@@ -123,6 +123,7 @@ class TestPropertyModels:
             listing_update_model.listing_update_reason
             == listing_update_data["listingUpdateReason"]
         )
+        assert listing_update_model.listing_update_date is not None
         assert (
             listing_update_model.listing_update_date.isoformat().replace("+00:00", "Z")
             == listing_update_data["listingUpdateDate"]
