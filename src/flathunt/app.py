@@ -77,7 +77,7 @@ class App:
                 max_journey_timedelta=max_journey_timedelta,
             ):
                 if self._cache:
-                    self._cache.add(property.model_dump())
+                    self._cache.add(property.model_dump(mode="json"))
                 logger.info(
                     'Skipping "%s" (%s %s)',
                     property.display_address,
@@ -96,7 +96,7 @@ class App:
                 self._wait("Press enter for next property...")
 
             if self._cache:
-                self._cache.add(property.model_dump())
+                self._cache.add(property.model_dump(mode="json"))
 
     def _check_journey(
         self,
