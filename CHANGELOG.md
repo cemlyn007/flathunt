@@ -1,6 +1,22 @@
 # CHANGELOG
 
 
+## v0.11.0 (2025-04-13)
+
+### Features
+
+- Support polyline rightmove search
+  ([`44e693c`](https://github.com/cemlyn007/flathunt/commit/44e693c983d323b9895ebb8b5e4ab50e4d3066b3))
+
+
+## v0.10.0 (2025-04-13)
+
+### Features
+
+- Generate postcode boundaries
+  ([`f96f088`](https://github.com/cemlyn007/flathunt/commit/f96f08853c0bebbc7f201ac8e116c78bc084b06f))
+
+
 ## v0.9.2 (2025-04-13)
 
 ### Bug Fixes

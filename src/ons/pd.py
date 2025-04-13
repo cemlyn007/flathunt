@@ -5,9 +5,8 @@ from typing import Iterable
 __all__ = [
     "district_code",
     "sub_district_code",
-    "sector_code",
     "assert_valid_postcode",
-    "read_london_active_post_code_centroids",
+    "read_london_active_postcode_centroids",
 ]
 
 
@@ -20,44 +19,39 @@ USERTYPE_KEY = "USERTYPE"
 OSLAUA_KEY = "OSLAUA"
 
 
-def district_code(post_code: str) -> str:
-    return post_code[:3].strip()
+def district_code(postcode: str) -> str:
+    return postcode[:3].strip()
 
 
-def sub_district_code(post_code: str) -> str:
-    code = post_code[:4].strip()
+def sub_district_code(postcode: str) -> str:
+    code = postcode[:4].strip()
     return code
 
 
-def sector_code(post_code: str) -> str:
-    code = post_code[:5].strip()
-    return code
-
-
-def assert_valid_postcode(post_code: str) -> None:
-    if len(post_code) < 6 or len(post_code) > 8:
+def assert_valid_postcode(postcode: str) -> None:
+    if len(postcode) < 6 or len(postcode) > 8:
         raise ValueError("Postcode should range from 6 to 8 characters")
-    if not all(c.isalnum() or c == " " for c in post_code):
+    if not all(c.isalnum() or c == " " for c in postcode):
         raise ValueError("Postcode is not all alphanumeric")
-    if not post_code[0].isalpha():
+    if not postcode[0].isalpha():
         raise ValueError("First character is not alphabetical")
-    if not post_code[1].isalnum():
+    if not postcode[1].isalnum():
         raise ValueError("Second character is not alphanumeric")
-    if not (post_code[2].isalnum() or post_code[2] == " "):
+    if not (postcode[2].isalnum() or postcode[2] == " "):
         raise ValueError("Third character is not alphanumeric or space")
-    if not (post_code[3].isalnum() or post_code[3] == " "):
+    if not (postcode[3].isalnum() or postcode[3] == " "):
         raise ValueError("Forth character is not alphanumeric or space")
-    if not post_code[4].isalnum():
+    if not postcode[4].isalnum():
         raise ValueError("Fifth character is not alphanumeric")
-    if not post_code[5].isalnum():
+    if not postcode[5].isalnum():
         raise ValueError("Sixth character is not alphanumeric")
-    if len(post_code) > 6 and not post_code[6].isalnum():
+    if len(postcode) > 6 and not postcode[6].isalnum():
         raise ValueError("Seventh character is not alphanumeric")
-    if len(post_code) > 7 and not post_code[7].isalnum():
+    if len(postcode) > 7 and not postcode[7].isalnum():
         raise ValueError("Eigth character is not alphanumeric")
 
 
-def read_london_active_post_code_centroids(
+def read_london_active_postcode_centroids(
     file_path: str,
 ) -> Iterable[tuple[str, decimal.Decimal, decimal.Decimal]]:
     """Reads the ONS postcode centroid file and returns a dictionary of postcodes and their coordinates."""
