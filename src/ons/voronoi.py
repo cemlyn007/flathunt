@@ -66,7 +66,10 @@ def get_polylines(
         # We have a boundary point that we'd like to stitch together :D
         # This is an assumption to an extent, and I should more concretely
         #  assert this.
-        assert len(lone_vertices) == 2
+        if len(lone_vertices) != 2:
+            raise ValueError(
+                f"Expected exactly 2 lone vertices, but found {len(lone_vertices)}: {lone_vertices}"
+            )
         face_edges.append(tuple(lone_vertices))
     vertex = face_edges.pop()
     belt = [vertex[0], vertex[1]]
