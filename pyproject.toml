@@ -15,6 +15,7 @@ dependencies = [
     "scipy>=1.15.2",
     "numpy>=2.2.4",
     "tqdm>=4.0.0",
+    "polyline>=2.0.2",
 ]
 
 [project.optional-dependencies]

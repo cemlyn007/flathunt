@@ -20,6 +20,7 @@ __all__ = [
     "MatchingLozenges",
     "LozengeModel",
     "Property",
+    "PropertyLocation",
 ]
 
 
@@ -62,6 +63,11 @@ class LookupMatches(CamelCaseModel):
 class Location(CamelCaseModel):
     latitude: float
     longitude: float
+
+
+class PropertyLocation(CamelCaseModel):
+    id: int
+    location: Location
 
 
 class PropertyImage(CamelCaseModel):
@@ -177,8 +183,8 @@ class Property(CamelCaseModel):
     first_visible_date: Optional[pydantic.AwareDatetime] = None
     keywords: Optional[list[str]] = None
     keyword_match_type: Optional[str] = None
-    saved: bool
-    hidden: bool
+    saved: Optional[bool]
+    hidden: Optional[bool]
     online_viewings_available: Optional[bool] = None
     lozenge_model: Optional[LozengeModel] = None
     has_brand_plus: Optional[bool] = None
