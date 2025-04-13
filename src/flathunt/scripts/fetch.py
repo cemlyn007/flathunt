@@ -100,16 +100,13 @@ def get_cached_lookups(
 
 def search(
     post_codes: Collection[str],
-    resolution: Literal["district", "sub_district", "sector", "post_code"] = "district",
+    resolution: Literal["district", "sub_district", "post_code"] = "district",
 ):
     if resolution == "district":
         codes = {ons.pd.district_code(post_code) for post_code in post_codes}
         next_resolution = "sub_district"
     elif resolution == "sub_district":
         codes = {ons.pd.sub_district_code(post_code) for post_code in post_codes}
-        next_resolution = "sector"
-    elif resolution == "sector":
-        codes = {ons.pd.sector_code(post_code) for post_code in post_codes}
         next_resolution = "post_code"
     elif resolution == "post_code":
         codes = post_codes
@@ -127,7 +124,7 @@ def search(
                 if other_identifier == identifier
             )
             for identifier, properties in search_results.items()
-            if len(properties) >= rightmove.api.SEARCH_MAX_RESULTS
+            if len(properties) >= rightmove.api.SEARCH_LIST_MAX_RESULTS
         )
     )
     if codes_with_missing_results:
@@ -142,7 +139,6 @@ def search(
             if {
                 "district": ons.pd.district_code,
                 "sub_district": ons.pd.sub_district_code,
-                "sector": ons.pd.sector_code,
             }[resolution](post_code)
             in codes_with_missing_results
         ]
@@ -196,7 +192,7 @@ if __name__ == "__main__":
     post_codes = list(
         map(
             operator.itemgetter(0),
-            ons.pd.read_london_active_post_code_centroids(file_path),
+            ons.pd.read_london_active_postcode_centroids(file_path),
         )
     )
     for post_code in post_codes:
