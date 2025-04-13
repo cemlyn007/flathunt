@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.10.0 (2025-04-13)
+
+### Features
+
+- Generate postcode boundaries
+  ([`f96f088`](https://github.com/cemlyn007/flathunt/commit/f96f08853c0bebbc7f201ac8e116c78bc084b06f))
+
+
 ## v0.9.2 (2025-04-13)
 
 ### Bug Fixes
