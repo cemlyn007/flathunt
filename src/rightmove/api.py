@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 import enum
 import gzip
 import http
@@ -9,8 +9,11 @@ import copy
 import urllib.parse
 from rightmove import models
 import pydantic
+import polyline as _polyline
 
 __all__ = [
+    "SEARCH_LIST_MAX_RESULTS",
+    "SEARCH_MAP_MAX_RESULTS",
     "HTTPError",
     "SortType",
     "MustHave",
@@ -19,12 +22,15 @@ __all__ = [
     "PropertyType",
     "SearchQuery",
     "Rightmove",
-    "SEARCH_MAX_RESULTS",
+    "polyline_identifier",
 ]
 
 
-SEARCH_MAX_RESULTS = 1000
-"The maximum number of results the API will return indices up to."
+SEARCH_LIST_MAX_RESULTS = 1000
+"The maximum number of results the LIST viewType API will return indices up to."
+
+SEARCH_MAP_MAX_RESULTS = 499
+"The maximum number of results the MAP viewType API will return up to."
 
 
 class HTTPError(Exception): ...
@@ -113,10 +119,16 @@ class SearchQuery(pydantic.BaseModel):
     is_fetching: bool
     max_days_since_added: Optional[int] = None
     channel: Literal["RENT", "BUY"] = "RENT"
-    view_type: Literal["LIST"] = "LIST"
+    view_type: Literal["LIST", "MAP"] = "LIST"
     area_size_unit: Literal["sqm"] = "sqm"
     currency_code: Literal["GBP"] = "GBP"
     include_let_agreed: bool = False
+
+
+def polyline_identifier(polyline: list[tuple[float, float]]) -> str:
+    return "USERDEFINEDAREA^" + json.dumps(
+        {"polylines": _polyline.encode(polyline)}, separators=(", ", ":")
+    )
 
 
 class Rightmove:
@@ -151,8 +163,42 @@ class Rightmove:
 
         Returns:
             list[models.Property]: List of properties matching the search criteria
+                of up to a max length of 1000.
         """
+        query = query.model_copy(update={"view_type": "LIST"})
         search_results = self._raw_api.search(query=query)
+        return [
+            models.Property.model_validate(property)
+            for property in search_results["properties"]
+        ]
+
+    def map_search(
+        self,
+        query: SearchQuery,
+    ) -> list[models.PropertyLocation]:
+        """Search for properties using the provided configuration.
+
+        Args:
+            query (SearchQuery): Search configuration parameters
+
+        Returns:
+            list[models.PropertyLocation]: List of properties matching the search criteria
+                of up to a max length of 499.
+        """
+        query = query.model_copy(update={"view_type": "MAP"})
+        location_results = self._raw_api.search(query=query)
+        return [
+            models.PropertyLocation.model_validate(property)
+            for property in location_results["properties"]
+        ]
+
+    def search_by_ids(
+        self,
+        ids: Iterable[int],
+        channel: Literal["RENT", "BUY"],
+    ) -> list[models.Property]:
+        "Note that only 25 ids can be passed at a time."
+        search_results = self._raw_api.by_ids(ids=ids, channel=channel)
         return [
             models.Property.model_validate(property)
             for property in search_results["properties"]
@@ -197,13 +243,34 @@ class _RawRightmove:
         self,
         query: SearchQuery,
     ) -> dict[str, Any]:
-        params = self._get_params(query)
+        params = self._get_search_params(query)
         return self._search(params)
+
+    def by_ids(
+        self,
+        ids: Iterable[int],
+        channel: Literal["RENT", "BUY"],
+    ) -> dict[str, Any]:
+        params = {
+            "channel": channel,
+            "propertyIds": ",".join(map(str, ids)),
+            "viewType": "MAP",
+        }
+        connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
+        try:
+            return self._request(
+                connection,
+                "GET",
+                "/api/_searchByIds",
+                params,
+            )
+        finally:
+            connection.close()
 
     def property_url(self, property_url: str) -> str:
         return f"https://{self.BASE_HOST}{property_url}"
 
-    def _get_params(self, query: SearchQuery) -> dict[str, Any]:
+    def _get_search_params(self, query: SearchQuery) -> dict[str, Any]:
         params = {
             "locationIdentifier": query.location_identifier,
             "numberOfPropertiesPerPage": query.number_of_properties_per_page,
@@ -253,16 +320,23 @@ class _RawRightmove:
     def _search(self, params: dict[str, Any]) -> dict[str, Any]:
         connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
         try:
-            endpoint_url = "/api/_search"
+            endpoint_url = {
+                "LIST": "/api/_search",
+                "MAP": "/api/_mapSearch",
+            }[params["viewType"]]
             response = self._request(
                 connection,
                 "GET",
                 endpoint_url,
                 params,
             )
+            # MAP doesn't support pagination, so you'll
+            #  only get the first page of results.
+            if params["viewType"] == "MAP":
+                return response
             full_response = copy.deepcopy(response)
             while len(full_response["properties"]) < min(
-                int(response["resultCount"].replace(",", "")), SEARCH_MAX_RESULTS
+                int(response["resultCount"].replace(",", "")), SEARCH_LIST_MAX_RESULTS
             ):
                 params = copy.deepcopy(params)
                 params["index"] = int(response["pagination"]["next"])
