@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.11.0 (2025-04-13)
+
+### Features
+
+- Support polyline rightmove search
+  ([`44e693c`](https://github.com/cemlyn007/flathunt/commit/44e693c983d323b9895ebb8b5e4ab50e4d3066b3))
+
+
 ## v0.10.0 (2025-04-13)
 
 ### Features
