@@ -12,6 +12,9 @@ requires-python = ">=3.9"
 
 dependencies = [
     "pydantic>=2.0.0",
+    "scipy>=1.15.2",
+    "numpy>=2.2.4",
+    "tqdm>=4.0.0",
 ]
 
 [project.optional-dependencies]
