@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.9.2 (2025-04-13)
+
+### Bug Fixes
+
+- Update model attribute type signatures
+  ([`c0a7081`](https://github.com/cemlyn007/flathunt/commit/c0a7081b6a1bbd9fefafe603aa550f2aa504d36c))
+
+### Continuous Integration
+
+- Ruff include jupyter notebooks
+  ([`3f57ed0`](https://github.com/cemlyn007/flathunt/commit/3f57ed00df1eceb201cc6884ccabcd2fd492faa5))
+
+### Refactoring
+
+- Rightmove api
+  ([`f76d927`](https://github.com/cemlyn007/flathunt/commit/f76d9272b275bb509075e4419eba27414a26bdd3))
+
+- Test fix typing
+  ([`19d58a5`](https://github.com/cemlyn007/flathunt/commit/19d58a59622f409e314f991eee7c0ce9c4d5f088))
+
+
 ## v0.9.1 (2025-04-12)
 
 ### Bug Fixes
