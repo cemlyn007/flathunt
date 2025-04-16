@@ -14,6 +14,7 @@ import polyline as _polyline
 __all__ = [
     "SEARCH_LIST_MAX_RESULTS",
     "SEARCH_MAP_MAX_RESULTS",
+    "SEARCH_BY_IDS_MAX_RESULTS",
     "HTTPError",
     "SortType",
     "MustHave",
@@ -31,6 +32,9 @@ SEARCH_LIST_MAX_RESULTS = 1000
 
 SEARCH_MAP_MAX_RESULTS = 499
 "The maximum number of results the MAP viewType API will return up to."
+
+SEARCH_BY_IDS_MAX_RESULTS = 25
+"The maximum number of results the by IDs API will return up to."
 
 
 class HTTPError(Exception): ...
@@ -175,7 +179,7 @@ class Rightmove:
     def map_search(
         self,
         query: SearchQuery,
-    ) -> list[models.PropertyLocation]:
+    ) -> tuple[list[models.PropertyLocation], int]:
         """Search for properties using the provided configuration.
 
         Args:
@@ -184,13 +188,14 @@ class Rightmove:
         Returns:
             list[models.PropertyLocation]: List of properties matching the search criteria
                 of up to a max length of 499.
+            int: Number of properties matching the search criteria.
         """
         query = query.model_copy(update={"view_type": "MAP"})
         location_results = self._raw_api.search(query=query)
         return [
             models.PropertyLocation.model_validate(property)
             for property in location_results["properties"]
-        ]
+        ], int(location_results["resultCount"].replace(",", ""))
 
     def search_by_ids(
         self,
