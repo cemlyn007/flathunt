@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v0.12.0 (2025-04-17)
+
+### Features
+
+- Store historical property data to disk ([#14](https://github.com/cemlyn007/flathunt/pull/14),
+  [`ac10b0a`](https://github.com/cemlyn007/flathunt/commit/ac10b0a2ac25c48b5d863c4819db5260c3afa45e))
+
+* feat: fetch script
+
+* fix: fetch
+
+* feat: search boundaries script
+
+
 ## v0.11.0 (2025-04-13)
 
 ### Features

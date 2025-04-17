@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flathunt"
-version = "0.11.0"
+version = "0.12.0"
 description = "Flat hunt application for improving the search experience"
 authors = [{name = "Cemlyn Neil Waters", email = "cemlynwaters@gmail.com"},]
 readme = "README.md"
