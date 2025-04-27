@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.13.1 (2025-04-27)
+
+### Bug Fixes
+
+- Postcode sub district code
+  ([`80f9189`](https://github.com/cemlyn007/flathunt/commit/80f91893fab79169092be9187f061bbffb521b0a))
+
+### Testing
+
+- Add postcode tests
+  ([`19eff7e`](https://github.com/cemlyn007/flathunt/commit/19eff7e1ad5301495402bc6bf4a43201214f072e))
+
+
 ## v0.13.0 (2025-04-27)
 
 ### Bug Fixes
