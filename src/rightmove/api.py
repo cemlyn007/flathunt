@@ -10,6 +10,7 @@ import urllib.parse
 from rightmove import models
 import pydantic
 import polyline as _polyline
+from tenacity import Retrying
 
 __all__ = [
     "SEARCH_LIST_MAX_RESULTS",
@@ -136,8 +137,12 @@ def polyline_identifier(polyline: list[tuple[float, float]]) -> str:
 
 
 class Rightmove:
-    def __init__(self) -> None:
+    def __init__(self, retrying: Optional[Retrying] = None) -> None:
         self._raw_api = _RawRightmove()
+        if retrying is not None:
+            self._raw_api.lookup = retrying.wraps(self._raw_api.lookup)
+            self._raw_api.search = retrying.wraps(self._raw_api.search)
+            self._raw_api.by_ids = retrying.wraps(self._raw_api.by_ids)
 
     def lookup(
         self,

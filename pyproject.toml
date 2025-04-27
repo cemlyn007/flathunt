@@ -11,6 +11,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 
 dependencies = [
+    "tenacity",
     "pydantic>=2.0.0",
     "scipy>=1.15.2",
     "numpy>=2.2.4",
