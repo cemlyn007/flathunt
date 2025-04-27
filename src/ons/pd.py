@@ -1,10 +1,13 @@
 import csv
 import decimal
-from typing import Iterable
+from typing import Iterable, Optional
+import dataclasses
 
 __all__ = [
+    "format_postcode",
     "district_code",
     "sub_district_code",
+    "sector_code",
     "assert_valid_postcode",
     "read_london_active_postcode_centroids",
 ]
@@ -19,13 +22,102 @@ USERTYPE_KEY = "USERTYPE"
 OSLAUA_KEY = "OSLAUA"
 
 
+def format_postcode(postcode: str) -> str:
+    return str(Postcode(postcode=postcode))
+
+
 def district_code(postcode: str) -> str:
-    return postcode[:3].strip()
+    pc = Postcode(postcode)
+    return pc.district
 
 
-def sub_district_code(postcode: str) -> str:
-    code = postcode[:4].strip()
-    return code
+def sub_district_code(postcode: str) -> Optional[str]:
+    pc = Postcode(postcode)
+    return pc.sub_district
+
+
+def sector_code(postcode: str) -> str:
+    """Returns the sector code of a postcode."""
+    pc = Postcode(postcode=postcode)
+    return pc.sector
+
+
+@dataclasses.dataclass(frozen=True)
+class Postcode:
+    postcode: dataclasses.InitVar[str]
+    outward: str = dataclasses.field(init=False)
+    inward: str = dataclasses.field(init=False)
+    area: str = dataclasses.field(init=False)
+    district: str = dataclasses.field(init=False)
+    sub_district: Optional[str] = dataclasses.field(init=False)
+    sector: str = dataclasses.field(init=False)
+    unit: str = dataclasses.field(init=False)
+
+    _postcode: str = dataclasses.field(init=False)
+
+    def __str__(self) -> str:
+        return self._postcode
+
+    def __post_init__(self, postcode: str) -> None:
+        postcode = postcode.upper().strip().replace(" ", "")
+        object.__setattr__(self, "inward", postcode[-3:])
+        object.__setattr__(self, "outward", postcode[:-3])
+        assert len(self.inward) == 3, "Inward code should be 3 characters long"
+        assert len(self.outward) >= 2, (
+            "Outward code should be at least 1 character long"
+        )
+        assert len(self.outward) <= 4, (
+            "Outward code should be at most 4 characters long"
+        )
+        assert self.outward[0].isalpha(), (
+            "First character of outward code should be alphabetical"
+        )
+        assert self.inward[0].isdigit(), (
+            "First character of inward code should be numerical"
+        )
+        object.__setattr__(
+            self,
+            "area",
+            postcode[: next(i for i, c in enumerate(postcode) if c.isdigit())],
+        )
+        reversed_outward_code = "".join(reversed(self.outward))
+        object.__setattr__(
+            self,
+            "district",
+            "".join(
+                reversed(
+                    reversed_outward_code[
+                        next(
+                            i
+                            for i, c in enumerate(reversed_outward_code)
+                            if c.isdigit()
+                        ) :
+                    ]
+                )
+            ),
+        )
+        sub_district = "".join(
+            reversed(
+                reversed_outward_code[
+                    max(
+                        next(
+                            i
+                            for i, c in enumerate(reversed_outward_code)
+                            if c.isdigit()
+                        )
+                        - 1,
+                        0,
+                    ) :
+                ]
+            )
+        )
+        if self.district != sub_district:
+            sub_district = None
+
+        object.__setattr__(self, "sub_district", sub_district)
+        object.__setattr__(self, "sector", f"{self.outward} {self.inward[0]}")
+        object.__setattr__(self, "unit", postcode[-2:])
+        object.__setattr__(self, "_postcode", f"{self.outward} {self.inward}")
 
 
 def assert_valid_postcode(postcode: str) -> None:
@@ -71,8 +163,8 @@ def read_london_active_postcode_centroids(
                 len(line[doterm_index]) == 0
                 and int(line[osgrdindex_index]) != 9
                 and int(line[usertype_index]) == 0
-                and line[osla_index].startswith("E")
                 # E09000001 – E09000033 is London Borough.
+                and line[osla_index].startswith("E")
                 and (9000000 < int(line[osla_index][1:]) < 9000034)
                 and (
                     (
@@ -85,7 +177,7 @@ def read_london_active_postcode_centroids(
                 )
             ):
                 yield (
-                    line[pcd_index],
+                    str(Postcode(postcode=line[pcd_index])),
                     *coordinate,
                 )
 
