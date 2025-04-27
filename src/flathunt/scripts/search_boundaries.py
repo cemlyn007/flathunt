@@ -1,17 +1,14 @@
 import itertools
 import operator
-from pathlib import Path
 from collections.abc import Collection
 import json
 import pathlib
-from typing import Literal
 import tqdm
-import ons.pd
 import argparse
 import random
 import time
 
-
+import tenacity
 import rightmove.api
 import rightmove.models
 
@@ -20,40 +17,17 @@ CACHE_DIRECTORY = pathlib.Path("cache")
 
 def _map_search(
     api: rightmove.api.Rightmove,
-    post_code_boundaries: Collection[tuple[str, list[tuple[float, float]]]],
-    resolution: Literal["district", "sub_district"] = "sub_district",
+    code_boundaries: Collection[tuple[str, list[tuple[float, float]]]],
 ) -> list[rightmove.models.Property]:
-    if resolution == "district":
-        codes = {
-            ons.pd.district_code(post_code) for post_code, _ in post_code_boundaries
-        }
-    elif resolution == "sub_district":
-        codes = {
-            ons.pd.sub_district_code(post_code) for post_code, _ in post_code_boundaries
-        }
-    else:
-        raise ValueError(f"Invalid resolution: {resolution}")
-
     property_ids: set[int] = set()
-    with tqdm.tqdm(total=len(codes), desc="Searching") as progress_bar:
-        for code in sorted(codes):
+    with tqdm.tqdm(total=len(code_boundaries), desc="Searching") as progress_bar:
+        for code, polyline in sorted(code_boundaries):
             progress_bar.set_description(f"Searching {code}")
-            vertices = []
-            for post_code, polyline in post_code_boundaries:
-                if resolution == "district":
-                    if code == ons.pd.district_code(post_code):
-                        vertices.extend(polyline)
-                elif resolution == "sub_district":
-                    if code == ons.pd.sub_district_code(post_code):
-                        vertices.extend(polyline)
-            if not vertices:
-                progress_bar.update(1)
-                continue
 
-            min_long = min(vertex[0] for vertex in vertices)
-            min_lat = min(vertex[1] for vertex in vertices)
-            max_long = max(vertex[0] for vertex in vertices)
-            max_lat = max(vertex[1] for vertex in vertices)
+            min_long = min(vertex[0] for vertex in polyline)
+            min_lat = min(vertex[1] for vertex in polyline)
+            max_long = max(vertex[0] for vertex in polyline)
+            max_lat = max(vertex[1] for vertex in polyline)
 
             # Call our recursive search function with the initial bounding box
             more_property_locations = _search_area_recursive(
@@ -64,8 +38,6 @@ def _map_search(
 
     property_ids_list = list(property_ids)
     property_ids_list.sort()
-
-    property_ids_list = sorted(json.loads(Path("location_ids.json").read_text()))
 
     properties = []
     with tqdm.tqdm(total=len(property_ids_list), desc="Fetching") as progress_bar:
@@ -188,7 +160,7 @@ def _save_search_results(
 if __name__ == "__main__":
     argument_parser = argparse.ArgumentParser("Fetch Rightmove Properties")
     argument_parser.add_argument(
-        "--boundaries", type=str, required=True, help="Postcode boundaries JSON file"
+        "--boundaries", type=str, required=True, help="Boundaries JSON file"
     )
     arguments = argument_parser.parse_args()
     file_path = arguments.boundaries
@@ -196,14 +168,13 @@ if __name__ == "__main__":
     with open(file_path, "r") as file:
         post_code_boundaries: dict[str, list[tuple[float, float]]] = json.load(file)
 
-    post_codes = list(post_code_boundaries.keys())
-    for post_code in post_codes:
-        ons.pd.assert_valid_postcode(post_code)
-
-    api = rightmove.api.Rightmove()
+    api = rightmove.api.Rightmove(
+        retrying=tenacity.Retrying(
+            retry=tenacity.retry_if_exception_type(rightmove.api.HTTPError)
+        )
+    )
     properties = _map_search(
         api,
         list(post_code_boundaries.items()),
-        resolution="district",
     )
     _save_search_results(properties)
