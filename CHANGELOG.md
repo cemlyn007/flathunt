@@ -1,6 +1,27 @@
 # CHANGELOG
 
 
+## v0.13.0 (2025-04-27)
+
+### Bug Fixes
+
+- Postcode parsing
+  ([`bbf58b4`](https://github.com/cemlyn007/flathunt/commit/bbf58b46f4b4335931eab98f6efa2e97986464a6))
+
+### Continuous Integration
+
+- Relax pre-commit python minor
+  ([`f9e041d`](https://github.com/cemlyn007/flathunt/commit/f9e041d6de4df4aa0cf09aaf07b869bc23f29707))
+
+### Features
+
+- Make search boundaries more generic to polylines
+  ([`64f549e`](https://github.com/cemlyn007/flathunt/commit/64f549e579a6c769daabb784eefde3bfd9e61f9e))
+
+- Support retry via tenacity
+  ([`470e41a`](https://github.com/cemlyn007/flathunt/commit/470e41afc873b27f6b0eb7654d32b30402b3d0d4))
+
+
 ## v0.12.0 (2025-04-17)
 
 ### Features
