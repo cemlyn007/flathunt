@@ -53,10 +53,8 @@ class Postcode:
     sector: str = dataclasses.field(init=False)
     unit: str = dataclasses.field(init=False)
 
-    _postcode: str = dataclasses.field(init=False)
-
     def __str__(self) -> str:
-        return self._postcode
+        return self._postcode  # type: ignore
 
     def __post_init__(self, postcode: str) -> None:
         postcode = postcode.upper().strip().replace(" ", "")
@@ -111,7 +109,7 @@ class Postcode:
                 ]
             )
         )
-        if self.district != sub_district:
+        if self.district == sub_district:
             sub_district = None
 
         object.__setattr__(self, "sub_district", sub_district)
