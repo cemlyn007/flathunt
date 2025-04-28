@@ -26,7 +26,7 @@ def _create_artists(
         vertices = []
         codes = []
         for multi_polylines in multi_coordinates:
-            for ring_index, polyline in enumerate(multi_polylines):
+            for polyline in multi_polylines:
                 for vertex_index, vertex in enumerate(polyline):
                     vertices.append(vertex)
                     codes.append(Path.MOVETO if vertex_index == 0 else Path.LINETO)
