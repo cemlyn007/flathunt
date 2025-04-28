@@ -1,7 +1,9 @@
+import datetime
 import itertools
 import operator
 from collections.abc import Collection
 import json
+import os
 import pathlib
 import tqdm
 import argparse
@@ -12,17 +14,17 @@ import tenacity
 import rightmove.api
 import rightmove.models
 
-CACHE_DIRECTORY = pathlib.Path("cache")
-
 
 def _map_search(
     api: rightmove.api.Rightmove,
     code_boundaries: Collection[tuple[str, list[tuple[float, float]]]],
 ) -> list[rightmove.models.Property]:
     property_ids: set[int] = set()
-    with tqdm.tqdm(total=len(code_boundaries), desc="Searching") as progress_bar:
+    with tqdm.tqdm(
+        total=len(code_boundaries), desc="Searching for IDs"
+    ) as progress_bar:
         for code, polyline in sorted(code_boundaries):
-            progress_bar.set_description(f"Searching {code}")
+            progress_bar.set_description(f'Searching for IDs in "{code}"')
 
             min_long = min(vertex[0] for vertex in polyline)
             min_lat = min(vertex[1] for vertex in polyline)
@@ -40,7 +42,9 @@ def _map_search(
     property_ids_list.sort()
 
     properties = []
-    with tqdm.tqdm(total=len(property_ids_list), desc="Fetching") as progress_bar:
+    with tqdm.tqdm(
+        total=len(property_ids_list), desc="Downloading Results"
+    ) as progress_bar:
         for batched_location_ids in itertools.batched(
             property_ids_list, rightmove.api.SEARCH_BY_IDS_MAX_RESULTS
         ):
@@ -147,10 +151,10 @@ def _fast_sleep():
 
 
 def _save_search_results(
-    properties: list[rightmove.models.Property],
+    file_path: str, properties: list[rightmove.models.Property]
 ) -> None:
     """Save search results to a file."""
-    path = CACHE_DIRECTORY / "search_results.json"
+    path = pathlib.Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps([property.model_dump(mode="json") for property in properties])
@@ -162,8 +166,15 @@ if __name__ == "__main__":
     argument_parser.add_argument(
         "--boundaries", type=str, required=True, help="Boundaries JSON file"
     )
+    argument_parser.add_argument(
+        "--output", type=str, default="", help="Save JSON file location"
+    )
     arguments = argument_parser.parse_args()
     file_path = arguments.boundaries
+    output = arguments.output
+    if (extension := os.path.splitext(output)[1]) != ".json":
+        timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        output = os.path.join(output, f"{timestamp}.json")
 
     with open(file_path, "r") as file:
         post_code_boundaries: dict[str, list[tuple[float, float]]] = json.load(file)
@@ -177,4 +188,4 @@ if __name__ == "__main__":
         api,
         list(post_code_boundaries.items()),
     )
-    _save_search_results(properties)
+    _save_search_results(output, properties)
