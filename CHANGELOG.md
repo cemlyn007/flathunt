@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.14.0 (2025-04-28)
+
+### Features
+
+- Display historical property data from disk ([#15](https://github.com/cemlyn007/flathunt/pull/15),
+  [`ea48e6e`](https://github.com/cemlyn007/flathunt/commit/ea48e6e224f7352e7f5282ac900bcf4f7b3a55fa))
+
+
 ## v0.13.1 (2025-04-27)
 
 ### Bug Fixes
