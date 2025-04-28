@@ -97,7 +97,6 @@ def _group_monthly_rent(
 ) -> dict[str, list[float]]:
     region_monthly_prices = {}
     for key, search_results in grouped_search_results.items():
-        # Note: Ads have already been filtered out.
         prices = []
         for search_property in search_results:
             if search_property.price is None:
