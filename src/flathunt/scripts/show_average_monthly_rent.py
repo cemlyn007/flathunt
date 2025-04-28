@@ -250,7 +250,7 @@ if __name__ == "__main__":
         "--properties", type=str, required=True, help="Properties JSON file"
     )
     argument_parser.add_argument(
-        "--max-price", type=str, required=True, help="Properties JSON file"
+        "--max-price", type=str, required=True, help="Maximum price for color bar"
     )
     argument_parser.add_argument(
         "--show-text",
