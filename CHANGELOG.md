@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.15.0 (2025-04-28)
+
+### Features
+
+- Price on picker
+  ([`e402b79`](https://github.com/cemlyn007/flathunt/commit/e402b79ecf339477b0cc1f5de507b84e8b16fe72))
+
+### Refactoring
+
+- Remove incorrect comment
+  ([`e8960cc`](https://github.com/cemlyn007/flathunt/commit/e8960cc3ba45c85e4930a5fabd5c40ba325981f8))
+
+
 ## v0.14.0 (2025-04-28)
 
 ### Features
