@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.16.0 (2025-04-30)
+
+### Features
+
+- Cached search app
+  ([`3e23594`](https://github.com/cemlyn007/flathunt/commit/3e23594c6d19edc84989aa8c916a11f9071261de))
+
+
 ## v0.15.0 (2025-04-28)
 
 ### Features
