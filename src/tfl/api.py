@@ -2,32 +2,18 @@ import http.client
 import gzip
 import json
 from typing import Any
-import enum
 import http
-import typing
 import urllib.parse
 import datetime
 import zoneinfo
 from typing import Optional, Union
 
+from tfl import models
+
 TIMEZONE = zoneinfo.ZoneInfo("Europe/London")
 
 
 class HTTPError(Exception): ...
-
-
-class Mode(enum.Enum):
-    BUS = "bus"
-    TUBE = "tube"
-    WALKING = "walking"
-
-
-class Journey(typing.NamedTuple):
-    duration: datetime.timedelta
-    departure_datetime: datetime.datetime
-    arrival_datetime: datetime.datetime
-    mode: Mode
-    route_name: str
 
 
 class Tfl:
@@ -43,7 +29,7 @@ class Tfl:
         self._app_key = app_key
         self._arrival_datetime = arrival_datetime
 
-    def __call__(self) -> list[Journey]:
+    def __call__(self) -> list[models.Journey]:
         response = get_journey_options(
             self._from_location,
             self._to_location,
@@ -85,7 +71,7 @@ def get_journey_options(
     url = f"/Journey/JourneyResults/{from_location_encoded}/to/{to_location_encoded}"
     parameters = {
         "app_key": app_key,
-        "mode": ",".join(mode.value for mode in Mode),
+        "mode": ",".join(mode.value for mode in models.Mode),
     }
     if arrival_datetime is None:
         departure_datetime = datetime.datetime.now(
@@ -112,7 +98,9 @@ def get_journey_options(
     return response
 
 
-def parse_journey(journey: dict[str, Any], time_zone: datetime.timezone) -> Journey:
+def parse_journey(
+    journey: dict[str, Any], time_zone: datetime.timezone
+) -> models.Journey:
     duration_minutes = int(journey["duration"])
     departure_datetime = datetime.datetime.strptime(
         journey["startDateTime"], "%Y-%m-%dT%H:%M:%S"
@@ -120,13 +108,13 @@ def parse_journey(journey: dict[str, Any], time_zone: datetime.timezone) -> Jour
     arrival_datetime = datetime.datetime.strptime(
         journey["arrivalDateTime"], "%Y-%m-%dT%H:%M:%S"
     ).replace(tzinfo=time_zone)
-    modes = [Mode(leg["mode"]["id"]) for leg in journey["legs"]]
-    if Mode.TUBE in modes:
-        mode = Mode.TUBE
-    elif Mode.BUS in modes:
-        mode = Mode.BUS
+    modes = [models.Mode(leg["mode"]["id"]) for leg in journey["legs"]]
+    if models.Mode.TUBE in modes:
+        mode = models.Mode.TUBE
+    elif models.Mode.BUS in modes:
+        mode = models.Mode.BUS
     else:
-        mode = Mode.WALKING
+        mode = models.Mode.WALKING
     route_names = []
     for leg in journey["legs"]:
         if "routeOptions" in leg:
@@ -134,12 +122,15 @@ def parse_journey(journey: dict[str, Any], time_zone: datetime.timezone) -> Jour
             if name:
                 route_names.append(name)
     route_name = "->".join(route_names) or "walking"
-    return Journey(
-        duration=datetime.timedelta(minutes=duration_minutes),
-        departure_datetime=departure_datetime,
-        arrival_datetime=arrival_datetime,
-        mode=mode,
-        route_name=route_name,
+    return models.Journey.model_validate(
+        dict(
+            duration=datetime.timedelta(minutes=duration_minutes),
+            departure_datetime=departure_datetime,
+            arrival_datetime=arrival_datetime,
+            mode=mode,
+            route_name=route_name,
+        ),
+        strict=True,
     )
 
 

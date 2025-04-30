@@ -16,8 +16,8 @@ class PropertyCache:
 
     def _load(self) -> list[dict[str, Any]]:
         if os.path.exists(self._filepath):
-            with open(self._filepath, "r") as f:
-                return json.loads(f.read())
+            with open(self._filepath, "r") as file:
+                return json.load(file)
         # else...
         return []
 
@@ -38,10 +38,10 @@ class PropertyCache:
             try:
                 self._properties.extend(new_properties)
                 self._save()
-            except BaseException as exc:
+            except BaseException as exception:
                 self._properties = rollback_properties
-                raise exc
+                raise exception
 
     def _save(self) -> None:
-        with open(self._filepath, "w") as f:
-            f.write(json.dumps(self._properties))
+        with open(self._filepath, "w") as file:
+            file.write(json.dumps(self._properties))

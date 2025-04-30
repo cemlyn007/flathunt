@@ -20,12 +20,12 @@ if __name__ == "__main__":
     )
     arguments = argument_parser.parse_args()
 
-    file_path = arguments.onspds
-    save_file_path = arguments.save
+    filepath = arguments.onspds
+    save_filepath = arguments.save
 
     coordinate_postcodes_mapping = {}
     for postcode, latitude, longitude in tqdm.tqdm(
-        ons.pd.read_london_active_postcode_centroids(file_path), desc="Reading ONSPD"
+        ons.pd.read_london_active_postcode_centroids(filepath), desc="Reading ONSPD"
     ):
         ons.pd.assert_valid_postcode(postcode)
         coordinate_postcodes_mapping.setdefault((longitude, latitude), []).append(
@@ -48,5 +48,5 @@ if __name__ == "__main__":
         for coordinate, polyline in zip(unique_coordinates, polylines, strict=True)
         for postcode in coordinate_postcodes_mapping[coordinate]
     }
-    with open(save_file_path, "w") as file:
+    with open(save_filepath, "w") as file:
         json.dump(postcode_polylines, file)

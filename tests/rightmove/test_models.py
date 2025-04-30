@@ -18,10 +18,10 @@ from rightmove.models import (
 )
 import os
 
-example_file_path = os.path.join(
+example_filepath = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "fixtures", "example_search.json"
 )
-with open(example_file_path) as file:
+with open(example_filepath) as file:
     MOCKED_RESPONSE = json.load(file)
 PROPERTIES = MOCKED_RESPONSE["properties"]
 

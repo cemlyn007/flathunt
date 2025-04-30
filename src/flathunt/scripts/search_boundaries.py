@@ -151,10 +151,10 @@ def _fast_sleep():
 
 
 def _save_search_results(
-    file_path: str, properties: list[rightmove.models.Property]
+    filepath: str, properties: list[rightmove.models.Property]
 ) -> None:
     """Save search results to a file."""
-    path = pathlib.Path(file_path)
+    path = pathlib.Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps([property.model_dump(mode="json") for property in properties])
@@ -170,13 +170,13 @@ if __name__ == "__main__":
         "--output", type=str, default="", help="Save JSON file location"
     )
     arguments = argument_parser.parse_args()
-    file_path = arguments.boundaries
+    filepath = arguments.boundaries
     output = arguments.output
     if (extension := os.path.splitext(output)[1]) != ".json":
         timestamp = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
         output = os.path.join(output, f"{timestamp}.json")
 
-    with open(file_path, "r") as file:
+    with open(filepath, "r") as file:
         post_code_boundaries: dict[str, list[tuple[float, float]]] = json.load(file)
 
     api = rightmove.api.Rightmove(

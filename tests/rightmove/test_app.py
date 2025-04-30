@@ -35,9 +35,9 @@ class TestApp:
         search_response: dict[str, Any],
     ) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file_path = os.path.join(tmpdir, "history.json")
+            cache_filepath = os.path.join(tmpdir, "history.json")
             # GIVEN: A cache file that is empty.
-            cache = rightmove.property_cache.PropertyCache(cache_file_path)
+            cache = rightmove.property_cache.PropertyCache(cache_filepath)
             commute_coordinates = [(0.0, 0.0)]
             app = rightmove.app.App(commute_coordinates, cache)
 
@@ -70,10 +70,10 @@ class TestApp:
             )
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file_path = os.path.join(tmpdir, "history.json")
+            cache_filepath = os.path.join(tmpdir, "history.json")
             # GIVEN: All properties in the search response are cached
             #  except one of the properties.
-            with open(cache_file_path, "w") as file:
+            with open(cache_filepath, "w") as file:
                 json.dump(
                     [
                         property
@@ -83,7 +83,7 @@ class TestApp:
                     file,
                 )
             commute_coordinates = [(0.0, 0.0)]
-            cache = rightmove.property_cache.PropertyCache(cache_file_path)
+            cache = rightmove.property_cache.PropertyCache(cache_filepath)
             app = rightmove.app.App(commute_coordinates, cache)
             with mock.patch("rightmove.api._RawRightmove._search") as mock_search:
                 mock_search.return_value = search_response

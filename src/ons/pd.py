@@ -142,10 +142,10 @@ def assert_valid_postcode(postcode: str) -> None:
 
 
 def read_london_active_postcode_centroids(
-    file_path: str,
+    filepath: str,
 ) -> Iterable[tuple[str, decimal.Decimal, decimal.Decimal]]:
     """Reads the ONS postcode centroid file and returns a dictionary of postcodes and their coordinates."""
-    with open(file_path, "r") as file:
+    with open(filepath, "r") as file:
         reader = csv.reader(file)
         header = next(reader)
         pcd_index = _find_key(header, PCD_KEY)

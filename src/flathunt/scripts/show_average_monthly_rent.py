@@ -213,19 +213,19 @@ def _on_pick(event: Event, label: text.Text):
 
 
 def _load_boundaries(
-    file_path: str,
+    filepath: str,
 ) -> dict[str, list[list[list[tuple[float, float]]]]]:
     """Load boundaries from a JSON file."""
-    with open(file_path, "r") as file:
+    with open(filepath, "r") as file:
         boundaries: dict[str, list[list[list[tuple[float, float]]]]] = json.load(file)
     return boundaries
 
 
 def _load_properties(
-    file_path: str,
+    filepath: str,
 ) -> list[rightmove.models.Property]:
     """Load properties from a JSON file."""
-    with open(file_path, "r") as file:
+    with open(filepath, "r") as file:
         properties: list[rightmove.models.Property] = [
             rightmove.models.Property.model_validate(search_property)
             for search_property in json.load(file)
@@ -234,14 +234,14 @@ def _load_properties(
 
 
 def _main(
-    boundaries_file_path: str,
-    properties_file_path: str,
+    boundaries_filepath: str,
+    properties_filepath: str,
     max_price: float,
     show_open_door_logistics: bool,
 ) -> None:
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-        future_boundaries = executor.submit(_load_boundaries, boundaries_file_path)
-        future_properties = executor.submit(_load_properties, properties_file_path)
+        future_boundaries = executor.submit(_load_boundaries, boundaries_filepath)
+        future_properties = executor.submit(_load_properties, properties_filepath)
         boundaries = future_boundaries.result()
         properties = future_properties.result()
 
@@ -295,8 +295,8 @@ if __name__ == "__main__":
     )
     arguments = argument_parser.parse_args()
     _main(
-        boundaries_file_path=arguments.boundaries,
-        properties_file_path=arguments.properties,
+        boundaries_filepath=arguments.boundaries,
+        properties_filepath=arguments.properties,
         max_price=float(arguments.max_price),
         show_open_door_logistics=arguments.open_door_logistics,
     )

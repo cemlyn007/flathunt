@@ -4,7 +4,7 @@ import rightmove.api
 import argparse
 import logging
 
-DEFAULT_FILE_PATH = "search_locations.json"
+DEFAULT_filepath = "search_locations.json"
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--file", default=DEFAULT_FILE_PATH, help="Path to the search locations file."
+        "--file", default=DEFAULT_filepath, help="Path to the search locations file."
     )
     parser.add_argument("--locations", nargs="+", default=[])
     arguments = parser.parse_args()
-    file_path = arguments.file
+    filepath = arguments.file
     locations = arguments.locations
     if not locations:
         print("No locations provided.")
@@ -58,13 +58,13 @@ def main():
 
         entries.update(locations)
 
-    if os.path.exists(file_path):
-        with open(file_path, "r") as file:
+    if os.path.exists(filepath):
+        with open(filepath, "r") as file:
             existing_entries = json.load(file)
             for key, value in entries.items():
                 existing_entries[key] = value
             entries = existing_entries
-    with open(file_path, "w") as file:
+    with open(filepath, "w") as file:
         json.dump(entries, file, indent=4)
 
 
