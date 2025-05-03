@@ -84,8 +84,9 @@ class App:
                         progress_bar.update(1)
                         property, skip_reason = future.result()
                         if skip_reason:
+                            skip_format, *skip_args = skip_reason
                             progress_bar.set_description(
-                                skip_reason[0].format(*skip_reason[1:])
+                                str(skip_format).format(*skip_args)
                             )
                             if not enable_progress_bar:
                                 logger.info(*skip_reason)
