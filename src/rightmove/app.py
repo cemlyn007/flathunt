@@ -1,7 +1,8 @@
-from rightmove import api, property_cache, models
-import webbrowser
 import sys
+import webbrowser
 from typing import Optional
+
+from rightmove import api, models, property_cache
 
 
 class App:
@@ -45,7 +46,7 @@ class App:
     def _show_advert(self, property: models.Property) -> None:
         # Some properties don't have a URL.
         if property.property_url:
-            url = self._api.property_url(property.property_url)
+            url = api.property_url(property.property_url)
             webbrowser.open_new_tab(url)
 
     def _show_route(
