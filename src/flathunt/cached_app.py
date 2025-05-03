@@ -1,16 +1,24 @@
-from collections.abc import Iterator
-import zoneinfo
-from rightmove import api, property_cache
-import rightmove.models
-import tfl.cache
-import rightmove.price
+import concurrent.futures
 import datetime
-import tfl.api
 import logging
+import zoneinfo
+from collections.abc import Iterable, Iterator
+from typing import Optional, Protocol, Union
+
+import tqdm
+
+import rightmove.models
+import rightmove.price
+import tfl.api
+import tfl.cache
 import tfl.models
-from typing import Optional, Union
+from rightmove import api, property_cache
 
 logger = logging.Logger(__name__)
+
+
+class SupportsStr(Protocol):
+    def __str__(self) -> str: ...
 
 
 class App:
@@ -19,13 +27,13 @@ class App:
         commute_coordinates: list[tuple[float, float]],
         property_cache: Optional[property_cache.PropertyCache],
         journey_cache: Optional[tfl.cache.Cache],
-        tfl_app_key: str,
+        tfl_api: tfl.api.Tfl,
     ) -> None:
         self._api = api.Rightmove()
         self._property_cache = property_cache
         self._journey_cache = journey_cache
         self._commute_coordinates = commute_coordinates
-        self._tfl_app_key = tfl_app_key
+        self._tfl = tfl_api
 
     def search(
         self,
@@ -46,82 +54,125 @@ class App:
             "After filtering cached properties, returned %d properties",
             len(new_properties),
         )
-        for index, property in enumerate(new_properties):
-            if any(
-                (
-                    property.commercial,
-                    property.development,
-                    property.students,
-                    property.auction,
+        executor = concurrent.futures.ThreadPoolExecutor()
+        try:
+            futures = [
+                executor.submit(
+                    lambda p: (
+                        p,
+                        self._suitable_property(
+                            property=p,
+                            max_price=max_price,
+                            max_days_since_added=max_days_since_added,
+                            journey_coordinates=journey_coordinates,
+                            max_journey_timedelta=max_journey_timedelta,
+                        ),
+                    ),
+                    property,
                 )
-            ):
-                logger.info(
-                    'Skipping "%s" because it is not a residential property!',
-                    property.display_address,
-                )
-                continue
-
-            if not property.price:
-                logger.info(
-                    'Skipping "%s" because it has no price!', property.display_address
-                )
-                continue
-
-            pcm = rightmove.price.normalize(property.price) or float("inf")
-            if pcm > max_price:
-                logger.info(
-                    'Skipping "%s" (%s %s) because it is too expensive!',
-                    property.display_address,
-                    property.price.amount,
-                    property.price.frequency,
-                )
-                continue
-
-            if property.first_visible_date is not None:
-                days_since_added = (
-                    datetime.datetime.now(datetime.timezone.utc)
-                    - property.first_visible_date.astimezone(datetime.timezone.utc)
-                ).days
-                if max_days_since_added and days_since_added > max_days_since_added:
-                    logger.info(
-                        'Skipping "%s" (%s %s) because it was added %d days ago!',
-                        property.display_address,
-                        property.price.amount,
-                        property.price.frequency,
-                        days_since_added,
-                    )
-                    continue
-
-            logger.info('Checking journey from "%s"', property.display_address)
+                for property in new_properties
+            ]
             try:
-                if not self._check_journey(
-                    location=(property.location.latitude, property.location.longitude),
-                    journey_coordinates=journey_coordinates,
-                    max_journey_timedelta=max_journey_timedelta,
-                ):
-                    logger.info(
-                        'Skipping "%s" (%s %s)',
+                enable_progress_bar = False
+                with tqdm.tqdm(
+                    total=len(new_properties),
+                    desc="Filtering properties",
+                    unit="properties",
+                    disable=not enable_progress_bar,
+                ) as progress_bar:
+                    for future in concurrent.futures.as_completed(futures):
+                        progress_bar.update(1)
+                        property, skip_reason = future.result()
+                        if skip_reason:
+                            progress_bar.set_description(
+                                skip_reason[0].format(*skip_reason[1:])
+                            )
+                            if not enable_progress_bar:
+                                logger.info(*skip_reason)
+                        else:
+                            yield property
+            except Exception:
+                executor.shutdown(wait=False, cancel_futures=True)
+        finally:
+            executor.shutdown(wait=True)
+
+    def _suitable_property(
+        self,
+        property: rightmove.models.Property,
+        max_price: int,
+        max_days_since_added: Optional[int],
+        journey_coordinates: dict[str, tuple[float, float]],
+        max_journey_timedelta: datetime.timedelta,
+        min_square_meters: int = 0,
+    ) -> Optional[Iterable[SupportsStr]]:
+        if any(
+            (
+                property.commercial,
+                property.development,
+                property.students,
+                property.auction,
+            )
+        ):
+            return (
+                'Skipping "%s" because it is not a residential property!',
+                property.display_address,
+            )
+        if not property.price:
+            return ('Skipping "%s" because it has no price!', property.display_address)
+        if property.display_size:
+            if property.display_size.endswith(" sq. ft."):
+                square_ft = int(property.display_size.removesuffix(" sq. ft."))
+                square_meters = int(square_ft * 0.092903)
+                if square_meters < min_square_meters:
+                    return (
+                        "Property %s (%s %s) at %s is too small (%s sq. ft.)",
+                        property.id,
+                        property.price.amount if property.price else "N/A",
+                        property.price.frequency if property.price else "N/A",
                         property.display_address,
-                        property.price.amount,
-                        property.price.frequency,
+                        square_ft,
                     )
-                    continue
-            except tfl.api.HTTPError as error:
-                logger.exception(
-                    'Skipping "%s" (%s %s) because of TFL error: %s',
-                    property.display_address,
-                    property.price.amount,
-                    property.price.frequency,
-                    error,
-                )
-                continue
-            logger.info(
-                'Showing "%s" (%s %s)',
+        pcm = rightmove.price.normalize(property.price) or float("inf")
+        if pcm > max_price:
+            return (
+                'Skipping "%s" (%s %s) because it is too expensive!',
                 property.display_address,
                 property.price.amount,
                 property.price.frequency,
             )
-            yield property
+        if property.first_visible_date is not None:
+            days_since_added = (
+                datetime.datetime.now(datetime.timezone.utc)
+                - property.first_visible_date.astimezone(datetime.timezone.utc)
+            ).days
+            if max_days_since_added and days_since_added > max_days_since_added:
+                return (
+                    'Skipping "%s" (%s %s) because it was added %d days ago!',
+                    property.display_address,
+                    property.price.amount,
+                    property.price.frequency,
+                    days_since_added,
+                )
+        try:
+            if not self._check_journey(
+                location=(property.location.latitude, property.location.longitude),
+                journey_coordinates=journey_coordinates,
+                max_journey_timedelta=max_journey_timedelta,
+            ):
+                return (
+                    'Skipping "%s" (%s %s)',
+                    property.display_address,
+                    property.price.amount,
+                    property.price.frequency,
+                )
+        except tfl.api.HTTPError as error:
+            logger.exception(
+                'Skipping "%s" (%s %s) because of TFL error: %s',
+                property.display_address,
+                property.price.amount,
+                property.price.frequency,
+                error,
+            )
 
     def _check_journey(
         self,
@@ -137,26 +188,31 @@ class App:
             journeys = self._get_journeys(
                 location, journey_coordinate, arrival_datetime
             )
-            logger.info("Location: %s, Journey: %d", location_name, len(journeys))
+            if not journeys:
+                return False
+            # logger.info("Location: %s, Journey: %d", location_name, len(journeys))
             min_journey = min(
                 journeys,
-                key=lambda journey: arrival_datetime - journey.departure_datetime,
+                key=lambda journey: arrival_datetime.timestamp()
+                - journey.departure_datetime.timestamp(),
             )
-            min_journey_timedelta = arrival_datetime - min_journey.departure_datetime
+            min_journey_timedelta = (
+                arrival_datetime - min_journey.departure_datetime.astimezone(tzinfo)
+            )
             if min_journey_timedelta > max_journey_timedelta:
-                logger.info(
-                    "Unacceptable journeys (%s, %s)",
-                    location_name,
-                    min_journey_timedelta,
-                )
+                # logger.info(
+                #     "Unacceptable journeys (%s, %s)",
+                #     location_name,
+                #     min_journey_timedelta,
+                # )
                 return False
-            logger.info(
-                "Acceptable journey (%s, %s, %s)",
-                location_name,
-                min_journey.mode.value,
-                min_journey_timedelta,
-            )
-        logger.info("Acceptable journeys")
+            # logger.info(
+            #     "Acceptable journey (%s, %s, %s)",
+            #     location_name,
+            #     min_journey.mode.value,
+            #     min_journey_timedelta,
+            # )
+        # logger.info("Acceptable journeys")
         return True
 
     def _get_journeys(
@@ -172,13 +228,11 @@ class App:
         ):
             return self._journey_cache[(source, destination)]
         else:
-            tfl_api = tfl.api.Tfl(
+            journeys = self._tfl(
                 from_location=source,
                 to_location=destination,
-                app_key=self._tfl_app_key,
                 arrival_datetime=arrival_datetime,
             )
-            journeys = tfl_api()
             if self._journey_cache is not None and isinstance(source, tuple):
                 self._journey_cache[(source, destination)] = journeys
             return journeys

@@ -2,12 +2,19 @@ import argparse
 import ast
 import datetime
 import json
-import os
-import rightmove.property_cache
-import flathunt.cached_app
 import logging
+import os
+from typing import cast
+
+import tenacity
+
+import flathunt.cached_app
+import flathunt.rate_limiter
 import rightmove.models
-import tfl.cache
+import rightmove.property_cache
+import tfl.api
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _load_properties(
@@ -29,12 +36,24 @@ def _save_properties(
     with open(filepath, "w") as file:
         json.dump(
             [
-                rightmove.models.Property.model_dump(search_property)
+                rightmove.models.Property.model_dump(search_property, mode="json")
                 for search_property in properties
             ],
             file,
             indent=2,
         )
+
+
+def rate_limit_wait(retry_state: tenacity.RetryCallState) -> int:
+    outcome = retry_state.outcome
+    if not outcome:
+        raise ValueError("RetryCallState has no outcome")
+    exception = outcome.exception()
+    if not isinstance(exception, tfl.api.RateLimitError):
+        raise ValueError(
+            "RetryCallState exception is not RateLimitError"
+        ) from exception
+    return exception.wait
 
 
 def main() -> None:
@@ -48,8 +67,9 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, encoding="utf-8")
-    flathunt.cached_app.logger.setLevel(logging.INFO)
-    flathunt.cached_app.logger.addHandler(logging.StreamHandler())
+    for logger in (_LOGGER, flathunt.cached_app.logger):
+        logger.setLevel(logging.INFO)
+        logger.addHandler(logging.StreamHandler())
 
     properties = _load_properties(args.properties)
 
@@ -57,12 +77,39 @@ def main() -> None:
         locations = {key: tuple(value) for key, value in json.load(file).items()}
 
     property_cache = rightmove.property_cache.PropertyCache("history.json", args.reset)
-    journey_cache = tfl.cache.Cache("journey_cache.json", args.reset)
+    rate_limiter = flathunt.rate_limiter.RateLimiter(max_calls=500, interval=60)
+
+    http_error_retry = tenacity.Retrying(
+        wait=tenacity.wait_exponential_jitter(max=90),
+        stop=tenacity.stop_after_attempt(3),
+        retry=tenacity.retry_if_exception_type(
+            (
+                tfl.api.NotFoundError,
+                tfl.api.InternalServerError,
+                tfl.api.BadGatewayError,
+            )
+        ),
+        before_sleep=tenacity.before_sleep_log(_LOGGER, logging.ERROR),
+    )
+    rate_limit_retry = tenacity.Retrying(
+        wait=rate_limit_wait,
+        stop=tenacity.stop_after_attempt(3),
+        retry=tenacity.retry_if_exception_type(tfl.api.RateLimitError),
+        before_sleep=tenacity.before_sleep_log(_LOGGER, logging.INFO),
+    )
+    tfl_api = cast(
+        tfl.api.Tfl,
+        http_error_retry.wraps(
+            rate_limit_retry.wraps(
+                rate_limiter(tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"]))
+            )
+        ),
+    )
     app = flathunt.cached_app.App(
         list(locations.values()),
         property_cache,
-        journey_cache,
-        tfl_app_key=os.environ["FLATHUNT__TFL_API_KEY"],
+        journey_cache=None,
+        tfl_api=tfl_api,
     )
     if args.sort_center:
         sort_center = ast.literal_eval(args.sort_center)

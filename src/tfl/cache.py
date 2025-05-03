@@ -1,7 +1,8 @@
 import ast
 import json
 import os
-from typing import Iterable
+from typing import Iterable, Iterator
+
 from tfl import models
 
 
@@ -15,6 +16,11 @@ class Cache:
     def _reset(self) -> None:
         if os.path.exists(self._filepath):
             os.remove(self._filepath)
+
+    def __iter__(
+        self,
+    ) -> Iterator[tuple[tuple[float, float], tuple[float, float]]]:
+        return iter(self._journeys)
 
     def __getitem__(
         self, from_to: tuple[tuple[float, float], tuple[float, float]]

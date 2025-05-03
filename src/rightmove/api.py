@@ -1,16 +1,18 @@
-from collections.abc import Iterable, Sequence
+import copy
 import enum
 import gzip
 import http
 import http.client
 import json
-from typing import Any, Literal, Optional
-import copy
 import urllib.parse
-from rightmove import models
-import pydantic
+from collections.abc import Iterable, Sequence
+from typing import Any, Literal, Optional
+
 import polyline as _polyline
+import pydantic
 from tenacity import Retrying
+
+from rightmove import models
 
 __all__ = [
     "SEARCH_LIST_MAX_RESULTS",
@@ -25,6 +27,7 @@ __all__ = [
     "SearchQuery",
     "Rightmove",
     "polyline_identifier",
+    "property_url",
 ]
 
 
@@ -214,8 +217,9 @@ class Rightmove:
             for property in search_results["properties"]
         ]
 
-    def property_url(self, property_url: str) -> str:
-        return f"https://{self._raw_api.BASE_HOST}{property_url}"
+
+def property_url(property_url: str) -> str:
+    return f"https://{_RawRightmove.BASE_HOST}{property_url}"
 
 
 class _RawRightmove:

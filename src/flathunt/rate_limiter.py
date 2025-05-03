@@ -38,7 +38,7 @@ class RateLimiter:
                             current_time - min(self._call_times)
                         )
                         if wait_time > 0:
-                            time.sleep(wait_time)
+                            _sleep(wait_time)
 
                     # Record the current call
                     call_time = time.monotonic()
@@ -58,3 +58,9 @@ class RateLimiter:
                             self._call_times.append(end_call_time)
 
         return cast(T, wrapper)
+
+
+def _sleep(seconds: float) -> None:
+    start = time.monotonic()
+    while (current := time.monotonic()) - start < seconds:
+        time.sleep(seconds - (current - start))

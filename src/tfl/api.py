@@ -16,24 +16,37 @@ TIMEZONE = zoneinfo.ZoneInfo("Europe/London")
 class HTTPError(Exception): ...
 
 
+class RateLimitError(HTTPError):
+    def __init__(self, wait: int) -> None:
+        self.wait = wait
+
+
+class NotFoundError(HTTPError): ...
+
+
+class InternalServerError(HTTPError): ...
+
+
+class BadGatewayError(HTTPError): ...
+
+
 class Tfl:
     def __init__(
         self,
+        app_key: str,
+    ) -> None:
+        self._app_key = app_key
+
+    def __call__(
+        self,
         from_location: Union[tuple[float, float], str],
         to_location: tuple[float, float],
-        app_key: str,
         arrival_datetime: Optional[datetime.datetime] = None,
-    ) -> None:
-        self._from_location = from_location
-        self._to_location = to_location
-        self._app_key = app_key
-        self._arrival_datetime = arrival_datetime
-
-    def __call__(self) -> list[models.Journey]:
+    ) -> list[models.Journey]:
         response = get_journey_options(
-            self._from_location,
-            self._to_location,
-            self._arrival_datetime,
+            from_location,
+            to_location,
+            arrival_datetime,
             app_key=self._app_key,
         )
         raw_journeys = response["journeys"]
@@ -41,7 +54,6 @@ class Tfl:
             parse_journey(raw_journey, datetime.timezone.utc)
             for raw_journey in raw_journeys
         ]
-        arrival_datetime = self._arrival_datetime
         if arrival_datetime is None:
             journeys.sort(key=lambda journey: journey.arrival_datetime.timestamp())
         else:
@@ -173,7 +185,15 @@ def _request(
         },
     )
     http_response = connection.getresponse()
-    if http_response.status != http.HTTPStatus.OK:
+    if http_response.status == http.HTTPStatus.TOO_MANY_REQUESTS:
+        raise RateLimitError(wait=int(http_response.getheader("Retry-After") or -1))
+    elif http_response.status == http.HTTPStatus.NOT_FOUND:
+        raise NotFoundError(http_response.reason)
+    elif http_response.status == http.HTTPStatus.INTERNAL_SERVER_ERROR:
+        raise InternalServerError(http_response.reason)
+    elif http_response.status == http.HTTPStatus.BAD_GATEWAY:
+        raise BadGatewayError(http_response.reason)
+    elif http_response.status != http.HTTPStatus.OK:
         raise HTTPError(f"HTTP error {http_response.status}: {http_response.reason}")
     raw_response = http_response.read()
     if http_response.getheader("Content-Encoding") == "gzip":
