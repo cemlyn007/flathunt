@@ -1,12 +1,33 @@
 # CHANGELOG
 
 
+## v0.17.0 (2025-05-03)
+
+### Bug Fixes
+
+- Rightmove app
+  ([`471ad7e`](https://github.com/cemlyn007/flathunt/commit/471ad7e7f620d99d98e32c48befc92d835cfe5aa))
+
+### Features
+
+- Multi-threaded property filtering & viewer
+  ([`50c2505`](https://github.com/cemlyn007/flathunt/commit/50c250508f7e8a26b932f55bd1c65ddc7bb84e28))
+
+### Refactoring
+
+- Typing
+  ([`ae1c5d3`](https://github.com/cemlyn007/flathunt/commit/ae1c5d33745b27a1695290717fc9c9ff0d2ae2a2))
+
+
 ## v0.16.0 (2025-04-30)
 
 ### Features
 
 - Cached search app
   ([`3e23594`](https://github.com/cemlyn007/flathunt/commit/3e23594c6d19edc84989aa8c916a11f9071261de))
+
+- Rate limit
+  ([`cf79dca`](https://github.com/cemlyn007/flathunt/commit/cf79dcad97c135d1af49d2eb4ce85772e9a24c0d))
 
 
 ## v0.15.0 (2025-04-28)
