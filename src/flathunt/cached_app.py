@@ -89,14 +89,15 @@ class App:
                         if skip_reason:
                             skip_format, *skip_args = skip_reason
                             progress_bar.set_description(
-                                str(skip_format).format(*skip_args)
+                                str(skip_format) % (*skip_args,)
                             )
                             if not self._progress_bar:
                                 logger.info(*skip_reason)
                         else:
                             yield property
-            except Exception:
+            except Exception as exception:
                 executor.shutdown(wait=False, cancel_futures=True)
+                raise exception
         finally:
             executor.shutdown(wait=True)
 
@@ -125,7 +126,9 @@ class App:
             return ('Skipping "%s" because it has no price!', property.display_address)
         if property.display_size:
             if property.display_size.endswith(" sq. ft."):
-                square_ft = int(property.display_size.removesuffix(" sq. ft."))
+                square_ft = int(
+                    property.display_size.removesuffix(" sq. ft.").replace(",", "")
+                )
                 square_meters = int(square_ft * 0.092903)
                 if square_meters < min_square_meters:
                     return (

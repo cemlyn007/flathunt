@@ -16,6 +16,7 @@ from matplotlib import pyplot as plt
 from matplotlib.backend_bases import Event, PickEvent
 from matplotlib.path import Path
 
+import flathunt.io
 import rightmove.models
 
 
@@ -222,18 +223,6 @@ def _load_boundaries(
     return boundaries
 
 
-def _load_properties(
-    filepath: str,
-) -> list[rightmove.models.Property]:
-    """Load properties from a JSON file."""
-    with open(filepath, "r") as file:
-        properties: list[rightmove.models.Property] = [
-            rightmove.models.Property.model_validate(search_property)
-            for search_property in json.load(file)
-        ]
-    return properties
-
-
 def _main(
     boundaries_filepath: str,
     properties_filepath: str,
@@ -242,7 +231,12 @@ def _main(
 ) -> None:
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         future_boundaries = executor.submit(_load_boundaries, boundaries_filepath)
-        future_properties = executor.submit(_load_properties, properties_filepath)
+        future_properties = executor.submit(
+            lambda filepath: flathunt.io.load_json(
+                list[rightmove.models.Property], filepath
+            ),
+            properties_filepath,
+        )
         boundaries = future_boundaries.result()
         properties = future_properties.result()
 

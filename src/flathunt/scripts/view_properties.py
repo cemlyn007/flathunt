@@ -3,22 +3,11 @@ import itertools
 import json
 import logging
 
+import flathunt.io
 import flathunt.property_viewer
 import rightmove.models
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _load_properties(
-    filepath: str,
-) -> list[rightmove.models.Property]:
-    """Load properties from a JSON file."""
-    with open(filepath, "r") as file:
-        properties: list[rightmove.models.Property] = [
-            rightmove.models.Property.model_validate(search_property)
-            for search_property in json.load(file)
-        ]
-    return properties
 
 
 def main() -> None:
@@ -30,7 +19,7 @@ def main() -> None:
     _LOGGER.setLevel(logging.INFO)
     _LOGGER.addHandler(logging.StreamHandler())
 
-    properties = _load_properties(args.properties)
+    properties = flathunt.io.load_json(list[rightmove.models.Property], args.properties)
 
     with open("locations.json", "r") as file:
         locations = {key: tuple(value) for key, value in json.load(file).items()}

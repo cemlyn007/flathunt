@@ -1,9 +1,8 @@
 import argparse
-import json
 import os
-import pathlib
 from collections.abc import Iterable, Iterator
 
+import flathunt.io
 import rightmove.models
 
 
@@ -17,12 +16,9 @@ def _load_search_results(
             timestamp = int(file_name)
         else:
             raise ValueError(f"Invalid file name '{file_name}'. Expected a timestamp.")
-        with open(filepath, "r") as file:
-            content = json.load(file)
-        search_results: list[rightmove.models.Property] = [
-            rightmove.models.Property.model_validate(search_property)
-            for search_property in content
-        ]
+        search_results = flathunt.io.load_json(
+            list[rightmove.models.Property], filepath
+        )
         yield timestamp, search_results
 
 
@@ -42,21 +38,11 @@ def _merge_search_results(
     return list(property_id_property.values())
 
 
-def _save_search_results(
-    filepath: str, properties: list[rightmove.models.Property]
-) -> None:
-    """Save search results to a file."""
-    path = pathlib.Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps([property.model_dump(mode="json") for property in properties])
-    )
-
-
 def _main(search_results_filepath: Iterable[str], output_filepath: str) -> None:
-    _save_search_results(
-        output_filepath,
+    flathunt.io.save_json(
+        list[rightmove.models.Property],
         _merge_search_results(_load_search_results(search_results_filepath)),
+        output_filepath,
     )
 
 

@@ -4,14 +4,14 @@ import itertools
 import json
 import operator
 import os
-import pathlib
 import random
 import time
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 
 import tenacity
 import tqdm
 
+import flathunt.io
 import rightmove.api
 import rightmove.models
 
@@ -19,6 +19,7 @@ import rightmove.models
 def _map_search(
     api: rightmove.api.Rightmove,
     code_boundaries: Collection[tuple[str, list[tuple[float, float]]]],
+    historical_properties: Iterable[rightmove.models.Property],
 ) -> list[rightmove.models.Property]:
     property_ids: set[int] = set()
     with tqdm.tqdm(
@@ -38,6 +39,17 @@ def _map_search(
             )
             property_ids.update(more_property_locations)
             progress_bar.update(1)
+
+    for property in historical_properties:
+        if (
+            property.id in property_ids
+            and property.lozenge_model
+            and any(
+                lozenge.type == "LET_AGREED"
+                for lozenge in property.lozenge_model.matching_lozenges
+            )
+        ):
+            property_ids.remove(property.id)
 
     property_ids_list = list(property_ids)
     property_ids_list.sort()
@@ -151,17 +163,6 @@ def _fast_sleep():
         time.sleep(sleep)
 
 
-def _save_search_results(
-    filepath: str, properties: list[rightmove.models.Property]
-) -> None:
-    """Save search results to a file."""
-    path = pathlib.Path(filepath)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps([property.model_dump(mode="json") for property in properties])
-    )
-
-
 if __name__ == "__main__":
     argument_parser = argparse.ArgumentParser("Fetch Rightmove Properties")
     argument_parser.add_argument(
@@ -169,6 +170,9 @@ if __name__ == "__main__":
     )
     argument_parser.add_argument(
         "--output", type=str, default="", help="Save JSON file location"
+    )
+    argument_parser.add_argument(
+        "--properties", type=str, default="", help="Properties JSON file"
     )
     arguments = argument_parser.parse_args()
     filepath = arguments.boundaries
@@ -180,6 +184,13 @@ if __name__ == "__main__":
     with open(filepath, "r") as file:
         post_code_boundaries: dict[str, list[tuple[float, float]]] = json.load(file)
 
+    if arguments.properties:
+        historical_properties = flathunt.io.load_json(
+            list[rightmove.models.Property], arguments.properties
+        )
+    else:
+        historical_properties = []
+
     api = rightmove.api.Rightmove(
         retrying=tenacity.Retrying(
             retry=tenacity.retry_if_exception_type(rightmove.api.HTTPError)
@@ -188,5 +199,6 @@ if __name__ == "__main__":
     properties = _map_search(
         api,
         list(post_code_boundaries.items()),
+        historical_properties,
     )
-    _save_search_results(output, properties)
+    flathunt.io.save_json(list[rightmove.models.Property], properties, output)

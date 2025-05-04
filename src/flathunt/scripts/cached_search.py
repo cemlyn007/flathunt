@@ -9,39 +9,13 @@ from typing import cast
 import tenacity
 
 import flathunt.cached_app
+import flathunt.io
 import flathunt.rate_limiter
 import rightmove.models
 import rightmove.property_cache
 import tfl.api
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _load_properties(
-    filepath: str,
-) -> list[rightmove.models.Property]:
-    """Load properties from a JSON file."""
-    with open(filepath, "r") as file:
-        properties: list[rightmove.models.Property] = [
-            rightmove.models.Property.model_validate(search_property)
-            for search_property in json.load(file)
-        ]
-    return properties
-
-
-def _save_properties(
-    filepath: str, properties: list[rightmove.models.Property]
-) -> None:
-    """Save properties to a JSON file."""
-    with open(filepath, "w") as file:
-        json.dump(
-            [
-                rightmove.models.Property.model_dump(search_property, mode="json")
-                for search_property in properties
-            ],
-            file,
-            indent=2,
-        )
 
 
 def rate_limit_wait(retry_state: tenacity.RetryCallState) -> int:
@@ -73,7 +47,7 @@ def main() -> None:
         logger.setLevel(logging.INFO)
         logger.addHandler(logging.StreamHandler())
 
-    properties = _load_properties(args.properties)
+    properties = flathunt.io.load_json(list[rightmove.models.Property], args.properties)
 
     with open("locations.json", "r") as file:
         locations = {key: tuple(value) for key, value in json.load(file).items()}
@@ -112,6 +86,7 @@ def main() -> None:
         property_cache,
         journey_cache=None,
         tfl_api=tfl_api,
+        progress_bar=True,
     )
     if args.sort_center:
         sort_center = ast.literal_eval(args.sort_center)
@@ -154,7 +129,9 @@ def main() -> None:
         pass
     finally:
         if appropiate_properties:
-            _save_properties(args.output, appropiate_properties)
+            flathunt.io.save_json(
+                list[rightmove.models.Property], appropiate_properties, args.output
+            )
 
 
 if __name__ == "__main__":
