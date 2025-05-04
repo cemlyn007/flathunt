@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v0.18.0 (2025-05-04)
+
+### Features
+
+- Do not fetch if already let agreed
+  ([`db1bba4`](https://github.com/cemlyn007/flathunt/commit/db1bba4aa44527fa4bfccbb2dd6dc40f1b8db1b9))
+
+- Filter on displayed floor size
+  ([`a806964`](https://github.com/cemlyn007/flathunt/commit/a806964cef8ecc903d53dba58af91d0c7cb14f5d))
+
+
 ## v0.17.0 (2025-05-03)
 
 ### Bug Fixes
