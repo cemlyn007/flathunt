@@ -28,12 +28,14 @@ class App:
         property_cache: Optional[property_cache.PropertyCache],
         journey_cache: Optional[tfl.cache.Cache],
         tfl_api: tfl.api.Tfl,
+        progress_bar: bool,
     ) -> None:
         self._api = api.Rightmove()
         self._property_cache = property_cache
         self._journey_cache = journey_cache
         self._commute_coordinates = commute_coordinates
         self._tfl = tfl_api
+        self._progress_bar = progress_bar
 
     def search(
         self,
@@ -42,6 +44,7 @@ class App:
         max_days_since_added: Optional[int],
         journey_coordinates: dict[str, tuple[float, float]],
         max_journey_timedelta: datetime.timedelta,
+        min_square_meters: int = 0,
     ) -> Iterator[rightmove.models.Property]:
         logger.info("Search returned %d properties", len(properties))
         new_properties = [
@@ -66,6 +69,7 @@ class App:
                             max_days_since_added=max_days_since_added,
                             journey_coordinates=journey_coordinates,
                             max_journey_timedelta=max_journey_timedelta,
+                            min_square_meters=min_square_meters,
                         ),
                     ),
                     property,
@@ -73,12 +77,11 @@ class App:
                 for property in new_properties
             ]
             try:
-                enable_progress_bar = False
                 with tqdm.tqdm(
                     total=len(new_properties),
                     desc="Filtering properties",
                     unit="properties",
-                    disable=not enable_progress_bar,
+                    disable=not self._progress_bar,
                 ) as progress_bar:
                     for future in concurrent.futures.as_completed(futures):
                         progress_bar.update(1)
@@ -88,7 +91,7 @@ class App:
                             progress_bar.set_description(
                                 str(skip_format).format(*skip_args)
                             )
-                            if not enable_progress_bar:
+                            if not self._progress_bar:
                                 logger.info(*skip_reason)
                         else:
                             yield property
@@ -104,7 +107,7 @@ class App:
         max_days_since_added: Optional[int],
         journey_coordinates: dict[str, tuple[float, float]],
         max_journey_timedelta: datetime.timedelta,
-        min_square_meters: int = 0,
+        min_square_meters: int,
     ) -> Optional[Iterable[SupportsStr]]:
         if any(
             (
@@ -191,7 +194,6 @@ class App:
             )
             if not journeys:
                 return False
-            # logger.info("Location: %s, Journey: %d", location_name, len(journeys))
             min_journey = min(
                 journeys,
                 key=lambda journey: arrival_datetime.timestamp()
@@ -201,19 +203,7 @@ class App:
                 arrival_datetime - min_journey.departure_datetime.astimezone(tzinfo)
             )
             if min_journey_timedelta > max_journey_timedelta:
-                # logger.info(
-                #     "Unacceptable journeys (%s, %s)",
-                #     location_name,
-                #     min_journey_timedelta,
-                # )
                 return False
-            # logger.info(
-            #     "Acceptable journey (%s, %s, %s)",
-            #     location_name,
-            #     min_journey.mode.value,
-            #     min_journey_timedelta,
-            # )
-        # logger.info("Acceptable journeys")
         return True
 
     def _get_journeys(

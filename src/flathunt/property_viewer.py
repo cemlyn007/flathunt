@@ -1,9 +1,9 @@
 import logging
 import random
-import sys
 import time
 import webbrowser
 
+import flathunt.map
 import rightmove.api
 from rightmove import models
 
@@ -44,7 +44,7 @@ class Viewer:
             property.location.latitude,
             property.location.longitude,
         )
-        map_url = get_map_url(start_coordinate, destination)
+        map_url = flathunt.map.url(start_coordinate, destination)
         webbrowser.open_new_tab(map_url)
         _random_sleep()
 
@@ -54,13 +54,3 @@ class Viewer:
 
     def _wait(self, message: str) -> None:
         input(" ".join((message, "Press enter to continue...")))
-
-
-def get_map_url(source: tuple[float, float], destination: tuple[float, float]) -> str:
-    saddr = ",".join(map(str, source))
-    daddr = ",".join(map(str, destination))
-    if sys.platform == "darwin":
-        map_url = f"https://maps.apple.com/?saddr={saddr}&daddr={daddr}&dirflg=r"
-    else:
-        map_url = f"www.google.com/maps/dir/?api=1&origin={saddr}&destination={daddr}&travelmode=transit"
-    return map_url

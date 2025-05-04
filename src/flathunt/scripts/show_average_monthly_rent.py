@@ -1,21 +1,22 @@
-from collections.abc import Sequence
+import argparse
+import concurrent.futures
 import functools
-import os
-from matplotlib.backend_bases import Event, PickEvent
-import matplotlib.cm
 import json
 import logging
+import os
 import statistics
-from matplotlib import pyplot as plt
-import argparse
-import tqdm
-import rightmove.models
-import matplotlib.colors
+from collections.abc import Sequence
 
+import matplotlib.cm
+import matplotlib.colors
 import numpy as np
+import tqdm
 from matplotlib import patches, text
+from matplotlib import pyplot as plt
+from matplotlib.backend_bases import Event, PickEvent
 from matplotlib.path import Path
-import concurrent.futures
+
+import rightmove.models
 
 
 def _create_polygon(
@@ -236,7 +237,7 @@ def _load_properties(
 def _main(
     boundaries_filepath: str,
     properties_filepath: str,
-    max_price: float,
+    max_price: float | None,
     show_open_door_logistics: bool,
 ) -> None:
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
@@ -258,10 +259,16 @@ def _main(
         grouped_search_results=grouped_search_results,
     )
     min_price = min(statistics.mean(prices) for prices in key_monthly_prices.values())
-    max_price = min(
-        max(statistics.mean(prices) for prices in key_monthly_prices.values()),
-        max_price,
+    observed_max_mean_price = max(
+        statistics.mean(prices) for prices in key_monthly_prices.values()
     )
+    if max_price is None:
+        max_price = observed_max_mean_price
+    else:
+        max_price = min(
+            observed_max_mean_price,
+            max_price,
+        )
     _update_artists(
         polygons=polygons,
         boundaries=ordered_keys,
@@ -285,7 +292,11 @@ if __name__ == "__main__":
         "--properties", type=str, required=True, help="Properties JSON file"
     )
     argument_parser.add_argument(
-        "--max-price", type=str, required=True, help="Maximum price for color bar"
+        "--max-price",
+        type=float,
+        required=False,
+        help="Maximum price for color bar",
+        default=None,
     )
     argument_parser.add_argument(
         "--open-door-logistics",
@@ -297,6 +308,6 @@ if __name__ == "__main__":
     _main(
         boundaries_filepath=arguments.boundaries,
         properties_filepath=arguments.properties,
-        max_price=float(arguments.max_price),
+        max_price=arguments.max_price,
         show_open_door_logistics=arguments.open_door_logistics,
     )

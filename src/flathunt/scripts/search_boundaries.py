@@ -1,16 +1,17 @@
+import argparse
 import datetime
 import itertools
-import operator
-from collections.abc import Collection
 import json
+import operator
 import os
 import pathlib
-import tqdm
-import argparse
 import random
 import time
+from collections.abc import Collection
 
 import tenacity
+import tqdm
+
 import rightmove.api
 import rightmove.models
 

@@ -63,7 +63,9 @@ def main() -> None:
     parser.add_argument("--default-max-price", type=int, default=2200)
     parser.add_argument("--max-journey-minutes", type=int, default=45)
     parser.add_argument("--max-days-since-added", type=int, default=7)
+    parser.add_argument("--min-square-meters", type=int, default=0)
     parser.add_argument("--sort-center", type=str, default=None)
+    parser.add_argument("--output", type=str, default="properties.json")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, encoding="utf-8")
@@ -145,13 +147,14 @@ def main() -> None:
             args.max_days_since_added,
             journey_coordinates=locations,
             max_journey_timedelta=datetime.timedelta(minutes=args.max_journey_minutes),
+            min_square_meters=args.min_square_meters,
         ):
             appropiate_properties.append(property)
     except KeyboardInterrupt:
         pass
     finally:
         if appropiate_properties:
-            _save_properties("properties.json", appropiate_properties)
+            _save_properties(args.output, appropiate_properties)
 
 
 if __name__ == "__main__":

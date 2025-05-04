@@ -1,11 +1,12 @@
-import zoneinfo
-from rightmove import api, property_cache, models
-import webbrowser
-import sys
 import datetime
-import tfl.api
 import logging
+import webbrowser
+import zoneinfo
 from typing import Optional, Union
+
+import flathunt.map
+import tfl.api
+from rightmove import api, models, property_cache
 
 logger = logging.Logger(__name__)
 
@@ -108,14 +109,15 @@ class App:
         arrival_datetime = tfl.api.get_next_datetime(
             datetime.time(9, 0, 0, 0, tzinfo=tzinfo)
         )
+        tfl_api = tfl.api.Tfl(
+            app_key=self._tfl_app_key,
+        )
         for location_name, journey_coordinate in journey_coordinates.items():
-            tfl_api = tfl.api.Tfl(
+            journeys = tfl_api(
                 from_location=location,
                 to_location=journey_coordinate,
-                app_key=self._tfl_app_key,
                 arrival_datetime=arrival_datetime,
             )
-            journeys = tfl_api()
             logger.info("Location: %s, Journey: %d", location_name, len(journeys))
             min_journey = min(
                 journeys,
@@ -151,7 +153,7 @@ class App:
     def _show_advert(self, property: models.Property) -> None:
         # Some properties don't have a URL.
         if property.property_url:
-            url = self._api.property_url(property.property_url)
+            url = api.property_url(property.property_url)
             webbrowser.open_new_tab(url)
 
     def _show_route(
@@ -161,7 +163,7 @@ class App:
             property.location.latitude,
             property.location.longitude,
         )
-        map_url = get_map_url(start_coordinate, destination)
+        map_url = flathunt.map.url(start_coordinate, destination)
         webbrowser.open_new_tab(map_url)
 
     def _skip(self) -> bool:
@@ -170,13 +172,3 @@ class App:
 
     def _wait(self, message: str) -> None:
         input(" ".join((message, "Press enter to continue...")))
-
-
-def get_map_url(source: tuple[float, float], destination: tuple[float, float]) -> str:
-    saddr = ",".join(map(str, source))
-    daddr = ",".join(map(str, destination))
-    if sys.platform == "darwin":
-        map_url = f"https://maps.apple.com/?saddr={saddr}&daddr={daddr}&dirflg=r"
-    else:
-        map_url = f"https://www.google.com/maps/?saddr={saddr}&daddr={daddr}&directionsmode=transit"
-    return map_url

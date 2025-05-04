@@ -1,10 +1,11 @@
 import argparse
 import datetime
 import json
-import os
-import rightmove.property_cache
-import flathunt.app
 import logging
+import os
+
+import flathunt.app
+import rightmove.property_cache
 
 
 def main() -> None:

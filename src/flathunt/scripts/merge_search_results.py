@@ -1,9 +1,10 @@
 import argparse
-from collections.abc import Iterable, Iterator
-import os
-import rightmove.models
 import json
+import os
 import pathlib
+from collections.abc import Iterable, Iterator
+
+import rightmove.models
 
 
 def _load_search_results(

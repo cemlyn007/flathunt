@@ -1,6 +1,6 @@
 import time
 from functools import wraps
-from threading import Lock, BoundedSemaphore
+from threading import BoundedSemaphore, Lock
 from typing import Callable, TypeVar, cast
 
 T = TypeVar("T", bound=Callable)
