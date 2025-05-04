@@ -4,7 +4,6 @@ import datetime
 import json
 import logging
 import os
-from typing import cast
 
 import tenacity
 
@@ -57,7 +56,7 @@ def main() -> None:
 
     http_error_retry = tenacity.Retrying(
         wait=tenacity.wait_exponential_jitter(max=90),
-        stop=tenacity.stop_after_attempt(3),
+        stop=tenacity.stop_after_attempt(30),
         retry=tenacity.retry_if_exception_type(
             (
                 tfl.api.NotFoundError,
@@ -69,17 +68,14 @@ def main() -> None:
     )
     rate_limit_retry = tenacity.Retrying(
         wait=rate_limit_wait,
-        stop=tenacity.stop_after_attempt(3),
+        stop=tenacity.stop_after_attempt(10),
         retry=tenacity.retry_if_exception_type(tfl.api.RateLimitError),
         before_sleep=tenacity.before_sleep_log(_LOGGER, logging.INFO),
     )
-    tfl_api = cast(
-        tfl.api.Tfl,
-        http_error_retry.wraps(
-            rate_limit_retry.wraps(
-                rate_limiter(tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"]))
-            )
-        ),
+    tfl_api = http_error_retry.wraps(
+        rate_limit_retry.wraps(
+            rate_limiter(tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"]))
+        )
     )
     app = flathunt.cached_app.App(
         list(locations.values()),

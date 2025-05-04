@@ -1,12 +1,11 @@
-import http.client
-import gzip
-import json
-from typing import Any
-import http
-import urllib.parse
 import datetime
+import gzip
+import http
+import http.client
+import json
+import urllib.parse
 import zoneinfo
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from tfl import models
 
@@ -49,6 +48,8 @@ class Tfl:
             arrival_datetime,
             app_key=self._app_key,
         )
+        if not response:
+            return []
         raw_journeys = response["journeys"]
         journeys = [
             parse_journey(raw_journey, datetime.timezone.utc)
@@ -185,9 +186,19 @@ def _request(
         },
     )
     http_response = connection.getresponse()
+    raw_response = http_response.read()
+    if http_response.getheader("Content-Encoding") == "gzip":
+        raw_response = gzip.decompress(raw_response)
+    if raw_response:
+        response = json.loads(raw_response)
+    else:
+        response = None
     if http_response.status == http.HTTPStatus.TOO_MANY_REQUESTS:
         raise RateLimitError(wait=int(http_response.getheader("Retry-After") or -1))
     elif http_response.status == http.HTTPStatus.NOT_FOUND:
+        if response and response["message"] == "No journey found for your inputs.":
+            return None
+        # else...
         raise NotFoundError(http_response.reason)
     elif http_response.status == http.HTTPStatus.INTERNAL_SERVER_ERROR:
         raise InternalServerError(http_response.reason)
@@ -195,8 +206,4 @@ def _request(
         raise BadGatewayError(http_response.reason)
     elif http_response.status != http.HTTPStatus.OK:
         raise HTTPError(f"HTTP error {http_response.status}: {http_response.reason}")
-    raw_response = http_response.read()
-    if http_response.getheader("Content-Encoding") == "gzip":
-        raw_response = gzip.decompress(raw_response)
-    response = json.loads(raw_response)
     return response

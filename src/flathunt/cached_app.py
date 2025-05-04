@@ -61,43 +61,45 @@ class App:
         try:
             futures = [
                 executor.submit(
-                    lambda p: (
-                        p,
-                        self._suitable_property(
-                            property=p,
-                            max_price=max_price,
-                            max_days_since_added=max_days_since_added,
-                            journey_coordinates=journey_coordinates,
-                            max_journey_timedelta=max_journey_timedelta,
-                            min_square_meters=min_square_meters,
-                        ),
-                    ),
-                    property,
+                    self._suitable_property,
+                    property=property,
+                    max_price=max_price,
+                    max_days_since_added=max_days_since_added,
+                    journey_coordinates=journey_coordinates,
+                    max_journey_timedelta=max_journey_timedelta,
+                    min_square_meters=min_square_meters,
                 )
                 for property in new_properties
             ]
-            try:
-                with tqdm.tqdm(
-                    total=len(new_properties),
-                    desc="Filtering properties",
-                    unit="properties",
-                    disable=not self._progress_bar,
-                ) as progress_bar:
-                    for future in concurrent.futures.as_completed(futures):
-                        progress_bar.update(1)
-                        property, skip_reason = future.result()
+            with tqdm.tqdm(
+                total=len(new_properties),
+                desc="Filtering properties",
+                unit="properties",
+                disable=not self._progress_bar,
+                position=0,
+            ) as progress_bar:
+                for future in concurrent.futures.as_completed(futures):
+                    index = futures.index(future)
+                    progress_bar.update(1)
+                    try:
+                        skip_reason = future.result()
                         if skip_reason:
                             skip_format, *skip_args = skip_reason
-                            progress_bar.set_description(
+                            progress_bar.set_description_str(
                                 str(skip_format) % (*skip_args,)
                             )
                             if not self._progress_bar:
                                 logger.info(*skip_reason)
                         else:
-                            yield property
-            except Exception as exception:
-                executor.shutdown(wait=False, cancel_futures=True)
-                raise exception
+                            yield new_properties[index]
+                    except Exception as exception:
+                        logging.exception(
+                            "An error occurred while filtering property %s: %s",
+                            new_properties[index].id,
+                            exception,
+                        )
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        raise exception
         finally:
             executor.shutdown(wait=True)
 
@@ -139,6 +141,20 @@ class App:
                         property.display_address,
                         square_ft,
                     )
+        if (
+            property.lozenge_model
+            and property.lozenge_model.matching_lozenges
+            and any(
+                lozenge.type == "LET_AGREED"
+                for lozenge in property.lozenge_model.matching_lozenges
+            )
+        ):
+            return (
+                'Skipping "%s" (%s %s) because it is let agreed!',
+                property.display_address,
+                property.price.amount,
+                property.price.frequency,
+            )
         pcm = rightmove.price.normalize(property.price) or float("inf")
         if pcm > max_price:
             return (

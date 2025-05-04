@@ -24,6 +24,7 @@ def main() -> None:
     with open("locations.json", "r") as file:
         locations = {key: tuple(value) for key, value in json.load(file).items()}
 
+    _LOGGER.info("Loaded %s properties", len(properties))
     viewer = flathunt.property_viewer.Viewer(
         commute_coordinates=list(locations.values())
     )
