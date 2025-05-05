@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.19.0 (2025-05-05)
+
+### Features
+
+- Return empty journeys if not found
+  ([`deaee1d`](https://github.com/cemlyn007/flathunt/commit/deaee1d829a8d8fc640cdb6c21e39cb18627d98c))
+
+
 ## v0.18.0 (2025-05-04)
 
 ### Features
