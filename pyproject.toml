@@ -8,7 +8,7 @@ version = "0.19.0"
 description = "Flat hunt application for improving the search experience"
 authors = [{name = "Cemlyn Neil Waters", email = "cemlynwaters@gmail.com"},]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 
 dependencies = [
     "tenacity",
