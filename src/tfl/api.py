@@ -8,6 +8,11 @@ from httpx_limiter.rate import Rate
 
 from tfl import models
 
+API_BASE_URL = "https://api.tfl.gov.uk"
+STATION_FACILITIES_URL = (
+    "https://tfl.gov.uk/tfl/syndication/feeds/stations-facilities.xml"
+)
+
 
 class Tfl:
     def __init__(
@@ -15,6 +20,10 @@ class Tfl:
         app_key: str,
     ) -> None:
         self._app_key = app_key
+        self._throttled_client = get_ratelimited_client()
+
+    async def get_stations_facilities(self) -> models.Root:
+        return await get_stations_facilities()
 
     async def get_journey_results(
         self,
@@ -23,6 +32,7 @@ class Tfl:
         arrival_datetime: Optional[datetime.datetime] = None,
     ) -> models.JourneyResults:
         return await get_journey_results(
+            self._throttled_client,
             from_location,
             to_location,
             arrival_datetime,
@@ -30,7 +40,16 @@ class Tfl:
         )
 
 
+async def get_stations_facilities() -> models.Root:
+    async with httpx.AsyncClient() as client:
+        content = await get(client, STATION_FACILITIES_URL, {})
+    text = content.decode()
+    clean_text = " ".join(text.split())
+    return models.Root.from_xml(clean_text)
+
+
 async def get_journey_results(
+    client: httpx.AsyncClient,
     from_location: Union[tuple[float, float], str],
     to_location: tuple[float, float],
     arrival_datetime: Optional[datetime.datetime],
@@ -38,19 +57,22 @@ async def get_journey_results(
 ) -> models.JourneyResults:
     url = build_journey_url(from_location, to_location)
     parameters = build_journey_parameters(arrival_datetime, app_key)
-    response_data = await get(url, parameters)
-    return models.JourneyResults.model_validate_json(response_data)
+    content = await get(client, url, parameters)
+    return models.JourneyResults.model_validate_json(content, strict=True)
 
 
-async def get(url: str, parameters: dict[str, Any]) -> bytes:
-    async with httpx.AsyncClient(
-        base_url="https://api.tfl.gov.uk",
+def get_ratelimited_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient(
+        base_url=API_BASE_URL,
         transport=AsyncRateLimitedTransport.create(
             Rate.create(magnitude=1, duration=1.0 / 500.0)
         ),
-    ) as client:
-        response = await client.get(url, params=parameters)
-        response.raise_for_status()
+    )
+
+
+async def get(client: httpx.AsyncClient, url: str, parameters: dict[str, Any]) -> bytes:
+    response = await client.get(url, params=parameters)
+    response.raise_for_status()
     return response.content
 
 

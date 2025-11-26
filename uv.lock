@@ -515,6 +515,7 @@ dependencies = [
     { name = "numpy" },
     { name = "polyline" },
     { name = "pydantic" },
+    { name = "pydantic-xml" },
     { name = "scipy" },
     { name = "tenacity" },
     { name = "tqdm" },
@@ -543,6 +544,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2.4" },
     { name = "polyline", specifier = ">=2.0.2" },
     { name = "pydantic", specifier = ">=2.0.0" },
+    { name = "pydantic-xml", specifier = ">=2.18.0" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "tenacity" },
     { name = "tqdm", specifier = ">=4.0.0" },
@@ -1736,6 +1738,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/aa/81/05e400037eaf55ad400bcd318c05bb345b57e708887f07ddb2d20e3f0e98/pydantic_core-2.41.5-graalpy312-graalpy250_312_native-macosx_11_0_arm64.whl", hash = "sha256:aabf5777b5c8ca26f7824cb4a120a740c9588ed58df9b2d196ce92fba42ff8dc", size = 1915388, upload-time = "2025-11-04T13:42:52.215Z" },
     { url = "https://files.pythonhosted.org/packages/6e/0d/e3549b2399f71d56476b77dbf3cf8937cec5cd70536bdc0e374a421d0599/pydantic_core-2.41.5-graalpy312-graalpy250_312_native-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c007fe8a43d43b3969e8469004e9845944f1a80e6acd47c150856bb87f230c56", size = 1942879, upload-time = "2025-11-04T13:42:56.483Z" },
     { url = "https://files.pythonhosted.org/packages/f7/07/34573da085946b6a313d7c42f82f16e8920bfd730665de2d11c0c37a74b5/pydantic_core-2.41.5-graalpy312-graalpy250_312_native-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:76d0819de158cd855d1cbb8fcafdf6f5cf1eb8e470abe056d5d161106e38062b", size = 2139017, upload-time = "2025-11-04T13:42:59.471Z" },
+]
+
+[[package]]
+name = "pydantic-xml"
+version = "2.18.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pydantic-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5e/64/cd62cbbba095d69fe601c8d6a1924988907eb5845b397a124fb49e0e5e44/pydantic_xml-2.18.0.tar.gz", hash = "sha256:e6838c9247de2ffe28127581de3cc360bc7176abe5fd87751dbafdd966416749", size = 26168, upload-time = "2025-10-10T20:12:43.251Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/cd/6a9174b5a432ef4f49e271418104b62a0da2881cc6dfc6b73dd20498931e/pydantic_xml-2.18.0-py3-none-any.whl", hash = "sha256:9b2412c8c84242223979e9274ade1d3566028cf6a9b1cdb6389384d2db5292c0", size = 42484, upload-time = "2025-10-10T20:12:42.258Z" },
 ]
 
 [[package]]

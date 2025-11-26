@@ -19,6 +19,7 @@ dependencies = [
     "polyline>=2.0.2",
     "httpx>=0.28.1",
     "httpx-limiter>=0.4.0",
+    "pydantic-xml>=2.18.0",
 ]
 
 [project.optional-dependencies]
