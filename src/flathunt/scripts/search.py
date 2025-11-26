@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import datetime
 import json
 import logging
@@ -8,7 +9,7 @@ import flathunt.app
 import rightmove.property_cache
 
 
-def main() -> None:
+async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true", default=False)
     parser.add_argument("--search-locations", type=str, default="search_locations.json")
@@ -38,7 +39,7 @@ def main() -> None:
     try:
         for location, location_id in search_locations.items():
             print(f"Searching for properties near {location}...", flush=True)
-            rightmove_app.search(
+            await rightmove_app.search(
                 location,
                 location_id,
                 search_location_prices.get(location, args.default_max_price),
@@ -54,7 +55,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        logging.shutdown()
+    asyncio.run(main())

@@ -1,15 +1,13 @@
 import argparse
 import ast
+import asyncio
 import datetime
 import json
 import logging
 import os
 
-import tenacity
-
 import flathunt.cached_app
 import flathunt.io
-import flathunt.rate_limiter
 import rightmove.models
 import rightmove.property_cache
 import tfl.api
@@ -17,19 +15,7 @@ import tfl.api
 _LOGGER = logging.getLogger(__name__)
 
 
-def rate_limit_wait(retry_state: tenacity.RetryCallState) -> int:
-    outcome = retry_state.outcome
-    if not outcome:
-        raise ValueError("RetryCallState has no outcome")
-    exception = outcome.exception()
-    if not isinstance(exception, tfl.api.RateLimitError):
-        raise ValueError(
-            "RetryCallState exception is not RateLimitError"
-        ) from exception
-    return exception.wait
-
-
-def main() -> None:
+async def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--reset", action="store_true", default=False)
     parser.add_argument("--properties", type=str)
@@ -52,31 +38,8 @@ def main() -> None:
         locations = {key: tuple(value) for key, value in json.load(file).items()}
 
     property_cache = rightmove.property_cache.PropertyCache("history.json", args.reset)
-    rate_limiter = flathunt.rate_limiter.RateLimiter(max_calls=500, interval=60)
 
-    http_error_retry = tenacity.Retrying(
-        wait=tenacity.wait_exponential_jitter(max=90),
-        stop=tenacity.stop_after_attempt(30),
-        retry=tenacity.retry_if_exception_type(
-            (
-                tfl.api.NotFoundError,
-                tfl.api.InternalServerError,
-                tfl.api.BadGatewayError,
-            )
-        ),
-        before_sleep=tenacity.before_sleep_log(_LOGGER, logging.ERROR),
-    )
-    rate_limit_retry = tenacity.Retrying(
-        wait=rate_limit_wait,
-        stop=tenacity.stop_after_attempt(10),
-        retry=tenacity.retry_if_exception_type(tfl.api.RateLimitError),
-        before_sleep=tenacity.before_sleep_log(_LOGGER, logging.INFO),
-    )
-    tfl_api = http_error_retry.wraps(
-        rate_limit_retry.wraps(
-            rate_limiter(tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"]))
-        )
-    )
+    tfl_api = tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"])
     app = flathunt.cached_app.App(
         list(locations.values()),
         property_cache,
@@ -112,7 +75,7 @@ def main() -> None:
     )
     appropiate_properties = []
     try:
-        for property in app.search(
+        async for property in app.search(
             properties,
             args.default_max_price,
             args.max_days_since_added,
@@ -131,7 +94,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    finally:
-        logging.shutdown()
+    asyncio.run(main())

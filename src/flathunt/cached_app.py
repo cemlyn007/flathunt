@@ -1,8 +1,8 @@
-import concurrent.futures
+import asyncio
 import datetime
 import logging
 import zoneinfo
-from collections.abc import Iterable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Iterable
 from typing import Optional, Protocol, Union
 
 import tqdm
@@ -21,6 +21,11 @@ class SupportsStr(Protocol):
     def __str__(self) -> str: ...
 
 
+async def _identify[T](index: int, awaitable: Awaitable[T]) -> tuple[int, T]:
+    result = await awaitable
+    return index, result
+
+
 class App:
     def __init__(
         self,
@@ -37,7 +42,7 @@ class App:
         self._tfl = tfl_api
         self._progress_bar = progress_bar
 
-    def search(
+    async def search(
         self,
         properties: list[rightmove.models.Property],
         max_price: int,
@@ -45,7 +50,7 @@ class App:
         journey_coordinates: dict[str, tuple[float, float]],
         max_journey_timedelta: datetime.timedelta,
         min_square_meters: int = 0,
-    ) -> Iterator[rightmove.models.Property]:
+    ) -> AsyncIterator[rightmove.models.Property]:
         logger.info("Search returned %d properties", len(properties))
         new_properties = [
             property
@@ -57,53 +62,39 @@ class App:
             "After filtering cached properties, returned %d properties",
             len(new_properties),
         )
-        executor = concurrent.futures.ThreadPoolExecutor()
-        try:
-            futures = [
-                executor.submit(
-                    self._suitable_property,
+
+        futures = [
+            _identify(
+                index,
+                self._suitable_property(
                     property=property,
                     max_price=max_price,
                     max_days_since_added=max_days_since_added,
                     journey_coordinates=journey_coordinates,
                     max_journey_timedelta=max_journey_timedelta,
                     min_square_meters=min_square_meters,
-                )
-                for property in new_properties
-            ]
-            with tqdm.tqdm(
-                total=len(new_properties),
-                desc="Filtering properties",
-                unit="properties",
-                disable=not self._progress_bar,
-                position=0,
-            ) as progress_bar:
-                for future in concurrent.futures.as_completed(futures):
-                    index = futures.index(future)
-                    progress_bar.update(1)
-                    try:
-                        skip_reason = future.result()
-                        if skip_reason:
-                            skip_format, *skip_args = skip_reason
-                            progress_bar.set_description_str(
-                                str(skip_format) % (*skip_args,)
-                            )
-                            if not self._progress_bar:
-                                logger.info(*skip_reason)
-                        else:
-                            yield new_properties[index]
-                    except Exception as exception:
-                        logging.exception(
-                            "An error occurred while filtering property %s: %s",
-                            new_properties[index].id,
-                            exception,
-                        )
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        raise exception
-        finally:
-            executor.shutdown(wait=True)
+                ),
+            )
+            for index, property in enumerate(new_properties)
+        ]
+        with tqdm.tqdm(
+            total=len(new_properties),
+            desc="Filtering properties",
+            unit="properties",
+            disable=not self._progress_bar,
+            position=0,
+        ) as progress_bar:
+            async for index, skip_reason in asyncio.as_completed(futures):
+                progress_bar.update(1)
+                if skip_reason:
+                    skip_format, *skip_args = skip_reason
+                    progress_bar.set_description_str(str(skip_format) % (*skip_args,))
+                    if not self._progress_bar:
+                        logger.info(*skip_reason)
+                else:
+                    yield new_properties[index]
 
-    def _suitable_property(
+    async def _suitable_property(
         self,
         property: rightmove.models.Property,
         max_price: int,
@@ -176,28 +167,20 @@ class App:
                     property.price.frequency,
                     days_since_added,
                 )
-        try:
-            if not self._check_journey(
-                location=(property.location.latitude, property.location.longitude),
-                journey_coordinates=journey_coordinates,
-                max_journey_timedelta=max_journey_timedelta,
-            ):
-                return (
-                    'Skipping "%s" (%s %s)',
-                    property.display_address,
-                    property.price.amount,
-                    property.price.frequency,
-                )
-        except tfl.api.HTTPError as error:
-            logger.exception(
-                'Skipping "%s" (%s %s) because of TFL error: %s',
+
+        if not await self._check_journey(
+            location=(property.location.latitude, property.location.longitude),
+            journey_coordinates=journey_coordinates,
+            max_journey_timedelta=max_journey_timedelta,
+        ):
+            return (
+                'Skipping "%s" (%s %s)',
                 property.display_address,
                 property.price.amount,
                 property.price.frequency,
-                error,
             )
 
-    def _check_journey(
+    async def _check_journey(
         self,
         location: Union[tuple[float, float], str],
         journey_coordinates: dict[str, tuple[float, float]],
@@ -208,24 +191,21 @@ class App:
             datetime.time(9, 0, 0, 0, tzinfo=tzinfo)
         )
         for location_name, journey_coordinate in journey_coordinates.items():
-            journeys = self._get_journeys(
+            journeys = await self._get_journeys(
                 location, journey_coordinate, arrival_datetime
             )
             if not journeys:
                 return False
             min_journey = min(
                 journeys,
-                key=lambda journey: arrival_datetime.timestamp()
-                - journey.departure_datetime.timestamp(),
+                key=lambda journey: journey.duration,
             )
-            min_journey_timedelta = (
-                arrival_datetime - min_journey.departure_datetime.astimezone(tzinfo)
-            )
+            min_journey_timedelta = datetime.timedelta(minutes=min_journey.duration)
             if min_journey_timedelta > max_journey_timedelta:
                 return False
         return True
 
-    def _get_journeys(
+    async def _get_journeys(
         self,
         source: Union[tuple[float, float], str],
         destination: tuple[float, float],
@@ -238,11 +218,11 @@ class App:
         ):
             return self._journey_cache[(source, destination)]
         else:
-            journeys = self._tfl(
+            journey_result = await self._tfl.get_journey_results(
                 from_location=source,
                 to_location=destination,
                 arrival_datetime=arrival_datetime,
             )
             if self._journey_cache is not None and isinstance(source, tuple):
-                self._journey_cache[(source, destination)] = journeys
-            return journeys
+                self._journey_cache[(source, destination)] = journey_result.journeys
+            return journey_result.journeys

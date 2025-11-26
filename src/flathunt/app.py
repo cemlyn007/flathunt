@@ -23,7 +23,7 @@ class App:
         self._commute_coordinates = commute_coordinates
         self._tfl_app_key = tfl_app_key
 
-    def search(
+    async def search(
         self,
         location_name: str,
         location_id: str,
@@ -33,15 +33,12 @@ class App:
         journey_coordinates: dict[str, tuple[float, float]],
         max_journey_timedelta: datetime.timedelta,
     ) -> None:
-        try:
-            if location_id.startswith("STATION^") and not self._check_journey(
-                location=location_name,
-                journey_coordinates=journey_coordinates,
-                max_journey_timedelta=max_journey_timedelta,
-            ):
-                return
-        except tfl.api.HTTPError:
-            logger.exception('Location name "%s"')
+        if location_id.startswith("STATION^") and not await self._check_journey(
+            location=location_name,
+            journey_coordinates=journey_coordinates,
+            max_journey_timedelta=max_journey_timedelta,
+        ):
+            return
 
         query = api.SearchQuery(
             location_identifier=location_id,
@@ -99,7 +96,7 @@ class App:
             if self._cache:
                 self._cache.add(property.model_dump(mode="json"))
 
-    def _check_journey(
+    async def _check_journey(
         self,
         location: Union[tuple[float, float], str],
         journey_coordinates: dict[str, tuple[float, float]],
@@ -113,17 +110,15 @@ class App:
             app_key=self._tfl_app_key,
         )
         for location_name, journey_coordinate in journey_coordinates.items():
-            journeys = tfl_api(
+            journey_results = await tfl_api.get_journey_results(
                 from_location=location,
                 to_location=journey_coordinate,
                 arrival_datetime=arrival_datetime,
             )
+            journeys = journey_results.journeys
             logger.info("Location: %s, Journey: %d", location_name, len(journeys))
-            min_journey = min(
-                journeys,
-                key=lambda journey: arrival_datetime - journey.departure_datetime,
-            )
-            min_journey_timedelta = arrival_datetime - min_journey.departure_datetime
+            min_journey = min(journeys, key=lambda journey: journey.duration)
+            min_journey_timedelta = datetime.timedelta(minutes=min_journey.duration)
             if min_journey_timedelta > max_journey_timedelta:
                 logger.info(
                     "Unacceptable journeys (%s, %s)",
@@ -134,7 +129,7 @@ class App:
             logger.info(
                 "Acceptable journey (%s, %s, %s)",
                 location_name,
-                min_journey.mode.value,
+                [leg.mode.id.value for leg in min_journey.legs],
                 min_journey_timedelta,
             )
         logger.info("Acceptable journeys")

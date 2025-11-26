@@ -8,7 +8,7 @@ version = "0.19.0"
 description = "Flat hunt application for improving the search experience"
 authors = [{name = "Cemlyn Neil Waters", email = "cemlynwaters@gmail.com"},]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 dependencies = [
     "tenacity",
@@ -17,6 +17,8 @@ dependencies = [
     "numpy>=2.2.4",
     "tqdm>=4.0.0",
     "polyline>=2.0.2",
+    "httpx>=0.28.1",
+    "httpx-limiter>=0.4.0",
 ]
 
 [project.optional-dependencies]
@@ -98,3 +100,9 @@ env = "GH_TOKEN"
 [tool.semantic_release.publish]
 dist_glob_patterns = ["dist/*"]
 upload_to_vcs_release = true
+
+[dependency-groups]
+dev = [
+    "notebook>=7.5.0",
+    "python-dotenv>=1.2.1",
+]
