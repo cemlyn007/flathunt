@@ -4,6 +4,48 @@ import enum
 import pydantic
 
 
+class Place(pydantic.BaseModel):
+    type: str = pydantic.Field(alias="$type")
+    url: str
+    common_name: str = pydantic.Field(alias="commonName")
+    place_type: str = pydantic.Field(alias="placeType")
+    additional_properties: list = pydantic.Field(alias="additionalProperties")
+    lat: float
+    lon: float
+
+
+class DisambiguationOption(pydantic.BaseModel):
+    type: str = pydantic.Field(alias="$type")
+    parameter_value: str = pydantic.Field(alias="parameterValue")
+    uri: str
+    place: Place
+    match_quality: int = pydantic.Field(alias="matchQuality")
+
+
+class Disambiguation(pydantic.BaseModel):
+    type: str = pydantic.Field(alias="$type")
+    disambiguation_options: list[DisambiguationOption] | None = pydantic.Field(
+        default=None, alias="disambiguationOptions"
+    )
+    match_status: str = pydantic.Field(alias="matchStatus")
+
+
+class DisambiguationResult(pydantic.BaseModel):
+    type: str = pydantic.Field(alias="$type")
+    to_location_disambiguation: Disambiguation = pydantic.Field(
+        alias="toLocationDisambiguation"
+    )
+    from_location_disambiguation: Disambiguation = pydantic.Field(
+        alias="fromLocationDisambiguation"
+    )
+    via_location_disambiguation: Disambiguation = pydantic.Field(
+        alias="viaLocationDisambiguation"
+    )
+    recommended_max_age_minutes: int = pydantic.Field(alias="recommendedMaxAgeMinutes")
+    search_criteria: "SearchCriteria" = pydantic.Field(alias="searchCriteria")
+    journey_vector: "JourneyVector" = pydantic.Field(alias="journeyVector")
+
+
 class PathAttribute(pydantic.BaseModel):
     type: str = pydantic.Field(alias="$type")
 
@@ -166,7 +208,7 @@ class Journey(pydantic.BaseModel):
     arrival_date_time: pydantic.AwareDatetime = pydantic.Field(alias="arrivalDateTime")
     alternative_route: bool = pydantic.Field(alias="alternativeRoute")
     legs: list[Leg]
-    fare: Fare
+    fare: Fare | None = None
 
     @pydantic.field_validator("start_date_time", "arrival_date_time", mode="before")
     @classmethod
