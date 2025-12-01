@@ -47,12 +47,14 @@ class Tfl:
     async def get_lines_by_mode(
         self, modes: Iterable[models.ModeId]
     ) -> list[models.Line]:
-        return await get_lines_by_mode(self._throttled_client, modes)
+        return await get_lines_by_mode(self._throttled_client, modes, self._app_key)
 
     async def get_stop_points_by_line(
         self, line_id: str
     ) -> list[models.StopPointDetail]:
-        return await get_stop_points_by_line(self._throttled_client, line_id)
+        return await get_stop_points_by_line(
+            self._throttled_client, line_id, self._app_key
+        )
 
     async def get_journey_results(
         self,
@@ -73,12 +75,16 @@ class Tfl:
         )
 
     async def get_timetable(
-        self, station_id: str, from_stop_point_id: str, direction: Direction
+        self,
+        station_id: str,
+        from_stop_point_id: str,
+        direction: Direction | None = None,
     ) -> models.TimetableResponse:
         return await get_timetable(
             self._throttled_client,
             station_id,
             from_stop_point_id,
+            self._app_key,
             direction,
         )
 
@@ -113,37 +119,39 @@ async def get_stop_points_by_mode(
 
 
 async def get_lines_by_mode(
-    client: httpx.AsyncClient, modes: Iterable[models.ModeId]
+    client: httpx.AsyncClient, modes: Iterable[models.ModeId], app_key: str
 ) -> list[models.Line]:
     """Get all lines for a given transport mode.
 
     Args:
         client: The HTTP client to use for the request.
         modes: The transport modes (e.g., [ModeId.TUBE, ModeId.BUS]).
+        app_key: The application key for authentication.
 
     Returns:
         A list of Line objects for the given modes.
     """
     modes_str = ",".join(mode.value for mode in modes)
     url = f"/Line/Mode/{modes_str}"
-    status_code, content = await get(client, url, {})
+    status_code, content = await get(client, url, {"app_key": app_key})
     return models.LineList.validate_json(content)
 
 
 async def get_stop_points_by_line(
-    client: httpx.AsyncClient, line_id: str
+    client: httpx.AsyncClient, line_id: str, app_key: str
 ) -> list[models.StopPointDetail]:
     """Get all stop points for a specific line.
 
     Args:
         client: The HTTP client to use for the request.
         line_id: The line ID (e.g., "victoria", "northern", "elizabeth").
+        app_key: The application key for authentication.
 
     Returns:
         A list of StopPointDetail objects for the given line.
     """
     url = f"/Line/{line_id}/StopPoints"
-    status_code, content = await get(client, url, {})
+    status_code, content = await get(client, url, {"app_key": app_key})
     return models.StopPointList.validate_json(content)
 
 
@@ -170,12 +178,13 @@ async def get_timetable(
     client: httpx.AsyncClient,
     station_id: str,
     from_stop_point_id: str,
-    direction: Direction,
+    app_key: str,
+    direction: Direction | None = None,
 ) -> models.TimetableResponse:
     url = f"/Line/{station_id}/Timetable/{from_stop_point_id}"
-    status_code, content = await get(client, url, {"direction": direction.value})
-    if status_code == 300:
-        raise RuntimeError("HTTP 300")
+    parameters = {"direction": direction.value} if direction else {}
+    parameters["app_key"] = app_key
+    _, content = await get(client, url, parameters)
     return models.TimetableResponse.model_validate_json(content, strict=True)
 
 
@@ -257,7 +266,9 @@ async def get(
                 else:
                     raise exceptions.TflApiError(
                         message=message,
-                        http_status_code=error_data.get("httpStatusCode"),
+                        http_status_code=(
+                            error_data.get("httpStatusCode") or e.response.status_code
+                        ),
                         exception_type=exception_type,
                         timestamp_utc=error_data.get("timestampUtc"),
                         relative_uri=error_data.get("relativeUri"),
