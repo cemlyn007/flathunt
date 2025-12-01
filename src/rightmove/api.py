@@ -1,16 +1,13 @@
 import copy
 import enum
-import gzip
-import http
-import http.client
 import json
-import urllib.parse
 from collections.abc import Iterable, Sequence
 from typing import Any, Literal, Optional
 
+import httpx
 import polyline as _polyline
 import pydantic
-from tenacity import Retrying
+from tenacity import AsyncRetrying
 
 from rightmove import models
 
@@ -140,14 +137,14 @@ def polyline_identifier(polyline: list[tuple[float, float]]) -> str:
 
 
 class Rightmove:
-    def __init__(self, retrying: Optional[Retrying] = None) -> None:
+    def __init__(self, retrying: Optional[AsyncRetrying] = None) -> None:
         self._raw_api = _RawRightmove()
         if retrying is not None:
             self._raw_api.lookup = retrying.wraps(self._raw_api.lookup)
             self._raw_api.search = retrying.wraps(self._raw_api.search)
             self._raw_api.by_ids = retrying.wraps(self._raw_api.by_ids)
 
-    def lookup(
+    async def lookup(
         self,
         query: str,
         limit: Optional[int] = None,
@@ -161,10 +158,10 @@ class Rightmove:
         Returns:
             models.LookupMatches: Matches
         """
-        lookup_results = self._raw_api.lookup(query=query, limit=limit)
+        lookup_results = await self._raw_api.lookup(query=query, limit=limit)
         return models.LookupMatches.model_validate(lookup_results)
 
-    def search(
+    async def search(
         self,
         query: SearchQuery,
     ) -> list[models.Property]:
@@ -178,13 +175,13 @@ class Rightmove:
                 of up to a max length of 1000.
         """
         query = query.model_copy(update={"view_type": "LIST"})
-        search_results = self._raw_api.search(query=query)
+        search_results = await self._raw_api.search(query=query)
         return [
             models.Property.model_validate(property)
             for property in search_results["properties"]
         ]
 
-    def map_search(
+    async def map_search(
         self,
         query: SearchQuery,
     ) -> tuple[list[models.PropertyLocation], int]:
@@ -199,19 +196,19 @@ class Rightmove:
             int: Number of properties matching the search criteria.
         """
         query = query.model_copy(update={"view_type": "MAP"})
-        location_results = self._raw_api.search(query=query)
+        location_results = await self._raw_api.search(query=query)
         return [
             models.PropertyLocation.model_validate(property)
             for property in location_results["properties"]
         ], int(location_results["resultCount"].replace(",", ""))
 
-    def search_by_ids(
+    async def search_by_ids(
         self,
         ids: Iterable[int],
         channel: Literal["RENT", "BUY"],
     ) -> list[models.Property]:
         "Note that only 25 ids can be passed at a time."
-        search_results = self._raw_api.by_ids(ids=ids, channel=channel)
+        search_results = await self._raw_api.by_ids(ids=ids, channel=channel)
         return [
             models.Property.model_validate(property)
             for property in search_results["properties"]
@@ -228,7 +225,12 @@ class _RawRightmove:
     LOS_LIMIT = 20
     "The maximum search results the lookup service will return."
 
-    def lookup(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
+    _HEADERS = {
+        "User-Agent": "IAmLookingToRent/0.0.0",
+        "Accept": "*/*",
+    }
+
+    async def lookup(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
         """Get the location IDs related to a search query.
 
         Args:
@@ -238,29 +240,27 @@ class _RawRightmove:
         Returns:
             dict[str, Any]: Matches
         """
-        connection = http.client.HTTPSConnection(self.LOS_HOST, port=443)
-        try:
-            return self._request(
-                connection,
-                "GET",
+        async with httpx.AsyncClient(base_url=f"https://{self.LOS_HOST}") as client:
+            response = await client.get(
                 "/typeahead",
-                {
+                params={
                     "query": query,
                     "limit": limit or self.LOS_LIMIT,
                     "exclude": "",
                 },
+                headers=self._HEADERS,
             )
-        finally:
-            connection.close()
+            response.raise_for_status()
+            return response.json()
 
-    def search(
+    async def search(
         self,
         query: SearchQuery,
     ) -> dict[str, Any]:
         params = self._get_search_params(query)
-        return self._search(params)
+        return await self._search(params)
 
-    def by_ids(
+    async def by_ids(
         self,
         ids: Iterable[int],
         channel: Literal["RENT", "BUY"],
@@ -270,16 +270,14 @@ class _RawRightmove:
             "propertyIds": ",".join(map(str, ids)),
             "viewType": "MAP",
         }
-        connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
-        try:
-            return self._request(
-                connection,
-                "GET",
+        async with httpx.AsyncClient(base_url=f"https://{self.BASE_HOST}") as client:
+            response = await client.get(
                 "/api/_searchByIds",
-                params,
+                params=params,
+                headers=self._HEADERS,
             )
-        finally:
-            connection.close()
+            response.raise_for_status()
+            return response.json()
 
     def property_url(self, property_url: str) -> str:
         return f"https://{self.BASE_HOST}{property_url}"
@@ -331,68 +329,38 @@ class _RawRightmove:
             params["maxBathrooms"] = query.max_bathrooms
         return params
 
-    def _search(self, params: dict[str, Any]) -> dict[str, Any]:
-        connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
-        try:
-            endpoint_url = {
-                "LIST": "/api/_search",
-                "MAP": "/api/_mapSearch",
-            }[params["viewType"]]
-            response = self._request(
-                connection,
-                "GET",
+    async def _search(self, params: dict[str, Any]) -> dict[str, Any]:
+        endpoint_url = {
+            "LIST": "/api/_search",
+            "MAP": "/api/_mapSearch",
+        }[params["viewType"]]
+
+        async with httpx.AsyncClient(base_url=f"https://{self.BASE_HOST}") as client:
+            response = await client.get(
                 endpoint_url,
-                params,
+                params=params,
+                headers=self._HEADERS,
             )
+            response.raise_for_status()
+            result = response.json()
+
             # MAP doesn't support pagination, so you'll
             #  only get the first page of results.
             if params["viewType"] == "MAP":
-                return response
-            full_response = copy.deepcopy(response)
+                return result
+
+            full_response = copy.deepcopy(result)
             while len(full_response["properties"]) < min(
-                int(response["resultCount"].replace(",", "")), SEARCH_LIST_MAX_RESULTS
+                int(result["resultCount"].replace(",", "")), SEARCH_LIST_MAX_RESULTS
             ):
                 params = copy.deepcopy(params)
-                params["index"] = int(response["pagination"]["next"])
-                response = self._request(
-                    connection,
-                    "GET",
+                params["index"] = int(result["pagination"]["next"])
+                response = await client.get(
                     endpoint_url,
-                    params,
+                    params=params,
+                    headers=self._HEADERS,
                 )
-                full_response["properties"].extend(response["properties"])
+                response.raise_for_status()
+                result = response.json()
+                full_response["properties"].extend(result["properties"])
             return full_response
-        finally:
-            connection.close()
-
-    def _request(
-        self,
-        connection: http.client.HTTPSConnection,
-        method: Literal["GET"],
-        url: str,
-        parameters: dict[str, Any],
-    ) -> Any:
-        query_string = urllib.parse.urlencode(parameters, doseq=True)
-        urlparse = urllib.parse.urlparse(url)
-        urlparse = urlparse._replace(query=query_string)
-        url = urllib.parse.urlunparse(urlparse)
-        connection.request(
-            method,
-            url,
-            headers={
-                "User-Agent": "IAmLookingToRent/0.0.0",
-                "Accept-Encoding": "gzip",
-                "Accept": "*/*",
-                "Connection": "keep-alive",
-            },
-        )
-        http_response = connection.getresponse()
-        if http_response.status != http.HTTPStatus.OK:
-            raise HTTPError(
-                f"HTTP error {http_response.status}: {http_response.reason}"
-            )
-        raw_response = http_response.read()
-        if http_response.getheader("Content-Encoding") == "gzip":
-            raw_response = gzip.decompress(raw_response)
-        response = json.loads(raw_response)
-        return response
