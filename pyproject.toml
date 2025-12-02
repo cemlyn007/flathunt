@@ -27,6 +27,10 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "dagster>=1.12.3",
     "dagster-webserver>=1.12.3",
+    "pandas>=2.3.3",
+    "plotly>=6.5.0",
+    "streamlit>=1.50.0",
+    "pyarrow==22.0.0",
 ]
 
 [project.optional-dependencies]

@@ -1,22 +1,13 @@
-import os
-
 import dagster as dg
 import networkx as nx
 import numpy as np
 import tqdm
-from pydantic import Field
 from shapely.geometry import LineString
 
 
 class Config(dg.Config):
-    file_path: str = Field(
-        default_factory=lambda: os.environ.get(
-            "FLATHUNT__ROADS_FILE_PATH",
-            "greater-london-251126-free/gis_osm_roads_free_1.shp",
-        )
-    )
     meters_per_minute: float = 60
-    station_cost_minutes: float = 5
+    station_cost_minutes: float = 2
 
 
 def euclidean(x1, y1, x2, y2):

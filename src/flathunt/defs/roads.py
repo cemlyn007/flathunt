@@ -32,11 +32,13 @@ def create_roads_graph(
 ) -> nx.Graph:
     graph = nx.Graph()
     for _, road in tqdm.tqdm(roads_gdf.iterrows(), total=len(roads_gdf)):
-        for (x1, y1), (x2, y2) in itertools.pairwise(road.geometry.coords):
+        for (lon1, lat1), (lon2, lat2) in itertools.pairwise(road.geometry.coords):
+            x1, y1 = project_to_meters(lon1, lat1)
+            x2, y2 = project_to_meters(lon2, lat2)
             if (x1, y1) not in graph:
-                graph.add_node((x1, y1), x=x1, y=y1)
+                graph.add_node((x1, y1), x=x1, y=y1, lat=lat1, lon=lon1)
             if (x2, y2) not in graph:
-                graph.add_node((x2, y2), x=x2, y=y2)
+                graph.add_node((x2, y2), x=x2, y=y2, lat=lat2, lon=lon2)
             if not graph.has_edge((x1, y1), (x2, y2)):
                 length = euclidean(x1, y1, x2, y2).item()
                 graph.add_edge(
@@ -52,6 +54,5 @@ def create_roads_graph(
 @dg.asset
 def roads(context: dg.AssetExecutionContext, config: Config) -> nx.Graph:
     roads_gdf = gpd.read_file(config.file_path)
-    roads_gdf = roads_gdf.to_crs("EPSG:27700")
     graph = create_roads_graph(roads_gdf, config.meters_per_minute)
     return graph

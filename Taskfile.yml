@@ -11,3 +11,8 @@ tasks:
   dagster:
     cmds:
       - DAGSTER_HOME=$(pwd)/.dagster uv run dagster dev
+  streamlit:
+    cmds:
+      - test -d .venv14t || uv venv --python 3.14t .venv14t
+      - UV_PROJECT_ENVIRONMENT=.venv14t uv sync --python 3.14t --all-extras --all-groups
+      - UV_PROJECT_ENVIRONMENT=.venv14t uv run streamlit run src/flathunt/scripts/flathunt.py

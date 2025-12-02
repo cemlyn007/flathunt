@@ -109,6 +109,8 @@ async def transport(context: dg.AssetExecutionContext, config: Config) -> nx.Gra
                     (x, y),
                     x=x,
                     y=y,
+                    lat=stop_point.lat,
+                    lon=stop_point.lon,
                     station_name=stop_point.common_name,
                 )
 
@@ -134,8 +136,6 @@ async def transport(context: dg.AssetExecutionContext, config: Config) -> nx.Gra
             if duration is None:
                 missing_pairs.append((line_id, stop_id, other_id))
                 continue
-
-            duration += 5  # add 5 minutes for boarding/alighting
 
             transport_graph.add_edge(
                 (x1, y1),
