@@ -1,11 +1,11 @@
 import argparse
+import asyncio
 import datetime
 import itertools
 import json
 import operator
 import os
 import random
-import time
 from collections.abc import Collection, Iterable
 
 import tenacity
@@ -16,7 +16,7 @@ import rightmove.api
 import rightmove.models
 
 
-def _map_search(
+async def _map_search(
     api: rightmove.api.Rightmove,
     code_boundaries: Collection[tuple[str, list[tuple[float, float]]]],
     historical_properties: Iterable[rightmove.models.Property],
@@ -34,7 +34,7 @@ def _map_search(
             max_lat = max(vertex[1] for vertex in polyline)
 
             # Call our recursive search function with the initial bounding box
-            more_property_locations = _search_area_recursive(
+            more_property_locations = await _search_area_recursive(
                 api, ((min_lat, min_long), (max_lat, max_long))
             )
             property_ids.update(more_property_locations)
@@ -61,17 +61,17 @@ def _map_search(
         for batched_location_ids in itertools.batched(
             property_ids_list, rightmove.api.SEARCH_BY_IDS_MAX_RESULTS
         ):
-            more_properties = api.search_by_ids(
+            more_properties = await api.search_by_ids(
                 batched_location_ids,
                 "RENT",
             )
             properties.extend(more_properties)
             progress_bar.update(len(more_properties))
-            _fast_sleep()
+            await _fast_sleep()
     return properties
 
 
-def _search_area_recursive(
+async def _search_area_recursive(
     api: rightmove.api.Rightmove,
     bounding_box: tuple[tuple[float, float], tuple[float, float]],
 ) -> set[int]:
@@ -90,8 +90,8 @@ def _search_area_recursive(
     )
 
     # Check if we'd get too many results
-    property_locations, result_count = api.map_search(query)
-    _fast_sleep()
+    property_locations, result_count = await api.map_search(query)
+    await _fast_sleep()
     if result_count > rightmove.api.SEARCH_MAP_MAX_RESULTS:
         # Subdivide this area into 4 quadrants
         min_x, min_y = min_point
@@ -101,12 +101,12 @@ def _search_area_recursive(
         # Recursively search each quadrant
         results = set()
         for i, quadrant in enumerate(quadrants):
-            quadrant_results = _search_area_recursive(
+            quadrant_results = await _search_area_recursive(
                 api,
                 quadrant,
             )
             results.update(quadrant_results)
-            _fast_sleep()
+            await _fast_sleep()
 
         return results
 
@@ -157,13 +157,13 @@ def _create_bounding_box_polyline(
     ]
 
 
-def _fast_sleep():
+async def _fast_sleep():
     """Random sleep to avoid hitting the API too fast."""
     if sleep := random.random():
-        time.sleep(sleep)
+        await asyncio.sleep(sleep)
 
 
-if __name__ == "__main__":
+async def main():
     argument_parser = argparse.ArgumentParser("Fetch Rightmove Properties")
     argument_parser.add_argument(
         "--boundaries", type=str, required=True, help="Boundaries JSON file"
@@ -192,13 +192,17 @@ if __name__ == "__main__":
         historical_properties = []
 
     api = rightmove.api.Rightmove(
-        retrying=tenacity.Retrying(
+        retrying=tenacity.AsyncRetrying(
             retry=tenacity.retry_if_exception_type(rightmove.api.HTTPError)
         )
     )
-    properties = _map_search(
+    properties = await _map_search(
         api,
         list(post_code_boundaries.items()),
         historical_properties,
     )
     flathunt.io.save_json(list[rightmove.models.Property], properties, output)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

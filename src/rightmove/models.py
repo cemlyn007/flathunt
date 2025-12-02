@@ -1,6 +1,6 @@
-import pydantic
 from typing import Any, Optional
 
+import pydantic
 import pydantic.alias_generators
 
 __all__ = [
@@ -138,8 +138,8 @@ class ProductLabel(CamelCaseModel):
 
 
 class MatchingLozenges(CamelCaseModel):
-    type: str
-    priority: int
+    type: str | None = None
+    priority: int | None = None
 
 
 class LozengeModel(CamelCaseModel):
@@ -192,7 +192,7 @@ class Property(CamelCaseModel):
     enquired_timestamp: Optional[str] = None
     enquiry_added_timestamp: Optional[str] = None
     enquiry_called_timestamp: Optional[str] = None
-    heading: str
+    heading: str | None = None
     is_recent: Optional[bool] = None
     enhanced_listing: Optional[bool] = None
     added_or_reduced: Optional[str] = None

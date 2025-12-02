@@ -6,6 +6,7 @@ from typing import Optional, Union
 
 import flathunt.map
 import tfl.api
+import tfl.models
 from rightmove import api, models, property_cache
 
 logger = logging.Logger(__name__)
@@ -52,7 +53,7 @@ class App:
             is_fetching=True,
             max_days_since_added=max_days_since_added,
         )
-        properties = self._api.search(query)
+        properties = await self._api.search(query)
         logger.info("Search returned %d properties", len(properties))
         new_properties = [
             property
@@ -114,7 +115,15 @@ class App:
                 from_location=location,
                 to_location=journey_coordinate,
                 arrival_datetime=arrival_datetime,
+                modes=tfl.models.ModeId,
+                use_multi_modal_call=False,
             )
+            if not isinstance(journey_results, tfl.models.JourneyResults):
+                logger.info(
+                    "Disambiguation result received for location: %s",
+                    location_name,
+                )
+                return False
             journeys = journey_results.journeys
             logger.info("Location: %s, Journey: %d", location_name, len(journeys))
             min_journey = min(journeys, key=lambda journey: journey.duration)

@@ -3,7 +3,7 @@ import enum
 import logging
 import urllib.parse
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import httpx
 from httpx_limiter.async_rate_limited_transport import AsyncRateLimitedTransport
@@ -44,6 +44,9 @@ class Tfl:
     ) -> list[models.StopPointDetail]:
         return await get_stop_points_by_mode(self._throttled_client, modes)
 
+    async def get_all_lines_routes(self) -> list[models.Line]:
+        return await get_all_lines_routes(self._throttled_client, self._app_key)
+
     async def get_lines_by_mode(
         self, modes: Iterable[models.ModeId]
     ) -> list[models.Line]:
@@ -58,10 +61,10 @@ class Tfl:
 
     async def get_journey_results(
         self,
-        from_location: Union[tuple[float, float], str],
-        to_location: tuple[float, float],
+        from_location: tuple[float, float] | str,
+        to_location: tuple[float, float] | str,
         arrival_datetime: Optional[datetime.datetime],
-        modes: list[models.ModeId],
+        modes: Iterable[models.ModeId],
         use_multi_modal_call: bool,
     ) -> models.JourneyResults | models.DisambiguationResult:
         return await get_journey_results(
@@ -86,6 +89,20 @@ class Tfl:
             from_stop_point_id,
             self._app_key,
             direction,
+        )
+
+    async def get_timetable_between_stops(
+        self,
+        line_id: str,
+        from_stop_point_id: str,
+        to_stop_point_id: str,
+    ) -> models.TimetableResponse:
+        return await get_timetable_between_stops(
+            self._throttled_client,
+            line_id,
+            from_stop_point_id,
+            to_stop_point_id,
+            self._app_key,
         )
 
 
@@ -116,6 +133,23 @@ async def get_stop_points_by_mode(
     status_code, content = await get(client, url, {})
     response = models.StopPointsResponse.model_validate_json(content)
     return response.stop_points
+
+
+async def get_all_lines_routes(
+    client: httpx.AsyncClient, app_key: str
+) -> list[models.Line]:
+    """Get all lines with their route information.
+
+    Args:
+        client: The HTTP client to use for the request.
+        app_key: The application key for authentication.
+
+    Returns:
+        A list of Line objects containing route information.
+    """
+    url = "/Line/Route"
+    status_code, content = await get(client, url, {"app_key": app_key})
+    return models.LinesRoutesResponse.validate_json(content)
 
 
 async def get_lines_by_mode(
@@ -157,10 +191,10 @@ async def get_stop_points_by_line(
 
 async def get_journey_results(
     client: httpx.AsyncClient,
-    from_location: Union[tuple[float, float], str],
-    to_location: tuple[float, float],
+    from_location: tuple[float, float] | str,
+    to_location: tuple[float, float] | str,
     arrival_datetime: Optional[datetime.datetime],
-    modes: list[models.ModeId],
+    modes: Iterable[models.ModeId],
     use_multi_modal_call: bool,
     app_key: str,
 ) -> models.JourneyResults | models.DisambiguationResult:
@@ -188,11 +222,23 @@ async def get_timetable(
     return models.TimetableResponse.model_validate_json(content, strict=True)
 
 
+async def get_timetable_between_stops(
+    client: httpx.AsyncClient,
+    line_id: str,
+    from_stop_point_id: str,
+    to_stop_point_id: str,
+    app_key: str,
+) -> models.TimetableResponse:
+    url = f"/Line/{line_id}/Timetable/{from_stop_point_id}/to/{to_stop_point_id}"
+    status_code, content = await get(client, url, {"app_key": app_key})
+    return models.TimetableResponse.model_validate_json(content, strict=True)
+
+
 def get_ratelimited_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=API_BASE_URL,
         transport=AsyncRateLimitedTransport.create(
-            Rate.create(magnitude=25, duration=3)
+            Rate.create(magnitude=(25 - 1), duration=3)
         ),
     )
 
@@ -200,7 +246,7 @@ def get_ratelimited_client() -> httpx.AsyncClient:
 def _is_retryable_error(exception: BaseException) -> bool:
     """Check if exception is an HTTP 5xx server error or 429 rate limit error."""
     if isinstance(
-        exception, (httpx.ReadError, httpx.ReadTimeout, httpx.RemoteProtocolError)
+        exception, (httpx.TimeoutException, httpx.NetworkError, httpx.ProtocolError)
     ):
         return True
     elif not isinstance(exception, httpx.HTTPStatusError):
@@ -280,21 +326,23 @@ async def get(
 
 
 def build_journey_url(
-    from_location: tuple[float, float] | str, to_location: tuple[float, float]
+    from_location: tuple[float, float] | str, to_location: tuple[float, float] | str
 ) -> str:
     from_location_encoded = urllib.parse.quote(
         from_location
         if isinstance(from_location, str)
         else ",".join(map(str, from_location))
     )
-    to_location_encoded = urllib.parse.quote(",".join(map(str, to_location)))
+    to_location_encoded = urllib.parse.quote(
+        to_location if isinstance(to_location, str) else ",".join(map(str, to_location))
+    )
     url = f"/Journey/JourneyResults/{from_location_encoded}/to/{to_location_encoded}"
     return url
 
 
 def build_journey_parameters(
     arrival_datetime: datetime.datetime | None,
-    modes: list[models.ModeId],
+    modes: Iterable[models.ModeId],
     use_multi_modal_call: bool,
     app_key: str,
 ):

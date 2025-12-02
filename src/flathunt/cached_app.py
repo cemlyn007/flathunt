@@ -222,7 +222,15 @@ class App:
                 from_location=source,
                 to_location=destination,
                 arrival_datetime=arrival_datetime,
+                modes=tfl.models.ModeId,
+                use_multi_modal_call=False,
             )
+            if isinstance(journey_result, tfl.models.DisambiguationResult):
+                logger.error(
+                    "Disambiguation result received for location: %s",
+                    source,
+                )
+                return []
             if self._journey_cache is not None and isinstance(source, tuple):
                 self._journey_cache[(source, destination)] = journey_result.journeys
             return journey_result.journeys

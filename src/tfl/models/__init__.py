@@ -32,9 +32,11 @@ from tfl.models.line import (
     LineList,
     LineRouteSection,
     LineServiceType,
+    LinesRoutesResponse,
     LineStatus,
     LineStatusDisruption,
     LineStatusValidityPeriod,
+    MatchedRoute,
 )
 from tfl.models.stations_facitilities import (
     Attribution,
@@ -123,6 +125,8 @@ __all__ = [
     "LineStatus",
     "LineStatusDisruption",
     "LineStatusValidityPeriod",
+    "LinesRoutesResponse",
+    "MatchedRoute",
     "Mode",
     "ModeId",
     "Obstacle",
