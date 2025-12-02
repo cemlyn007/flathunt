@@ -8,3 +8,6 @@ tasks:
     cmds:
       - uv sync --all-groups --all-extras
       - uv pip install -e .
+  dagster:
+    cmds:
+      - DAGSTER_HOME=$(pwd)/.dagster uv run dagster dev

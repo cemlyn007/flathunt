@@ -25,6 +25,8 @@ dependencies = [
     "geonetworkx>=0.5.3",
     "osmnx>=2.0.7",
     "scikit-learn>=1.7.2",
+    "dagster>=1.12.3",
+    "dagster-webserver>=1.12.3",
 ]
 
 [project.optional-dependencies]
@@ -114,3 +116,10 @@ env = "GH_TOKEN"
 [tool.semantic_release.publish]
 dist_glob_patterns = ["dist/*"]
 upload_to_vcs_release = true
+
+[tool.dg]
+directory_type = "project"
+
+[tool.dg.project]
+
+root_module = "flathunt"

@@ -5,3 +5,6 @@ __pycache__
 *.egg-info
 /dist
 assets
+.dagster
+greater-london-251126-free
+.env
