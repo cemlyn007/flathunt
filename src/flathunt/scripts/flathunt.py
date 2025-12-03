@@ -621,84 +621,90 @@ if __name__ == "__main__":
         )
         st.plotly_chart(fig, use_container_width=True)
 
-    st.header("Search Properties in Intersection Area")
-    st.write(
-        "These settings effect the search and will require re-fetching property IDs."
-    )
-    min_budget, max_budget = st.slider(
-        "Set your monthly budget for filtering properties:",
-        min_value=500,
-        max_value=10000,
-        value=(1900, 2250),
-        step=50,
-        key="budget_slider",
-    )
-    list_property_ids = st.button(
-        "Get property IDs in area", key="get_property_ids_button"
-    )
-    if list_property_ids and "intersection_polys" in st.session_state:
-        polys = st.session_state["intersection_polys"]
-        intersection_graphs = st.session_state["intersection_graphs"]
+        st.header("Search Properties in Intersection Area")
+        st.write(
+            "These settings effect the search and will require re-fetching property IDs."
+        )
+        min_budget, max_budget = st.slider(
+            "Set your monthly budget for filtering properties:",
+            min_value=500,
+            max_value=10000,
+            value=(1900, 2250),
+            step=50,
+            key="budget_slider",
+        )
+        list_property_ids = st.button(
+            "Get property IDs in area", key="get_property_ids_button"
+        )
+        if list_property_ids and "intersection_polys" in st.session_state:
+            polys = st.session_state["intersection_polys"]
+            intersection_graphs = st.session_state["intersection_graphs"]
 
-        # TODO: Sometimes the polygon is so large that it needs to be subdivided
-        #  if you want to get all of the properties.
-        property_ids = asyncio.run(
-            get_property_ids(
-                polys, intersection_graphs, st.session_state.get("queries", [])
+            # TODO: Sometimes the polygon is so large that it needs to be subdivided
+            #  if you want to get all of the properties.
+            property_ids = asyncio.run(
+                get_property_ids(
+                    polys, intersection_graphs, st.session_state.get("queries", [])
+                )
             )
-        )
-        st.write(f"Found {len(property_ids)} properties in the area.")
-        properties = asyncio.run(get_properties(property_ids))
-        st.session_state["properties"] = properties
+            st.write(f"Found {len(property_ids)} properties in the area.")
+            properties = asyncio.run(get_properties(property_ids))
+            st.session_state["properties"] = properties
 
-    logger.info("Finished execution of flathunt.py")
+        logger.info("Finished execution of flathunt.py")
 
-    if "properties" in st.session_state:
-        st.subheader("Extra Filters")
-        has_floorplans = st.checkbox(
-            "Only show properties with floorplans", key="floorplan_checkbox", value=True
-        )
-        has_images = st.checkbox(
-            "Only show properties with images", key="images_checkbox", value=True
-        )
-        square_meters = st.slider(
-            "Minimum property size (in square meters):",
-            min_value=10,
-            max_value=200,
-            value=60,
-            key="size_slider",
-        )
-        properties = st.session_state["properties"]
-        filtered_properties = [
-            property
-            for property in properties
-            if property.property_url is not None
-            and check_property_size(property, square_meters)
-            and property.price is not None
-            and min_budget
-            <= (rightmove.price.normalize(property.price) or 0)
-            <= max_budget
-            and ((property.number_of_images or 0) > 2 or not has_images)
-            and ((property.number_of_floorplans or 0) > 0 or not has_floorplans)
-        ]
-        st.write(f"{len(filtered_properties)} properties match the criteria.")
-        property_data = []
-        for property in filtered_properties:
-            normalized_price = (
-                rightmove.price.normalize(property.price) if property.price else None
+        if "properties" in st.session_state:
+            st.subheader("Extra Filters")
+            has_floorplans = st.checkbox(
+                "Only show properties with floorplans",
+                key="floorplan_checkbox",
+                value=True,
             )
-            property_data.append(
-                {
-                    "Name": property.display_address or "N/A",
-                    "Price": f"£{normalized_price:,}" if normalized_price else "N/A",
-                    "Size": property.display_size or "N/A",
-                    "URL": rightmove.api.property_url(property.property_url),
-                }
+            has_images = st.checkbox(
+                "Only show properties with images", key="images_checkbox", value=True
             )
-        st.dataframe(
-            property_data,
-            column_config={
-                "URL": st.column_config.LinkColumn("URL"),
-            },
-            use_container_width=True,
-        )
+            square_meters = st.slider(
+                "Minimum property size (in square meters):",
+                min_value=10,
+                max_value=200,
+                value=60,
+                key="size_slider",
+            )
+            properties = st.session_state["properties"]
+            filtered_properties = [
+                property
+                for property in properties
+                if property.property_url is not None
+                and check_property_size(property, square_meters)
+                and property.price is not None
+                and min_budget
+                <= (rightmove.price.normalize(property.price) or 0)
+                <= max_budget
+                and ((property.number_of_images or 0) > 2 or not has_images)
+                and ((property.number_of_floorplans or 0) > 0 or not has_floorplans)
+            ]
+            st.write(f"{len(filtered_properties)} properties match the criteria.")
+            property_data = []
+            for property in filtered_properties:
+                normalized_price = (
+                    rightmove.price.normalize(property.price)
+                    if property.price
+                    else None
+                )
+                property_data.append(
+                    {
+                        "Name": property.display_address or "N/A",
+                        "Price": f"£{normalized_price:,}"
+                        if normalized_price
+                        else "N/A",
+                        "Size": property.display_size or "N/A",
+                        "URL": rightmove.api.property_url(property.property_url),
+                    }
+                )
+            st.dataframe(
+                property_data,
+                column_config={
+                    "URL": st.column_config.LinkColumn("URL"),
+                },
+                width="stretch",
+            )

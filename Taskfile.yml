@@ -16,6 +16,6 @@ tasks:
     cmds:
       - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run dagster dev
   streamlit:
+    dotenv: ['.env']
     cmds:
-      - UV_PROJECT_ENVIRONMENT=.venvt uv sync --python 3.14t --all-extras --all-groups
-      - UV_PROJECT_ENVIRONMENT=.venvt PYTHON_GIL=0 uv run streamlit run src/flathunt/scripts/flathunt.py
+      - UV_PROJECT_ENVIRONMENT=.venvt PYTHON_GIL=0 uv run streamlit run src/flathunt/scripts/flathunt.py --server.address ${FLATHUNT__STREAMLIT_HOST} --server.port ${FLATHUNT__STREAMLIT_PORT}
