@@ -7,7 +7,7 @@ from shapely.geometry import LineString
 
 class Config(dg.Config):
     meters_per_minute: float = 60
-    station_cost_minutes: float = 2
+    station_cost_minutes: float = 4
 
 
 def euclidean(x1, y1, x2, y2):
