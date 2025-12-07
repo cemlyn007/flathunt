@@ -7,15 +7,15 @@ tasks:
   uv-sync:
     cmds:
       - uv venv --python 3.14t --allow-existing .venvt
-      - uv venv --python 3.14 --allow-existing .venv
+      - uv venv --python 3.13 --allow-existing .venv
       - UV_PROJECT_ENVIRONMENT=.venvt uv sync --all-groups --all-extras
       - UV_PROJECT_ENVIRONMENT=.venvt uv pip install -e .
       - UV_PROJECT_ENVIRONMENT=.venv uv sync --all-groups --all-extras
       - UV_PROJECT_ENVIRONMENT=.venv uv pip install -e .
   dagster:
     cmds:
-      - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run dagster dev
+      - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run --python .venv/bin/python dagster dev
   streamlit:
     dotenv: ['.env']
     cmds:
-      - UV_PROJECT_ENVIRONMENT=.venvt PYTHON_GIL=0 uv run streamlit run src/flathunt/scripts/flathunt.py --server.address ${FLATHUNT__STREAMLIT_HOST} --server.port ${FLATHUNT__STREAMLIT_PORT}
+      - UV_PROJECT_ENVIRONMENT=.venv PYTHON_GIL=0 uv run --python .venvt/bin/python streamlit run src/flathunt/scripts/flathunter.py --server.address ${FLATHUNT__STREAMLIT_HOST} --server.port ${FLATHUNT__STREAMLIT_PORT}
