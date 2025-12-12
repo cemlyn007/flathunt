@@ -23,5 +23,4 @@ if __name__ == "__main__":
     min_budget, max_budget = render_property_search_section()
     if min_budget is not None and max_budget is not None:
         render_results_section(min_budget, max_budget)
-
     logger.info("Finished execution of flathunt.py")
