@@ -6,6 +6,7 @@ import geopandas as gpd
 import pandas as pd
 import plotly.express as px
 import streamlit as st
+from shapely import Polygon
 from shapely.geometry import Point
 
 import rightmove.api
@@ -127,44 +128,9 @@ def render_map_section() -> None:
         polys = [poly for poly in polys if not poly.is_empty]
         st.write(f"Found {len(polys)} intersection graphs.")
 
+        all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(polys, other_polys)
+
         logger.info("Plotting map of isochrones and intersections.")
-
-        # Build GeoDataFrame for intersection polygons
-        intersection_gdf = gpd.GeoDataFrame(
-            {"id": list(range(len(polys))), "type": ["Intersection"] * len(polys)},
-            geometry=polys,
-            crs="EPSG:27700",
-        )
-
-        # Build GeoDataFrame for isochrone polygons (flattened)
-        isochrone_polys_flat = []
-        isochrone_ids = []
-        isochrone_types = []
-        for i, poly_list in enumerate(other_polys):
-            for poly in poly_list:
-                if not poly.is_empty:
-                    isochrone_polys_flat.append(poly)
-                    isochrone_ids.append(f"isochrone_{i}")
-                    isochrone_types.append(f"Query {i}")
-
-        isochrone_gdf = gpd.GeoDataFrame(
-            {"id": isochrone_ids, "type": isochrone_types},
-            geometry=isochrone_polys_flat,
-            crs="EPSG:27700",
-        )
-
-        # Combine both GeoDataFrames
-        all_polys_gdf = pd.concat([isochrone_gdf, intersection_gdf], ignore_index=True)
-        all_polys_gdf = gpd.GeoDataFrame(all_polys_gdf, crs="EPSG:27700")
-
-        # Calculate centroid in projected CRS before converting to WGS84
-        center_lat = all_polys_gdf.geometry.centroid.y.mean()
-        center_lon = all_polys_gdf.geometry.centroid.x.mean()
-        center_point = gpd.GeoSeries([Point(center_lon, center_lat)], crs="EPSG:27700")
-        center_point_wgs84 = center_point.to_crs("EPSG:4326")
-
-        all_polys_gdf = all_polys_gdf.to_crs("EPSG:4326")
-
         # Build color map dynamically
         query_colors = ["blue", "green", "orange", "purple", "cyan", "magenta"]
         color_discrete_map = {"Intersection": "red"}
@@ -303,3 +269,44 @@ def render_property_table(
         },
         width="stretch",
     )
+
+
+def _get_geo_dataframe(
+    polys: list[Polygon], other_polys: list[list[Polygon]]
+) -> tuple[gpd.GeoDataFrame, gpd.GeoSeries]:
+    # Build GeoDataFrame for intersection polygons
+    intersection_gdf = gpd.GeoDataFrame(
+        {"id": list(range(len(polys))), "type": ["Intersection"] * len(polys)},
+        geometry=polys,
+        crs="EPSG:27700",
+    )
+
+    # Build GeoDataFrame for isochrone polygons (flattened)
+    isochrone_polys_flat = []
+    isochrone_ids = []
+    isochrone_types = []
+    for i, poly_list in enumerate(other_polys):
+        for poly in poly_list:
+            if not poly.is_empty:
+                isochrone_polys_flat.append(poly)
+                isochrone_ids.append(f"isochrone_{i}")
+                isochrone_types.append(f"Query {i}")
+
+    isochrone_gdf = gpd.GeoDataFrame(
+        {"id": isochrone_ids, "type": isochrone_types},
+        geometry=isochrone_polys_flat,
+        crs="EPSG:27700",
+    )
+
+    # Combine both GeoDataFrames
+    all_polys_gdf = pd.concat([isochrone_gdf, intersection_gdf], ignore_index=True)
+    all_polys_gdf = gpd.GeoDataFrame(all_polys_gdf, crs="EPSG:27700")
+
+    # Calculate centroid in projected CRS before converting to WGS84
+    center_lat = all_polys_gdf.geometry.centroid.y.mean()
+    center_lon = all_polys_gdf.geometry.centroid.x.mean()
+    center_point = gpd.GeoSeries([Point(center_lon, center_lat)], crs="EPSG:27700")
+    center_point_wgs84 = center_point.to_crs("EPSG:4326")
+
+    all_polys_gdf = all_polys_gdf.to_crs("EPSG:4326")
+    return all_polys_gdf, center_point_wgs84
