@@ -1,16 +1,11 @@
-import asyncio
 import datetime
 import itertools
 import logging
-import os
 from collections.abc import Collection
 from typing import Literal
 
-import geopandas as gpd
-import networkx as nx
 import tqdm
-import tqdm.asyncio
-from shapely.geometry import Point, box
+from shapely.geometry import box
 from shapely.geometry.polygon import Polygon
 
 import rightmove.api
@@ -61,129 +56,76 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
     return parts
 
 
-async def get_property_ids(
-    polys: list[Polygon],
-    graphs: list[nx.Graph],
-    queries: list[tuple[float, float, float]],
-    channel: Literal["RENT", "BUY"] = "RENT",
-) -> set[int]:
-    min_times = {}
-
-    tf_client = tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"])
-
-    check_coords = []
-    for poly, poly_network in zip(polys, graphs, strict=True):
-        if poly.is_empty:
-            continue
-        x, y = poly.centroid.x, poly.centroid.y
-        for node_id, node_attributes in poly_network.nodes(data=True):
-            if "station_name" in node_attributes:
-                print(f"Station in intersection: {node_attributes['station_name']}")
-                x = node_attributes["x"]
-                y = node_attributes["y"]
-        lon, lat = (
-            gpd.GeoSeries([Point(x, y)], crs="EPSG:27700")
-            .to_crs("EPSG:4326")
-            .geometry[0]
-            .coords[0]
+async def fetch_journey_results(
+    client: tfl.api.Tfl, lon: float, lat: float, query_lon: float, query_lat: float
+) -> float | None:
+    try:
+        journey_results = await client.get_journey_results(
+            from_location=(lat, lon),
+            to_location=(query_lat, query_lon),
+            arrival_datetime=TARGET_DATETIME,
+            modes=[
+                tfl.models.ModeId.TUBE,
+                tfl.models.ModeId.OVERGROUND,
+                tfl.models.ModeId.DLR,
+                tfl.models.ModeId.ELIZABETH_LINE,
+                tfl.models.ModeId.WALKING,
+            ],
+            use_multi_modal_call=False,
         )
-        check_coords.append((lon, lat))
-
-    async def fetch_journey_results(lon, lat, query_lon, query_lat, i):
-        try:
-            journey_results = await tf_client.get_journey_results(
-                from_location=(lat, lon),
-                to_location=(query_lat, query_lon),
-                arrival_datetime=TARGET_DATETIME,
-                modes=[
-                    tfl.models.ModeId.TUBE,
-                    tfl.models.ModeId.OVERGROUND,
-                    tfl.models.ModeId.DLR,
-                    tfl.models.ModeId.ELIZABETH_LINE,
-                    tfl.models.ModeId.WALKING,
-                ],
-                use_multi_modal_call=False,
-            )
-            if isinstance(journey_results, tfl.models.DisambiguationResult):
-                logger.error(
-                    "Disambiguation result for journey from (%s, %s) to (%s, %s)",
-                    lon,
-                    lat,
-                    query_lon,
-                    query_lat,
-                )
-                return None, None
-            min_time = min(journey.duration for journey in journey_results.journeys)
-            return (lon, lat), (query_lon, query_lat, min_time)
-        except Exception:
-            logger.exception(
-                "Exception fetching journey from (%s, %s) to (%s, %s)",
+        if isinstance(journey_results, tfl.models.DisambiguationResult):
+            logger.error(
+                "Disambiguation result for journey from (%s, %s) to (%s, %s)",
                 lon,
                 lat,
                 query_lon,
                 query_lat,
             )
-            return None, None
+            return None
+        min_time = min(journey.duration for journey in journey_results.journeys)
+        return min_time
+    except Exception:
+        logger.exception(
+            "Exception fetching journey from (%s, %s) to (%s, %s)",
+            lon,
+            lat,
+            query_lon,
+            query_lat,
+        )
+        return None
 
-    tasks = []
-    for lon, lat in tqdm.tqdm(check_coords):
-        for i, (query_lon, query_lat, _) in enumerate(queries):
-            tasks.append(fetch_journey_results(lon, lat, query_lon, query_lat, i))
 
-    async for future in tqdm.asyncio.tqdm(
-        asyncio.as_completed(tasks), total=len(tasks)
-    ):
-        result = await future
-        if result[0] is not None and result[1] is not None:
-            (lon, lat), (query_lon, query_lat, min_time) = result
-            min_times.setdefault((lon, lat), {})[(query_lon, query_lat)] = min_time
+def _subdivide_exterior(
+    coords: list[tuple[float, float]],
+) -> list[list[tuple[float, float]]]:
+    shapely_coords = [(lon, lat) for lat, lon in coords]
+    poly = Polygon(shapely_coords)
+    polys = split_polygon(poly)
+    return [
+        [(y, x) for x, y in sub_poly.coords]
+        for sub_poly in polys
+        if not sub_poly.is_empty
+    ]
 
-    best_coords = []
-    for poly in polys:
-        if poly.is_empty:
-            continue
 
-        exterior, tolerance = find_min_simplify_tolerance(poly, max_coords=1000)
-
-        meters = list(exterior.coords)
-        coords = []
-        for x, y in meters:
-            lon, lat = (
-                gpd.GeoSeries([Point(x, y)], crs="EPSG:27700")
-                .to_crs("EPSG:4326")
-                .geometry[0]
-                .coords[0]
-            )
-            coords.append((lat, lon))
-        best_coords.append(coords)
-
+async def get_property_ids_in_area(
+    coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT", depth=0
+) -> list[rightmove.models.PropertyLocation]:
     rightmove_client = rightmove.api.Rightmove()
-
-    async def recursive_map_search(
-        coords: list[tuple[float, float]], depth=0
-    ) -> set[int]:
-        if depth > 5:  # Safety break
-            logger.warning("Max recursion depth reached for polygon subdivision.")
-            # Fallback to just getting what we can
-            search_results, _ = await rightmove_client.map_search(
-                rightmove.api.SearchQuery(
-                    location_identifier=rightmove.api.polyline_identifier(coords),
-                    is_fetching=True,
-                    view_type="MAP",
-                    channel=channel,
+    # Ensure coords limit
+    if len(coords) > MAX_RIGHTMOVE_POLYLINE_POINTS:
+        coords_list = _subdivide_exterior(coords)
+        results = []
+        for sub_coords in coords_list:
+            results.extend(
+                property_location
+                for property_location in await get_property_ids_in_area(
+                    sub_coords, channel=channel, depth=depth + 1
                 )
+                if not any(result.id == property_location.id for result in results)
             )
-            return {p.id for p in search_results}
-
-        # Ensure coords limit
-        if len(coords) > MAX_RIGHTMOVE_POLYLINE_POINTS:
-            shapely_coords = [(lon, lat) for lat, lon in coords]
-            poly = Polygon(shapely_coords)
-            exterior, _ = find_min_simplify_tolerance(
-                poly, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
-            )
-            coords = [(y, x) for x, y in exterior.coords]
-
+        return results
+    else:
         search_results, count = await rightmove_client.map_search(
             rightmove.api.SearchQuery(
                 location_identifier=rightmove.api.polyline_identifier(coords),
@@ -192,7 +134,6 @@ async def get_property_ids(
                 channel=channel,
             )
         )
-
         if count > MAX_RIGHTMOVE_SEARCH_PROPERTIES:
             logger.info(
                 f"Count {count} > {MAX_RIGHTMOVE_SEARCH_PROPERTIES}, subdividing (depth {depth})."
@@ -204,22 +145,22 @@ async def get_property_ids(
 
             sub_polys = split_polygon(poly)
 
-            results = set()
+            results = []
             for sub_poly in sub_polys:
                 exterior, _ = find_min_simplify_tolerance(
                     sub_poly, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
                 )
                 sub_coords = [(y, x) for x, y in exterior.coords]
-                results.update(await recursive_map_search(sub_coords, depth=depth + 1))
+                results.extend(
+                    property_location
+                    for property_location in await get_property_ids_in_area(
+                        sub_coords, depth=depth + 1
+                    )
+                    if not any(result.id == property_location.id for result in results)
+                )
             return results
-
-        return {p.id for p in search_results}
-
-    all_property_ids = set()
-    for coord, coords in tqdm.tqdm(zip(min_times, best_coords), total=len(best_coords)):
-        ids = await recursive_map_search(coords)
-        all_property_ids.update(ids)
-    return all_property_ids
+        else:
+            return search_results
 
 
 async def get_properties(

@@ -17,7 +17,11 @@ from flathunt.isochrone import (
     load_graph,
     multi_lookup,
 )
-from flathunt.search_utils import check_property_size, get_properties, get_property_ids
+from flathunt.search_utils import (
+    check_property_size,
+    get_properties,
+    get_property_ids_in_area,
+)
 
 logger = logging.getLogger("flathunt")
 
@@ -204,12 +208,16 @@ def render_property_search_section() -> tuple[int, int] | tuple[None, None]:
     )
     if list_property_ids:
         polys = st.session_state["intersection_polys"]
-        intersection_graphs = st.session_state["intersection_graphs"]
-        property_ids = asyncio.run(
-            get_property_ids(
-                polys, intersection_graphs, st.session_state.get("queries", [])
+        property_locations = []
+        for poly in polys:
+            if poly.is_empty:
+                continue
+            lon, lat = poly.exterior.coords.xy
+            coords = list(zip(lat, lon, strict=True))
+            property_locations.extend(
+                asyncio.run(get_property_ids_in_area(coords, channel="RENT"))
             )
-        )
+        property_ids = [location.id for location in property_locations]
         st.write(f"Found {len(property_ids)} properties in the area.")
         properties = asyncio.run(get_properties(property_ids))
         st.session_state["properties"] = properties
