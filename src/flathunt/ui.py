@@ -1,17 +1,22 @@
 import asyncio
+import json
 import logging
+import os
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Literal
 
 import geopandas as gpd
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from shapely import Polygon
+from shapely import GeometryCollection, Polygon
 from shapely.geometry import Point
 
 import rightmove.api
 import rightmove.models
 import rightmove.price
+from flathunt.cache import ModelCache
 from flathunt.isochrone import (
     get_intersection,
     get_isochone_polys,
@@ -25,6 +30,72 @@ from flathunt.search_utils import (
 )
 
 logger = logging.getLogger("flathunt")
+
+data_dir = Path(st.secrets["cache"]["data_dir"])
+
+if not st.session_state.get("initialized", False):
+    data_dir.mkdir(parents=True, exist_ok=True)
+    st.session_state["queries"] = json.loads(os.environ["FLATHUNT__QUERIES"])
+    st.session_state["initialized"] = True
+
+
+@st.cache_resource
+def get_property_ids_in_area_cache() -> ModelCache[
+    list[rightmove.models.PropertyLocation]
+]:
+    return ModelCache(
+        list[rightmove.models.PropertyLocation],
+        data_dir / "property_locations_cache.json",
+    )
+
+
+@st.cache_resource
+def get_property_cache() -> ModelCache[rightmove.models.Property]:
+    return ModelCache(rightmove.models.Property, data_dir / "property_cache.json")
+
+
+def _get_property_ids_in_area_cached(
+    coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT"
+) -> list[rightmove.models.PropertyLocation]:
+    cache = get_property_ids_in_area_cache()
+    key = json.dumps({"coords": coords, "channel": channel})
+    try:
+        property_locations = cache.get(key)
+        logger.info("Property IDs fetched from cache.")
+        return property_locations
+    except KeyError:
+        property_locations = []
+        logger.info("Property IDs not found in cache, fetching from Rightmove.")
+    property_ids_in_area = asyncio.run(
+        get_property_ids_in_area(coords, channel=channel)
+    )
+    cache.update([(key, property_ids_in_area)])
+    return property_locations + property_ids_in_area
+
+
+def _get_properties(
+    property_ids: list[int], channel: Literal["RENT", "BUY"] = "RENT"
+) -> list[rightmove.models.Property]:
+    found_properties = []
+    missing_ids = []
+    cache = get_property_cache()
+    for property_id in property_ids:
+        try:
+            property = cache.get(json.dumps({"id": property_id, "channel": channel}))
+            found_properties.append(property)
+        except KeyError:
+            missing_ids.append(property_id)
+
+    if missing_ids:
+        logger.info(f"Fetching {len(missing_ids)} properties from Rightmove...")
+        new_properties = asyncio.run(get_properties(missing_ids))
+        cache.update(
+            (json.dumps({"id": property.id, "channel": channel}), property)
+            for property in new_properties
+        )
+        found_properties.extend(new_properties)
+
+    return found_properties
 
 
 def render_query_section() -> None:
@@ -128,7 +199,9 @@ def render_map_section() -> None:
         polys = [poly for poly in polys if not poly.is_empty]
         st.write(f"Found {len(polys)} intersection graphs.")
 
-        all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(polys, other_polys)
+        all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(
+            tuple(polys), tuple(tuple(poly) for poly in other_polys)
+        )
 
         logger.info("Plotting map of isochrones and intersections.")
         # Build color map dynamically
@@ -174,19 +247,25 @@ def render_property_search_section() -> tuple[int, int] | tuple[None, None]:
     )
     if list_property_ids:
         polys = st.session_state["intersection_polys"]
-        property_locations = []
+        property_locations: list[rightmove.models.PropertyLocation] = []
         for poly in polys:
             if poly.is_empty:
                 continue
-            lon, lat = poly.exterior.coords.xy
+            xs, ys = poly.exterior.coords.xy
+            # Convert from British National Grid (EPSG:27700) to WGS84 (EPSG:4326)
+            points_bng = gpd.GeoSeries(
+                [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs="EPSG:27700"
+            )
+            points_wgs84 = points_bng.to_crs("EPSG:4326")
+            lon = [point.x for point in points_wgs84]
+            lat = [point.y for point in points_wgs84]
             coords = list(zip(lat, lon, strict=True))
             property_locations.extend(
-                asyncio.run(get_property_ids_in_area(coords, channel="RENT"))
+                _get_property_ids_in_area_cached(coords, channel="RENT")
             )
         property_ids = [location.id for location in property_locations]
         st.write(f"Found {len(property_ids)} properties in the area.")
-        properties = asyncio.run(get_properties(property_ids))
-        st.session_state["properties"] = properties
+        st.session_state["properties"] = _get_properties(property_ids, channel="RENT")
 
     return min_budget, max_budget
 
@@ -271,14 +350,20 @@ def render_property_table(
     )
 
 
-@st.cache_data(hash_funcs={Polygon: lambda poly: poly.wkt})
+@st.cache_data(
+    hash_funcs={
+        Polygon: lambda poly: poly.wkt,
+        GeometryCollection: lambda poly: poly.wkt,
+    }
+)
 def _get_geo_dataframe(
-    polys: list[Polygon], other_polys: list[list[Polygon]]
+    polys: tuple[Polygon, ...],
+    other_polys: tuple[tuple[Polygon | GeometryCollection, ...], ...],
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoSeries]:
     # Build GeoDataFrame for intersection polygons
     intersection_gdf = gpd.GeoDataFrame(
         {"id": list(range(len(polys))), "type": ["Intersection"] * len(polys)},
-        geometry=polys,
+        geometry=list(polys),
         crs="EPSG:27700",
     )
 

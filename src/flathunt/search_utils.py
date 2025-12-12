@@ -100,12 +100,28 @@ def _subdivide_exterior(
 ) -> list[list[tuple[float, float]]]:
     shapely_coords = [(lon, lat) for lat, lon in coords]
     poly = Polygon(shapely_coords)
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+
     polys = split_polygon(poly)
-    return [
-        [(y, x) for x, y in sub_poly.coords]
-        for sub_poly in polys
-        if not sub_poly.is_empty
-    ]
+    results = []
+    for sub_poly in polys:
+        if sub_poly.is_empty or not sub_poly.is_valid or sub_poly.area < 1e-9:
+            continue
+
+        if len(sub_poly.exterior.coords) <= MAX_RIGHTMOVE_POLYLINE_POINTS:
+            exterior = sub_poly.exterior
+        else:
+            exterior, _ = find_min_simplify_tolerance(
+                sub_poly, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
+            )
+        # Check if simplified polygon is valid
+        if Polygon(exterior).area < 1e-9:
+            continue
+
+        results.append([(y, x) for x, y in exterior.coords])
+
+    return results
 
 
 async def get_property_ids_in_area(
@@ -138,23 +154,13 @@ async def get_property_ids_in_area(
             logger.info(
                 f"Count {count} > {MAX_RIGHTMOVE_SEARCH_PROPERTIES}, subdividing (depth {depth})."
             )
-            shapely_coords = [(lon, lat) for lat, lon in coords]
-            poly = Polygon(shapely_coords)
-            if not poly.is_valid:
-                poly = poly.buffer(0)
-
-            sub_polys = split_polygon(poly)
-
+            coords_list = _subdivide_exterior(coords)
             results = []
-            for sub_poly in sub_polys:
-                exterior, _ = find_min_simplify_tolerance(
-                    sub_poly, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
-                )
-                sub_coords = [(y, x) for x, y in exterior.coords]
+            for sub_coords in coords_list:
                 results.extend(
                     property_location
                     for property_location in await get_property_ids_in_area(
-                        sub_coords, depth=depth + 1
+                        sub_coords, channel=channel, depth=depth + 1
                     )
                     if not any(result.id == property_location.id for result in results)
                 )
