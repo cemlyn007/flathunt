@@ -16,6 +16,7 @@ from shapely.geometry import Point
 import rightmove.api
 import rightmove.models
 import rightmove.price
+import tfl.api
 from flathunt.cache import ModelCache
 from flathunt.isochrone import (
     get_intersection,
@@ -25,6 +26,7 @@ from flathunt.isochrone import (
 )
 from flathunt.search_utils import (
     check_property_size,
+    fetch_journey_results,
     get_properties,
     get_property_ids_in_area,
 )
@@ -50,6 +52,11 @@ def get_property_ids_in_area_cache() -> ModelCache[
 
 
 @st.cache_resource
+def get_journey_cache() -> ModelCache[int | None]:
+    return ModelCache(int | None, data_dir / "journey_cache.json")
+
+
+@st.cache_resource
 def get_property_cache() -> ModelCache[rightmove.models.Property]:
     return ModelCache(rightmove.models.Property, data_dir / "property_cache.json")
 
@@ -71,6 +78,51 @@ def _get_property_ids_in_area_cached(
     )
     cache.update([(key, property_ids_in_area)])
     return property_locations + property_ids_in_area
+
+
+async def _get_properties_journey_duration_cached(
+    to_froms: list[tuple[float, float, float, float]],
+) -> list[int | None]:
+    # lon: float, lat: float, query_lon: float, query_lat: float
+    cache = get_journey_cache()
+    durations = []
+    to_fetch = []
+    fetch_indices = []
+    for i, (lon, lat, query_lon, query_lat) in enumerate(to_froms):
+        key = json.dumps(
+            {"from": (lon, lat), "to": (query_lon, query_lat)},
+        )
+        try:
+            duration = cache.get(key)
+            durations.append(duration)
+            logger.info(
+                "Journey duration from (%s, %s) to (%s, %s) fetched from cache.",
+                lon,
+                lat,
+                query_lon,
+                query_lat,
+            )
+        except KeyError:
+            to_fetch.append((lon, lat, query_lon, query_lat))
+            fetch_indices.append(i)
+            durations.append(None)  # Placeholder
+    if to_fetch:
+        client = tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"])
+        tasks = [
+            fetch_journey_results(client, lon, lat, query_lon, query_lat)
+            for lon, lat, query_lon, query_lat in to_fetch
+        ]
+        results = await asyncio.gather(*tasks)
+        cache_updates = []
+        for idx, duration in zip(fetch_indices, results):
+            durations[idx] = duration
+            lon, lat, query_lon, query_lat = to_froms[idx]
+            key = json.dumps(
+                {"from": (lon, lat), "to": (query_lon, query_lat)},
+            )
+            cache_updates.append((key, duration))
+        cache.update(cache_updates)
+    return durations
 
 
 def _get_properties(
@@ -226,22 +278,11 @@ def render_map_section() -> None:
         st.plotly_chart(fig, use_container_width=True)
 
 
-def render_property_search_section() -> tuple[int, int] | tuple[None, None]:
+def render_property_search_section() -> None:
     if "intersection_polys" not in st.session_state:
-        return None, None
+        return
 
     st.header("Search Properties in Intersection Area")
-    st.write(
-        "These settings effect the search and will require re-fetching property IDs."
-    )
-    min_budget, max_budget = st.slider(
-        "Set your monthly budget for filtering properties:",
-        min_value=500,
-        max_value=10000,
-        value=(1900, 2250),
-        step=50,
-        key="budget_slider",
-    )
     list_property_ids = st.button(
         "Get property IDs in area", key="get_property_ids_button"
     )
@@ -267,12 +308,18 @@ def render_property_search_section() -> tuple[int, int] | tuple[None, None]:
         st.write(f"Found {len(property_ids)} properties in the area.")
         st.session_state["properties"] = _get_properties(property_ids, channel="RENT")
 
-    return min_budget, max_budget
 
-
-def render_results_section(min_budget: int, max_budget: int) -> None:
+def render_results_section() -> None:
     if "properties" in st.session_state:
         st.subheader("Extra Filters")
+        min_budget, max_budget = st.slider(
+            "Set your monthly budget for filtering properties:",
+            min_value=500,
+            max_value=10000,
+            value=(1900, 2250),
+            step=50,
+            key="budget_slider",
+        )
         has_floorplans = st.checkbox(
             "Only show properties with floorplans",
             key="floorplan_checkbox",
@@ -319,8 +366,33 @@ def filter_properties_by_criteria(
         and ((property.number_of_images or 0) > 2 or not has_images)
         and ((property.number_of_floorplans or 0) > 0 or not has_floorplans)
     ]
-
-    return filtered_properties
+    queries = st.session_state["queries"]
+    commute_times = asyncio.run(
+        _get_properties_journey_duration_cached(
+            [
+                (
+                    property.location.longitude,
+                    property.location.latitude,
+                    query_lon,
+                    query_lat,
+                )
+                for property in filtered_properties
+                for query_lon, query_lat, _ in queries
+            ]
+        )
+    )
+    final_filtered_properties = []
+    for i, property in enumerate(filtered_properties):
+        meets_commute = True
+        for j in range(len(queries)):
+            duration = commute_times[i * len(queries) + j]
+            max_duration = queries[j][2]
+            if duration is None or duration > max_duration:
+                meets_commute = False
+                break
+        if meets_commute:
+            final_filtered_properties.append(property)
+    return final_filtered_properties
 
 
 def render_property_table(
