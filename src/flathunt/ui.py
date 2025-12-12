@@ -271,6 +271,7 @@ def render_property_table(
     )
 
 
+@st.cache_data(hash_funcs={Polygon: lambda poly: poly.wkt})
 def _get_geo_dataframe(
     polys: list[Polygon], other_polys: list[list[Polygon]]
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoSeries]:
