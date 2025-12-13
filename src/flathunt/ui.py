@@ -97,7 +97,6 @@ def _get_property_ids_in_area_cached(
 async def _get_properties_journey_duration_cached(
     to_froms: list[tuple[float, float, float, float]],
 ) -> list[int | None]:
-    # lon: float, lat: float, query_lon: float, query_lat: float
     cache = get_journey_cache()
     durations = []
     to_fetch = []
@@ -251,37 +250,10 @@ def render_map_section() -> None:
         polys = st.session_state["intersection_polys"]
         isochrone_polys = st.session_state["isochrone_polys"]
         queries = st.session_state["queries"]
-        # Make map
-        if len(queries) == 1:
-            other_polys = []
-        else:
-            other_polys = isochrone_polys
-        polys = [poly for poly in polys if not poly.is_empty]
-        st.write(f"Found {len(polys)} intersection graphs.")
-
-        all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(
-            tuple(polys), tuple(tuple(poly) for poly in other_polys)
-        )
-
-        logger.info("Plotting map of isochrones and intersections.")
-        # Build color map dynamically
-        query_colors = ["blue", "green", "orange", "purple", "cyan", "magenta"]
-        color_discrete_map = {"Intersection": "red"}
-        for i in range(len(other_polys)):
-            color_discrete_map[f"Query {i}"] = query_colors[i % len(query_colors)]
-
-        fig = px.choropleth_map(
-            all_polys_gdf,
-            geojson=all_polys_gdf.geometry.__geo_interface__,
-            locations=all_polys_gdf.index,
-            color="type",
-            color_discrete_map=color_discrete_map,
-            center={
-                "lat": center_point_wgs84.y.iloc[0],
-                "lon": center_point_wgs84.x.iloc[0],
-            },
-            zoom=11,
-            opacity=0.5,
+        fig = _get_map(
+            tuple(queries),
+            tuple(polys),
+            tuple(tuple(poly for poly in poly_list) for poly_list in isochrone_polys),
         )
         st.plotly_chart(fig, use_container_width=True)
 
@@ -517,3 +489,59 @@ def _get_geo_dataframe(
 
     all_polys_gdf = all_polys_gdf.to_crs("EPSG:4326")
     return all_polys_gdf, center_point_wgs84
+
+
+@st.cache_data(
+    hash_funcs={
+        Polygon: lambda poly: poly.wkt,
+        GeometryCollection: lambda poly: poly.wkt,
+    }
+)
+def _get_map(
+    queries: tuple[tuple[float, float, float], ...],
+    polys: tuple[Polygon, ...],
+    isochrone_polys: tuple[tuple[Polygon | GeometryCollection, ...], ...],
+):
+    # Make map
+    if len(queries) == 1:
+        other_polys = []
+    else:
+        other_polys = isochrone_polys
+    polys = [poly for poly in polys if not poly.is_empty]
+    st.write(f"Found {len(polys)} intersection graphs.")
+    all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(
+        tuple(polys), tuple(tuple(poly) for poly in other_polys)
+    )
+    return _get_choropleth_map_figure(
+        all_polys_gdf,
+        center_point_wgs84.y.iloc[0],
+        center_point_wgs84.x.iloc[0],
+        len(other_polys),
+    )
+
+
+def _get_choropleth_map_figure(
+    all_polys_gdf: gpd.GeoDataFrame,
+    center_lat: float,
+    center_lon: float,
+    num_other_polys: int,
+):
+    logger.info("Plotting map of isochrones and intersections.")
+    # Build color map dynamically
+    query_colors = ["blue", "green", "orange", "purple", "cyan", "magenta"]
+    color_discrete_map = {"Intersection": "red"}
+    for i in range(num_other_polys):
+        color_discrete_map[f"Query {i}"] = query_colors[i % len(query_colors)]
+    return px.choropleth_map(
+        all_polys_gdf,
+        geojson=all_polys_gdf.geometry.__geo_interface__,
+        locations=all_polys_gdf.index,
+        color="type",
+        color_discrete_map=color_discrete_map,
+        center={
+            "lat": center_lat,
+            "lon": center_lon,
+        },
+        zoom=11,
+        opacity=0.5,
+    )
