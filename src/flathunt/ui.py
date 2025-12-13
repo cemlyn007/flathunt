@@ -61,6 +61,20 @@ def get_property_cache() -> ModelCache[rightmove.models.Property]:
     return ModelCache(rightmove.models.Property, data_dir / "property_cache.json")
 
 
+@st.cache_data(persist="disk")
+def _process_isochrone_data(queries: Sequence[tuple[float, float, float]], offset: int):
+    graph = load_graph(offset)
+    isochrone_subgraphs = multi_lookup(graph, queries)
+    isochrone_polys = get_isochrone_polys(isochrone_subgraphs)
+    groups = []
+    for subgraphs, polys in zip(isochrone_subgraphs, isochrone_polys, strict=True):
+        groups.append((subgraphs, polys))
+    polys, intersection_graphs = get_intersection(graph, groups)
+    return isochrone_subgraphs, isochrone_polys, polys, intersection_graphs
+
+
+# TODO: Switching to a tile based caching system may improve performance and
+#  increase the cache hit chance.
 def _get_property_ids_in_area_cached(
     coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT"
 ) -> list[rightmove.models.PropertyLocation]:
@@ -226,18 +240,6 @@ def render_isochrone_section() -> None:
         st.session_state["intersection_graphs"] = intersection_graphs
 
 
-@st.cache_data
-def _process_isochrone_data(queries: Sequence[tuple[float, float, float]], offset: int):
-    graph = load_graph(offset)
-    isochrone_subgraphs = multi_lookup(graph, queries)
-    isochrone_polys = get_isochrone_polys(isochrone_subgraphs)
-    groups = []
-    for subgraphs, polys in zip(isochrone_subgraphs, isochrone_polys, strict=True):
-        groups.append((subgraphs, polys))
-    polys, intersection_graphs = get_intersection(graph, groups)
-    return isochrone_subgraphs, isochrone_polys, polys, intersection_graphs
-
-
 def render_map_section() -> None:
     if (
         "intersection_graphs" in st.session_state
@@ -289,6 +291,10 @@ def render_property_search_section() -> None:
         return
 
     st.header("Search Properties in Intersection Area")
+    channel = st.selectbox("Select channel:", ["RENT", "BUY"], key="channel_selectbox")
+    if channel != "RENT" and channel != "BUY":
+        st.error("Invalid channel selected.")
+        return
     list_property_ids = st.button(
         "Get property IDs in area", key="get_property_ids_button"
     )
@@ -308,24 +314,37 @@ def render_property_search_section() -> None:
             lat = [point.y for point in points_wgs84]
             coords = list(zip(lat, lon, strict=True))
             property_locations.extend(
-                _get_property_ids_in_area_cached(coords, channel="RENT")
+                _get_property_ids_in_area_cached(coords, channel=channel)
             )
         property_ids = [location.id for location in property_locations]
         st.write(f"Found {len(property_ids)} properties in the area.")
-        st.session_state["properties"] = _get_properties(property_ids, channel="RENT")
+        st.session_state["properties"] = _get_properties(property_ids, channel=channel)
 
 
 def render_results_section() -> None:
     if "properties" in st.session_state:
         st.subheader("Extra Filters")
-        min_budget, max_budget = st.slider(
-            "Set your monthly budget for filtering properties:",
-            min_value=500,
-            max_value=10000,
-            value=(1900, 2250),
-            step=50,
-            key="budget_slider",
-        )
+        if st.session_state["channel_selectbox"] == "RENT":
+            min_budget, max_budget = st.slider(
+                "Set your monthly budget for filtering properties:",
+                min_value=500,
+                max_value=10000,
+                value=(1900, 2250),
+                step=50,
+                key="budget_slider",
+            )
+        elif st.session_state["channel_selectbox"] == "BUY":
+            min_budget, max_budget = st.slider(
+                "Set your property value for filtering properties:",
+                min_value=100000,
+                max_value=2000000,
+                value=(300000, 600000),
+                step=10000,
+                key="budget_slider",
+            )
+        else:
+            st.error("Invalid channel selected.")
+            return
         has_floorplans = st.checkbox(
             "Only show properties with floorplans",
             key="floorplan_checkbox",
