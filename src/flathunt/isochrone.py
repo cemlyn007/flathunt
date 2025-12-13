@@ -1,6 +1,6 @@
 import concurrent.futures
 import pickle
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from pathlib import Path
 
 import geopandas as gpd
@@ -87,7 +87,7 @@ def lookup(
 
 
 def multi_lookup(
-    graph: nx.Graph, queries: list[tuple[float, float, float]]
+    graph: nx.Graph, queries: Sequence[tuple[float, float, float]]
 ) -> list[list[nx.Graph]]:
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = []
@@ -235,7 +235,7 @@ def find_min_simplify_tolerance(
     return best_exterior, best_tolerance
 
 
-def get_isochone_polys(
+def get_isochrone_polys(
     isochrone_subgraphs: list[list[nx.Graph]],
 ) -> list[list[Polygon]]:
     isochrone_polys = [[None] * len(subgraphs) for subgraphs in isochrone_subgraphs]

@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Literal
 
@@ -20,7 +20,7 @@ import tfl.api
 from flathunt.cache import ModelCache
 from flathunt.isochrone import (
     get_intersection,
-    get_isochone_polys,
+    get_isochrone_polys,
     load_graph,
     multi_lookup,
 )
@@ -216,20 +216,26 @@ def render_isochrone_section() -> None:
     process = st.button("Get Isochrones", key="process_queries_button")
     if process and (queries := st.session_state.get("queries", [])):
         with st.spinner("Processing...", show_time=True):
-            graph = load_graph(offset)
-            isochrone_subgraphs = multi_lookup(graph, queries)
-            isochrone_polys = get_isochone_polys(isochrone_subgraphs)
-            groups = []
-            for subgraphs, polys in zip(
-                isochrone_subgraphs, isochrone_polys, strict=True
-            ):
-                groups.append((subgraphs, polys))
-            polys, intersection_graphs = get_intersection(graph, groups)
+            isochrone_subgraphs, isochrone_polys, polys, intersection_graphs = (
+                _process_isochrone_data(tuple(queries), offset)
+            )
         st.status("Completed processing query.", state="complete")
         st.session_state["isochrone_graphs"] = isochrone_subgraphs
         st.session_state["isochrone_polys"] = isochrone_polys
         st.session_state["intersection_polys"] = polys
         st.session_state["intersection_graphs"] = intersection_graphs
+
+
+@st.cache_data
+def _process_isochrone_data(queries: Sequence[tuple[float, float, float]], offset: int):
+    graph = load_graph(offset)
+    isochrone_subgraphs = multi_lookup(graph, queries)
+    isochrone_polys = get_isochrone_polys(isochrone_subgraphs)
+    groups = []
+    for subgraphs, polys in zip(isochrone_subgraphs, isochrone_polys, strict=True):
+        groups.append((subgraphs, polys))
+    polys, intersection_graphs = get_intersection(graph, groups)
+    return isochrone_subgraphs, isochrone_polys, polys, intersection_graphs
 
 
 def render_map_section() -> None:
@@ -405,12 +411,36 @@ def render_property_table(
         normalized_price = (
             rightmove.price.normalize(property.price) if property.price else None
         )
+        commute_durations = {}
+        commute_values = []
+        queries = st.session_state["queries"]
+        for index, (query_lon, query_lat, _) in enumerate(queries):
+            (duration,) = asyncio.run(
+                _get_properties_journey_duration_cached(
+                    [
+                        (
+                            property.location.longitude,
+                            property.location.latitude,
+                            query_lon,
+                            query_lat,
+                        )
+                    ]
+                )
+            )
+            if duration is not None:
+                commute_values.append(duration)
+            commute_durations["Commute to Query {}".format(index + 1)] = (
+                f"{duration} mins" if duration is not None else "N/A"
+            )
+
         property_data.append(
             {
                 "Name": property.display_address or "N/A",
                 "Price": f"£{normalized_price:,}" if normalized_price else "N/A",
                 "Size": property.display_size or "N/A",
                 "URL": rightmove.api.property_url(property.property_url),
+                "Minutes to Commute": min(commute_values) if commute_values else "N/A",
+                **commute_durations,
             }
         )
     st.dataframe(
