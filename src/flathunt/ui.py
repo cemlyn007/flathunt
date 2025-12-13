@@ -35,6 +35,8 @@ logger = logging.getLogger("flathunt")
 
 data_dir = Path(st.secrets["cache"]["data_dir"])
 
+tfl_api_key = st.secrets["tfl"]["api_key"]
+
 if not st.session_state.get("initialized", False):
     data_dir.mkdir(parents=True, exist_ok=True)
     st.session_state["queries"] = json.loads(os.environ["FLATHUNT__QUERIES"])
@@ -120,7 +122,7 @@ async def _get_properties_journey_duration_cached(
             fetch_indices.append(i)
             durations.append(None)  # Placeholder
     if to_fetch:
-        client = tfl.api.Tfl(app_key=os.environ["FLATHUNT__TFL_API_KEY"])
+        client = tfl.api.Tfl(app_key=tfl_api_key)
         tasks = [
             fetch_journey_results(client, lon, lat, query_lon, query_lat)
             for lon, lat, query_lon, query_lat in to_fetch
