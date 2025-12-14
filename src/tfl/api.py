@@ -249,6 +249,8 @@ def _is_retryable_error(exception: BaseException) -> bool:
         exception, (httpx.TimeoutException, httpx.NetworkError, httpx.ProtocolError)
     ):
         return True
+    elif isinstance(exception, exceptions.TflApiError):
+        return False
     elif not isinstance(exception, httpx.HTTPStatusError):
         return False
     status_code = exception.response.status_code
