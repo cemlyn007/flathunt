@@ -1,7 +1,5 @@
 import concurrent.futures
-import pickle
 from collections.abc import Hashable, Sequence
-from pathlib import Path
 
 import geopandas as gpd
 import networkx as nx
@@ -123,9 +121,9 @@ def get_intersection(
                     and a_boundary.intersects(b_boundary)
                 ):
                     pairs.append((a_subgraph, b_subgraph))
-        compatible_intersections = []
-        with tqdm.tqdm(total=len(pairs)) as pbar:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            compatible_intersections = []
+            with tqdm.tqdm(total=len(pairs)) as pbar:
                 for intersection in executor.map(
                     nx.intersection, [a for a, b in pairs], [b for a, b in pairs]
                 ):
@@ -140,17 +138,16 @@ def get_intersection(
                             ]
                         )
                     pbar.update(1)
-        compatible_intersections = [g.copy() for g in compatible_intersections]
-        for intersection in compatible_intersections:
-            for node_id, node_attributes in intersection.nodes.items():
-                node_attributes.update(graph.nodes[node_id])
-                for neighbor, edge_attributes in graph[node_id].items():
-                    if neighbor in intersection.nodes:
-                        intersection.add_edge(node_id, neighbor, **edge_attributes)
-        all_polys = []
-        all_graphs = [compatible_intersections]
-        with tqdm.tqdm(total=sum(map(len, all_graphs))) as pbar:
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            compatible_intersections = [g.copy() for g in compatible_intersections]
+            for intersection in compatible_intersections:
+                for node_id, node_attributes in intersection.nodes.items():
+                    node_attributes.update(graph.nodes[node_id])
+                    for neighbor, edge_attributes in graph[node_id].items():
+                        if neighbor in intersection.nodes:
+                            intersection.add_edge(node_id, neighbor, **edge_attributes)
+            all_polys = []
+            all_graphs = [compatible_intersections]
+            with tqdm.tqdm(total=sum(map(len, all_graphs))) as pbar:
                 maps = [
                     executor.map(
                         lambda sg: make_poly(sg, EDGE_BUFFER, NODE_BUFFER), subgraphs
@@ -169,14 +166,6 @@ def get_intersection(
         group, *rest = groups
         polys, subgraphs = get_intersection(graph, rest)
         return get_intersection(graph, [group, (subgraphs, polys)])
-
-
-def load_graph(station_cost: float) -> nx.Graph:
-    graph = pickle.loads(Path(".dagster/storage/roads_and_transport").read_bytes())
-    for n_fr, n_to in graph.edges():
-        if "station_name" in graph.nodes[n_fr] or "station_name" in graph.nodes[n_to]:
-            graph.edges[n_fr, n_to]["duration"] += station_cost
-    return graph
 
 
 def find_min_simplify_tolerance(
