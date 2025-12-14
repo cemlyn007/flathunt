@@ -1,5 +1,8 @@
 import concurrent.futures
-from collections.abc import Hashable, Sequence
+import itertools
+import pickle
+from collections.abc import Hashable
+from pathlib import Path
 
 import geopandas as gpd
 import networkx as nx
@@ -66,6 +69,14 @@ def find_nearest_node(x1, y1, x2, y2):
     return distances.argmin(axis=0).item()
 
 
+def load_graph(station_cost: float) -> nx.Graph:
+    graph = pickle.loads(Path(".dagster/storage/roads_and_transport").read_bytes())
+    for n_fr, n_to in graph.edges():
+        if "station_name" in graph.nodes[n_fr] or "station_name" in graph.nodes[n_to]:
+            graph.edges[n_fr, n_to]["duration"] += station_cost
+    return graph
+
+
 def lookup(
     graph: nx.Graph, lon: float, lat: float, max_duration: float
 ) -> list[nx.Graph]:
@@ -84,88 +95,92 @@ def lookup(
     return subgraphs
 
 
-def multi_lookup(
-    graph: nx.Graph, queries: Sequence[tuple[float, float, float]]
-) -> list[list[nx.Graph]]:
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = []
-        for longitude_value, latitude_value, max_duration in queries:
-            future = executor.submit(
-                lookup, graph, longitude_value, latitude_value, max_duration
-            )
-            futures.append(future)
-        results = [
-            future.result() for future in concurrent.futures.as_completed(futures)
+def get_graph_bounds(graph: nx.Graph) -> tuple[float, float, float, float]:
+    x_coords = [data["x"] for node, data in graph.nodes(data=True)]
+    y_coords = [data["y"] for node, data in graph.nodes(data=True)]
+    min_x = min(x_coords)
+    max_x = max(x_coords)
+    min_y = min(y_coords)
+    max_y = max(y_coords)
+    return min_x, min_y, max_x, max_y
+
+
+def bounds_to_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
+    min_x, min_y, max_x, max_y = bounds
+    return Polygon(
+        [
+            (min_x, min_y),
+            (min_x, max_y),
+            (max_x, max_y),
+            (max_x, min_y),
+            (min_x, min_y),
         ]
-    return results
+    )
 
 
 def get_intersection(
-    graph: nx.Graph, groups: list[tuple[list[nx.Graph], list[Polygon]]]
-) -> tuple[list[Polygon], list[nx.Graph]]:
-    if len(groups) == 1:
-        subgraphs, polys = groups[0]
-        return polys, subgraphs
-    if len(groups) == 2:
-        pairs = []
-        (a_subgraphs, a_polys), (b_subgraphs, b_polys) = groups
-        for a_subgraph, a_poly in tqdm.tqdm(
-            zip(a_subgraphs, a_polys, strict=True), total=len(a_subgraphs)
-        ):
-            for b_subgraph, b_poly in zip(b_subgraphs, b_polys, strict=True):
-                a_boundary = a_poly.boundary
-                b_boundary = b_poly.boundary
-                if (
-                    a_boundary is not None
-                    and b_boundary is not None
-                    and a_boundary.intersects(b_boundary)
-                ):
-                    pairs.append((a_subgraph, b_subgraph))
+    graph: nx.Graph,
+    groups: list[list[nx.Graph]],
+    executor: concurrent.futures.ThreadPoolExecutor | None = None,
+) -> list[nx.Graph]:
+    if executor is None:
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            compatible_intersections = []
-            with tqdm.tqdm(total=len(pairs)) as pbar:
-                for intersection in executor.map(
-                    nx.intersection, [a for a, b in pairs], [b for a, b in pairs]
-                ):
-                    if intersection.number_of_nodes() > 0:
-                        intersection_subgraphs = list(
-                            nx.connected_components(intersection)
-                        )
-                        compatible_intersections.extend(
-                            [
-                                nx.subgraph(intersection, nodes)
-                                for nodes in intersection_subgraphs
-                            ]
-                        )
-                    pbar.update(1)
-            compatible_intersections = [g.copy() for g in compatible_intersections]
-            for intersection in compatible_intersections:
-                for node_id, node_attributes in intersection.nodes.items():
-                    node_attributes.update(graph.nodes[node_id])
-                    for neighbor, edge_attributes in graph[node_id].items():
-                        if neighbor in intersection.nodes:
-                            intersection.add_edge(node_id, neighbor, **edge_attributes)
-            all_polys = []
-            all_graphs = [compatible_intersections]
-            with tqdm.tqdm(total=sum(map(len, all_graphs))) as pbar:
-                maps = [
-                    executor.map(
-                        lambda sg: make_poly(sg, EDGE_BUFFER, NODE_BUFFER), subgraphs
-                    )
-                    for subgraphs in all_graphs
+            return get_intersection(graph, groups, executor)
+    elif len(groups) == 1:
+        return groups[0]
+    elif len(groups) == 2:
+        (a_subgraphs, b_subgraphs) = groups
+        a_bound_futures = [
+            executor.submit(
+                lambda subgraph: bounds_to_polygon(get_graph_bounds(subgraph)), subgraph
+            )
+            for subgraph in a_subgraphs
+        ]
+        b_bounds_futures = [
+            executor.submit(
+                lambda subgraph: bounds_to_polygon(get_graph_bounds(subgraph)), subgraph
+            )
+            for subgraph in b_subgraphs
+        ]
+        a_bounds = [future.result() for future in a_bound_futures]
+        b_bounds = [future.result() for future in b_bounds_futures]
+
+        def work(a, b, a_bound, b_bound):
+            if not a_bound.intersects(b_bound):
+                return []
+            intersection = nx.intersection(a, b)
+            if intersection.number_of_nodes() > 0:
+                subgraphs = [
+                    nx.subgraph(intersection, nodes)
+                    for nodes in nx.connected_components(intersection)
                 ]
-                for _map in maps:
-                    subgraph_polys = []
-                    for subgraph in _map:
-                        subgraph_polys.append(subgraph)
-                        pbar.update(1)
-                    all_polys.append(subgraph_polys)
-        (polys,) = all_polys
-        return polys, compatible_intersections
+                compatible_intersections = [g.copy() for g in subgraphs]
+                for intersection in compatible_intersections:
+                    for node_id, node_attributes in intersection.nodes.items():
+                        node_attributes.update(graph.nodes[node_id])
+                        for neighbor, edge_attributes in graph[node_id].items():
+                            if neighbor in intersection.nodes:
+                                intersection.add_edge(
+                                    node_id, neighbor, **edge_attributes
+                                )
+                return compatible_intersections
+            return []
+
+        return list(
+            itertools.chain.from_iterable(
+                executor.map(
+                    lambda p: work(p[0][0], p[1][0], p[0][1], p[1][1]),
+                    itertools.product(
+                        zip(a_subgraphs, a_bounds, strict=True),
+                        zip(b_subgraphs, b_bounds, strict=True),
+                    ),
+                )
+            )
+        )
     else:
         group, *rest = groups
-        polys, subgraphs = get_intersection(graph, rest)
-        return get_intersection(graph, [group, (subgraphs, polys)])
+        subgraphs = get_intersection(graph, rest, executor=executor)
+        return get_intersection(graph, [group, subgraphs], executor=executor)
 
 
 def find_min_simplify_tolerance(

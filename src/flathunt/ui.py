@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import json
 import logging
 import os
@@ -13,16 +14,17 @@ import streamlit as st
 from shapely import GeometryCollection, Polygon
 from shapely.geometry import Point
 
-import rightmove.api
 import rightmove.models
 import rightmove.price
 import tfl.api
 from flathunt.cache import ModelCache
 from flathunt.isochrone import (
+    EDGE_BUFFER,
+    NODE_BUFFER,
     get_intersection,
-    get_isochrone_polys,
     load_graph,
-    multi_lookup,
+    lookup,
+    make_poly,
 )
 from flathunt.search_utils import (
     check_property_size,
@@ -62,15 +64,40 @@ def get_property_cache() -> ModelCache[rightmove.models.Property]:
 
 
 @st.cache_data(persist="disk")
-def _process_isochrone_data(queries: Sequence[tuple[float, float, float]], offset: int):
+def _process_isochrone_data(
+    queries: Sequence[tuple[float, float, float]], offset: int
+) -> tuple[list[Polygon], list[list[Polygon]]]:
     graph = load_graph(offset)
-    isochrone_subgraphs = multi_lookup(graph, queries)
-    isochrone_polys = get_isochrone_polys(isochrone_subgraphs)
-    groups = []
-    for subgraphs, polys in zip(isochrone_subgraphs, isochrone_polys, strict=True):
-        groups.append((subgraphs, polys))
-    polys, intersection_graphs = get_intersection(graph, groups)
-    return isochrone_subgraphs, isochrone_polys, polys, intersection_graphs
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        separate_isochrones = list(
+            executor.map(
+                lookup,
+                [graph] * len(queries),
+                [q[0] for q in queries],
+                [q[1] for q in queries],
+                [q[2] for q in queries],
+            )
+        )
+        polys_futures = [
+            [
+                executor.submit(make_poly, sg, EDGE_BUFFER, NODE_BUFFER)
+                for sg in subgraphs
+            ]
+            for subgraphs in separate_isochrones
+        ]
+        intersection_graphs = get_intersection(
+            graph, separate_isochrones, executor=executor
+        )
+        intersections_polys_futures = [
+            executor.submit(make_poly, sg, EDGE_BUFFER, NODE_BUFFER)
+            for sg in intersection_graphs
+        ]
+        isochrone_polys = [
+            [future.result() for future in poly_futures]
+            for poly_futures in polys_futures
+        ]
+        polys = [future.result() for future in intersections_polys_futures]
+    return polys, isochrone_polys
 
 
 # TODO: Switching to a tile based caching system may improve performance and
@@ -97,7 +124,6 @@ def _get_property_ids_in_area_cached(
 async def _get_properties_journey_duration_cached(
     to_froms: list[tuple[float, float, float, float]],
 ) -> list[int | None]:
-    # lon: float, lat: float, query_lon: float, query_lat: float
     cache = get_journey_cache()
     durations = []
     to_fetch = []
@@ -128,7 +154,7 @@ async def _get_properties_journey_duration_cached(
         ]
         results = await asyncio.gather(*tasks)
         cache_updates = []
-        for idx, duration in zip(fetch_indices, results):
+        for idx, duration in zip(fetch_indices, results, strict=True):
             durations[idx] = duration
             lon, lat, query_lon, query_lat = to_froms[idx]
             key = json.dumps(
@@ -230,21 +256,17 @@ def render_isochrone_section() -> None:
     process = st.button("Get Isochrones", key="process_queries_button")
     if process and (queries := st.session_state.get("queries", [])):
         with st.spinner("Processing...", show_time=True):
-            isochrone_subgraphs, isochrone_polys, polys, intersection_graphs = (
-                _process_isochrone_data(tuple(queries), offset)
+            intersection_isochrone_polys, isochrone_polys = _process_isochrone_data(
+                tuple(queries), offset
             )
         st.status("Completed processing query.", state="complete")
-        st.session_state["isochrone_graphs"] = isochrone_subgraphs
         st.session_state["isochrone_polys"] = isochrone_polys
-        st.session_state["intersection_polys"] = polys
-        st.session_state["intersection_graphs"] = intersection_graphs
+        st.session_state["intersection_polys"] = intersection_isochrone_polys
 
 
 def render_map_section() -> None:
     if (
-        "intersection_graphs" in st.session_state
-        and "intersection_polys" in st.session_state
-        and "isochrone_graphs" in st.session_state
+        "intersection_polys" in st.session_state
         and "isochrone_polys" in st.session_state
         and "queries" in st.session_state
     ):
@@ -291,10 +313,14 @@ def render_property_search_section() -> None:
         return
 
     st.header("Search Properties in Intersection Area")
+    last_channel = st.session_state.get("channel_selectbox", None)
     channel = st.selectbox("Select channel:", ["RENT", "BUY"], key="channel_selectbox")
     if channel != "RENT" and channel != "BUY":
         st.error("Invalid channel selected.")
         return
+    if last_channel != channel:
+        if "properties" in st.session_state:
+            del st.session_state["properties"]
     list_property_ids = st.button(
         "Get property IDs in area", key="get_property_ids_button"
     )
@@ -324,7 +350,8 @@ def render_property_search_section() -> None:
 def render_results_section() -> None:
     if "properties" in st.session_state:
         st.subheader("Extra Filters")
-        if st.session_state["channel_selectbox"] == "RENT":
+        channel = st.session_state["channel_selectbox"]
+        if channel == "RENT":
             min_budget, max_budget = st.slider(
                 "Set your monthly budget for filtering properties:",
                 min_value=500,
@@ -333,7 +360,7 @@ def render_results_section() -> None:
                 step=50,
                 key="budget_slider",
             )
-        elif st.session_state["channel_selectbox"] == "BUY":
+        elif channel == "BUY":
             min_budget, max_budget = st.slider(
                 "Set your property value for filtering properties:",
                 min_value=100000,
@@ -368,6 +395,7 @@ def render_results_section() -> None:
             has_floorplans,
             has_images,
             square_meters,
+            channel,
         )
         st.write(f"{len(filtered_properties)} properties match the criteria.")
         render_property_table(filtered_properties)
@@ -380,6 +408,7 @@ def filter_properties_by_criteria(
     has_floorplans: bool,
     has_images: bool,
     square_meters: float,
+    channel: Literal["RENT", "BUY"],
 ):
     filtered_properties = [
         property
@@ -387,7 +416,11 @@ def filter_properties_by_criteria(
         if property.property_url is not None
         and check_property_size(property, square_meters)
         and property.price is not None
-        and min_budget <= (rightmove.price.normalize(property.price) or 0) <= max_budget
+        and (
+            min_budget <= (rightmove.price.normalize(property.price) or 0) <= max_budget
+            if channel == "RENT"
+            else min_budget <= (property.price.amount or 0) <= max_budget
+        )
         and ((property.number_of_images or 0) > 2 or not has_images)
         and ((property.number_of_floorplans or 0) > 0 or not has_floorplans)
     ]
@@ -424,12 +457,16 @@ def render_property_table(
     filtered_properties: list[rightmove.models.Property],
 ) -> None:
     property_data = []
+    channel = st.session_state["channel_selectbox"]
     for property in filtered_properties:
         if property.property_url is None:
             continue
-        normalized_price = (
-            rightmove.price.normalize(property.price) if property.price else None
-        )
+        if channel == "RENT":
+            normalized_price = (
+                rightmove.price.normalize(property.price) if property.price else None
+            )
+        else:
+            normalized_price = property.price.amount if property.price else None
         commute_durations = {}
         commute_values = []
         queries = st.session_state["queries"]
@@ -458,7 +495,7 @@ def render_property_table(
                 "Price": f"£{normalized_price:,}" if normalized_price else "N/A",
                 "Size": property.display_size or "N/A",
                 "URL": rightmove.api.property_url(property.property_url),
-                "Minutes to Commute": min(commute_values) if commute_values else "N/A",
+                "Minutes to Commute": max(commute_values) if commute_values else "N/A",
                 **commute_durations,
             }
         )
