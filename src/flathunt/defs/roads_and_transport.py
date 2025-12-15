@@ -7,7 +7,6 @@ from shapely.geometry import LineString
 
 class Config(dg.Config):
     meters_per_minute: float = 60
-    station_cost_minutes: float = 4
 
 
 def euclidean(x1, y1, x2, y2):
@@ -22,7 +21,6 @@ def find_nearest_node(x1, y1, x2, y2):
 
 @dg.asset
 def roads_and_transport(
-    context: dg.AssetExecutionContext,
     config: Config,
     roads: nx.Graph,
     transport: nx.Graph,
@@ -41,7 +39,7 @@ def roads_and_transport(
             roads.nodes[non_transport_key]["x"],
             roads.nodes[non_transport_key]["y"],
         ).item()
-        duration = length / config.meters_per_minute + config.station_cost_minutes
+        duration = length / config.meters_per_minute
         graph.add_edge(
             transport_node_key,
             non_transport_key,

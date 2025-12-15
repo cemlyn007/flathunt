@@ -44,7 +44,7 @@ def euclidean(x1, y1, x2, y2):
 
 
 @dg.asset
-async def transport(context: dg.AssetExecutionContext, config: Config) -> nx.Graph:
+async def transport(config: Config) -> nx.Graph:
     tf_client = tfl.api.Tfl(app_key=config.tfl_api_key)
     lines = await tf_client.get_all_lines_routes()
     line_id_stop_points: dict[str, list[tfl.models.StopPointDetail]] = {}

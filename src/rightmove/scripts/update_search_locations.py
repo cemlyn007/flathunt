@@ -1,15 +1,17 @@
-import json
-import os
-import rightmove.api
 import argparse
+import asyncio
+import json
 import logging
+import os
+
+import rightmove.api
 
 DEFAULT_filepath = "search_locations.json"
 
 logger = logging.getLogger(__name__)
 
 
-def main():
+async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--file", default=DEFAULT_filepath, help="Path to the search locations file."
@@ -26,7 +28,7 @@ def main():
     entries = {}
     for location in locations:
         logger.info(f"Searching for '{location}'...")
-        matches = api.lookup(location).matches
+        matches = (await api.lookup(location)).matches
         logger.info(f"Result: {matches}")
 
         locations = {
@@ -69,4 +71,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -15,11 +15,11 @@ class App:
         self._cache = cache
         self._commute_coordinates = commute_coordinates
 
-    def search(
+    async def search(
         self,
         query: api.SearchQuery,
     ) -> None:
-        properties = self._api.search(query)
+        properties = await self._api.search(query)
         new_properties = [
             property
             for property in properties
