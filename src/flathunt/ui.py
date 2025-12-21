@@ -1,6 +1,8 @@
 import asyncio
+import concurrent.futures
 import json
 import logging
+import math
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -10,19 +12,20 @@ import geopandas as gpd
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from shapely import GeometryCollection, Polygon
-from shapely.geometry import Point
+from shapely import GeometryCollection, Point, Polygon
+from shapely.geometry import box
 
-import rightmove.api
 import rightmove.models
-import rightmove.price
 import tfl.api
 from flathunt.cache import ModelCache
 from flathunt.isochrone import (
+    EDGE_BUFFER,
+    NODE_BUFFER,
+    bounds_to_polygon,
     get_intersection,
-    get_isochrone_polys,
     load_graph,
-    multi_lookup,
+    lookup,
+    make_poly,
 )
 from flathunt.search_utils import (
     check_property_size,
@@ -64,36 +67,140 @@ def get_property_cache() -> ModelCache[rightmove.models.Property]:
 
 
 @st.cache_data(persist="disk")
-def _process_isochrone_data(queries: Sequence[tuple[float, float, float]], offset: int):
+def _process_isochrone_data(
+    queries: Sequence[tuple[float, float, float]], offset: int
+) -> tuple[list[Polygon], list[list[Polygon]]]:
     graph = load_graph(offset)
-    isochrone_subgraphs = multi_lookup(graph, queries)
-    isochrone_polys = get_isochrone_polys(isochrone_subgraphs)
-    groups = []
-    for subgraphs, polys in zip(isochrone_subgraphs, isochrone_polys, strict=True):
-        groups.append((subgraphs, polys))
-    polys, intersection_graphs = get_intersection(graph, groups)
-    return isochrone_subgraphs, isochrone_polys, polys, intersection_graphs
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        separate_isochrones = list(
+            executor.map(
+                lookup,
+                [graph] * len(queries),
+                [q[0] for q in queries],
+                [q[1] for q in queries],
+                [q[2] for q in queries],
+            )
+        )
+        polys_futures = [
+            [
+                executor.submit(make_poly, sg, EDGE_BUFFER, NODE_BUFFER)
+                for sg in subgraphs
+            ]
+            for subgraphs in separate_isochrones
+        ]
+        intersection_graphs = get_intersection(
+            graph, separate_isochrones, executor=executor
+        )
+        intersections_polys_futures = [
+            executor.submit(make_poly, sg, EDGE_BUFFER, NODE_BUFFER)
+            for sg in intersection_graphs
+        ]
+        isochrone_polys = [
+            [future.result() for future in poly_futures]
+            for poly_futures in polys_futures
+        ]
+        polys = [future.result() for future in intersections_polys_futures]
+    return polys, isochrone_polys
 
 
-# TODO: Switching to a tile based caching system may improve performance and
-#  increase the cache hit chance.
+TILE_SIZE = 0.02
+
+
+def _get_tiles_covering_polygon(
+    polygon: Polygon,
+) -> list[tuple[str, list[tuple[float, float]]]]:
+    min_lon, min_lat, max_lon, max_lat = polygon.bounds
+
+    start_lon_idx = math.floor(min_lon / TILE_SIZE)
+    end_lon_idx = math.ceil(max_lon / TILE_SIZE)
+    start_lat_idx = math.floor(min_lat / TILE_SIZE)
+    end_lat_idx = math.ceil(max_lat / TILE_SIZE)
+
+    tiles = []
+    for lon_idx in range(start_lon_idx, end_lon_idx):
+        for lat_idx in range(start_lat_idx, end_lat_idx):
+            lon = lon_idx * TILE_SIZE
+            lat = lat_idx * TILE_SIZE
+            tile_poly = box(lon, lat, lon + TILE_SIZE, lat + TILE_SIZE)
+            if polygon.intersects(tile_poly):
+                # coords as (lat, lon)
+                tile_coords = [
+                    (lat, lon),
+                    (lat + TILE_SIZE, lon),
+                    (lat + TILE_SIZE, lon + TILE_SIZE),
+                    (lat, lon + TILE_SIZE),
+                    (lat, lon),
+                ]
+                tile_id = f"{lat:.4f}_{lon:.4f}"
+                tiles.append((tile_id, tile_coords))
+    return tiles
+
+
 def _get_property_ids_in_area_cached(
-    coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT"
+    map_polygon_boundary: Polygon,
+    coords: list[tuple[float, float]],
+    channel: Literal["RENT", "BUY"] = "RENT",
 ) -> list[rightmove.models.PropertyLocation]:
+    shapely_coords = [(lon, lat) for lat, lon in coords]
+    search_polygon = Polygon(shapely_coords)
+    if not search_polygon.is_valid:
+        search_polygon = search_polygon.buffer(0)
+
+    tiles = _get_tiles_covering_polygon(map_polygon_boundary)
+
+    selected_tiles = []
+    for tile_id, tile_coords in tiles:
+        # tile_coords is (lat, lon)
+        tile_poly = Polygon([(lon, lat) for lat, lon in tile_coords])
+        if search_polygon.intersects(tile_poly):
+            selected_tiles.append((tile_id, tile_coords))
+
     cache = get_property_ids_in_area_cache()
-    key = json.dumps({"coords": coords, "channel": channel})
-    try:
-        property_locations = cache.get(key)
-        logger.info("Property IDs fetched from cache.")
-        return property_locations
-    except KeyError:
-        property_locations = []
-        logger.info("Property IDs not found in cache, fetching from Rightmove.")
-    property_ids_in_area = asyncio.run(
-        get_property_ids_in_area(coords, channel=channel)
-    )
-    cache.update([(key, property_ids_in_area)])
-    return property_locations + property_ids_in_area
+
+    all_properties = []
+    tiles_to_fetch = []
+
+    for tile_id, tile_coords in selected_tiles:
+        key = json.dumps(
+            {"tile_id": tile_id, "channel": channel, "tile_size": TILE_SIZE}
+        )
+        try:
+            cached_props = cache.get(key)
+            all_properties.extend(cached_props)
+        except KeyError:
+            tiles_to_fetch.append((key, tile_coords))
+
+    if tiles_to_fetch:
+        logger.info(f"Fetching {len(tiles_to_fetch)} tiles from Rightmove.")
+
+        results = [
+            asyncio.run(get_property_ids_in_area(tc, channel=channel))
+            for _, tc in tiles_to_fetch
+        ]
+
+        cache_updates = []
+        for (key, _), props in zip(tiles_to_fetch, results, strict=True):
+            cache_updates.append((key, props))
+            all_properties.extend(props)
+
+        cache.update(cache_updates)
+
+    # Deduplicate by ID
+    unique_properties: list[rightmove.models.PropertyLocation] = []
+    seen_ids = set()
+    for p in all_properties:
+        if p.id not in seen_ids:
+            unique_properties.append(p)
+            seen_ids.add(p.id)
+
+    # Filter by original polygon
+    filtered_properties: list[rightmove.models.PropertyLocation] = []
+    for p in unique_properties:
+        point = Point(p.location.longitude, p.location.latitude)
+        if search_polygon.contains(point):
+            filtered_properties.append(p)
+
+    return filtered_properties
 
 
 async def _get_properties_journey_duration_cached(
@@ -129,7 +236,7 @@ async def _get_properties_journey_duration_cached(
         ]
         results = await asyncio.gather(*tasks)
         cache_updates = []
-        for idx, duration in zip(fetch_indices, results):
+        for idx, duration in zip(fetch_indices, results, strict=True):
             durations[idx] = duration
             lon, lat, query_lon, query_lat = to_froms[idx]
             key = json.dumps(
@@ -231,21 +338,17 @@ def render_isochrone_section() -> None:
     process = st.button("Get Isochrones", key="process_queries_button")
     if process and (queries := st.session_state.get("queries", [])):
         with st.spinner("Processing...", show_time=True):
-            isochrone_subgraphs, isochrone_polys, polys, intersection_graphs = (
-                _process_isochrone_data(tuple(queries), offset)
+            intersection_isochrone_polys, isochrone_polys = _process_isochrone_data(
+                tuple(queries), offset
             )
         st.status("Completed processing query.", state="complete")
-        st.session_state["isochrone_graphs"] = isochrone_subgraphs
         st.session_state["isochrone_polys"] = isochrone_polys
-        st.session_state["intersection_polys"] = polys
-        st.session_state["intersection_graphs"] = intersection_graphs
+        st.session_state["intersection_polys"] = intersection_isochrone_polys
 
 
 def render_map_section() -> None:
     if (
-        "intersection_graphs" in st.session_state
-        and "intersection_polys" in st.session_state
-        and "isochrone_graphs" in st.session_state
+        "intersection_polys" in st.session_state
         and "isochrone_polys" in st.session_state
         and "queries" in st.session_state
     ):
@@ -265,16 +368,29 @@ def render_property_search_section() -> None:
         return
 
     st.header("Search Properties in Intersection Area")
+    last_channel = st.session_state.get("channel_selectbox", None)
     channel = st.selectbox("Select channel:", ["RENT", "BUY"], key="channel_selectbox")
     if channel != "RENT" and channel != "BUY":
         st.error("Invalid channel selected.")
         return
+    if last_channel != channel:
+        if "properties" in st.session_state:
+            del st.session_state["properties"]
     list_property_ids = st.button(
         "Get property IDs in area", key="get_property_ids_button"
     )
     if list_property_ids:
         polys = st.session_state["intersection_polys"]
         property_locations: list[rightmove.models.PropertyLocation] = []
+        graph = load_graph(0)
+        bounding_polygon = bounds_to_polygon(
+            (
+                min(data["lon"] for data in graph.nodes.values()),
+                min(data["lat"] for data in graph.nodes.values()),
+                max(data["lon"] for data in graph.nodes.values()),
+                max(data["lat"] for data in graph.nodes.values()),
+            )
+        )
         for poly in polys:
             if poly.is_empty:
                 continue
@@ -288,7 +404,9 @@ def render_property_search_section() -> None:
             lat = [point.y for point in points_wgs84]
             coords = list(zip(lat, lon, strict=True))
             property_locations.extend(
-                _get_property_ids_in_area_cached(coords, channel=channel)
+                _get_property_ids_in_area_cached(
+                    bounding_polygon, coords, channel=channel
+                )
             )
         property_ids = [location.id for location in property_locations]
         st.write(f"Found {len(property_ids)} properties in the area.")
@@ -298,7 +416,8 @@ def render_property_search_section() -> None:
 def render_results_section() -> None:
     if "properties" in st.session_state:
         st.subheader("Extra Filters")
-        if st.session_state["channel_selectbox"] == "RENT":
+        channel = st.session_state["channel_selectbox"]
+        if channel == "RENT":
             min_budget, max_budget = st.slider(
                 "Set your monthly budget for filtering properties:",
                 min_value=500,
@@ -307,7 +426,7 @@ def render_results_section() -> None:
                 step=50,
                 key="budget_slider",
             )
-        elif st.session_state["channel_selectbox"] == "BUY":
+        elif channel == "BUY":
             min_budget, max_budget = st.slider(
                 "Set your property value for filtering properties:",
                 min_value=100000,
@@ -342,6 +461,7 @@ def render_results_section() -> None:
             has_floorplans,
             has_images,
             square_meters,
+            channel,
         )
         st.write(f"{len(filtered_properties)} properties match the criteria.")
         render_property_table(filtered_properties)
@@ -354,6 +474,7 @@ def filter_properties_by_criteria(
     has_floorplans: bool,
     has_images: bool,
     square_meters: float,
+    channel: Literal["RENT", "BUY"],
 ):
     filtered_properties = [
         property
@@ -361,7 +482,11 @@ def filter_properties_by_criteria(
         if property.property_url is not None
         and check_property_size(property, square_meters)
         and property.price is not None
-        and min_budget <= (rightmove.price.normalize(property.price) or 0) <= max_budget
+        and (
+            min_budget <= (rightmove.price.normalize(property.price) or 0) <= max_budget
+            if channel == "RENT"
+            else min_budget <= (property.price.amount or 0) <= max_budget
+        )
         and ((property.number_of_images or 0) > 2 or not has_images)
         and ((property.number_of_floorplans or 0) > 0 or not has_floorplans)
     ]
@@ -398,12 +523,16 @@ def render_property_table(
     filtered_properties: list[rightmove.models.Property],
 ) -> None:
     property_data = []
+    channel = st.session_state["channel_selectbox"]
     for property in filtered_properties:
         if property.property_url is None:
             continue
-        normalized_price = (
-            rightmove.price.normalize(property.price) if property.price else None
-        )
+        if channel == "RENT":
+            normalized_price = (
+                rightmove.price.normalize(property.price) if property.price else None
+            )
+        else:
+            normalized_price = property.price.amount if property.price else None
         commute_durations = {}
         commute_values = []
         queries = st.session_state["queries"]
@@ -432,7 +561,7 @@ def render_property_table(
                 "Price": f"£{normalized_price:,}" if normalized_price else "N/A",
                 "Size": property.display_size or "N/A",
                 "URL": rightmove.api.property_url(property.property_url),
-                "Minutes to Commute": min(commute_values) if commute_values else "N/A",
+                "Minutes to Commute": max(commute_values) if commute_values else "N/A",
                 **commute_durations,
             }
         )
