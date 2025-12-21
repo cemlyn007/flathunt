@@ -1,6 +1,7 @@
 import concurrent.futures
 import itertools
 import pickle
+import threading
 from collections.abc import Hashable
 from pathlib import Path
 
@@ -145,10 +146,14 @@ def get_intersection(
         a_bounds = [future.result() for future in a_bound_futures]
         b_bounds = [future.result() for future in b_bounds_futures]
 
+        lock = threading.Lock()
+
         def work(a, b, a_bound, b_bound):
             if not a_bound.intersects(b_bound):
                 return []
-            intersection = nx.intersection(a, b)
+            with lock:
+                # Unfortunately this is not thread-safe.
+                intersection = nx.intersection(a, b)
             if intersection.number_of_nodes() > 0:
                 subgraphs = [
                     nx.subgraph(intersection, nodes)
