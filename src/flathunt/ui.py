@@ -50,20 +50,35 @@ if not st.session_state.get("initialized", False):
 def get_property_ids_in_area_cache() -> ModelCache[
     list[rightmove.models.PropertyLocation]
 ]:
+    cache = data_dir / "property_locations_cache.json"
+    if cache.exists():
+        graph_path = Path(".dagster/storage/roads_and_transport")
+        if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
+            cache.unlink()
     return ModelCache(
         list[rightmove.models.PropertyLocation],
-        data_dir / "property_locations_cache.json",
+        cache,
     )
 
 
 @st.cache_resource
 def get_journey_cache() -> ModelCache[int | None]:
-    return ModelCache(int | None, data_dir / "journey_cache.json")
+    cache = data_dir / "journey_cache.json"
+    if cache.exists():
+        graph_path = Path(".dagster/storage/roads_and_transport")
+        if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
+            cache.unlink()
+    return ModelCache(int | None, cache)
 
 
 @st.cache_resource
 def get_property_cache() -> ModelCache[rightmove.models.Property]:
-    return ModelCache(rightmove.models.Property, data_dir / "property_cache.json")
+    cache = data_dir / "property_cache.json"
+    if cache.exists():
+        graph_path = Path(".dagster/storage/roads_and_transport")
+        if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
+            cache.unlink()
+    return ModelCache(rightmove.models.Property, cache)
 
 
 @st.cache_data(persist="disk")
@@ -262,7 +277,7 @@ def _get_properties(
 
     if missing_ids:
         logger.info(f"Fetching {len(missing_ids)} properties from Rightmove...")
-        new_properties = asyncio.run(get_properties(missing_ids))
+        new_properties = asyncio.run(get_properties(missing_ids, channel=channel))
         cache.update(
             (json.dumps({"id": property.id, "channel": channel}), property)
             for property in new_properties
