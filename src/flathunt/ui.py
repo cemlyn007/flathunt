@@ -415,17 +415,52 @@ def render_property_search_section() -> None:
                 [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs="EPSG:27700"
             )
             points_wgs84 = points_bng.to_crs("EPSG:4326")
-            lon = [point.x for point in points_wgs84]
-            lat = [point.y for point in points_wgs84]
+            lon = [point.x for point in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
+            lat = [point.y for point in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
             coords = list(zip(lat, lon, strict=True))
             property_locations.extend(
                 _get_property_ids_in_area_cached(
                     bounding_polygon, coords, channel=channel
                 )
             )
-        property_ids = [location.id for location in property_locations]
-        st.write(f"Found {len(property_ids)} properties in the area.")
+
+        st.write(f"Found {len(property_locations)} unfiltered properties in the area.")
+        filtered_property_locations = _filter_properties_by_commute(property_locations)
+        property_ids = [location.id for location in filtered_property_locations]
+        st.write(
+            f"Found {len(property_ids)} properties in the area within commute criteria."
+        )
         st.session_state["properties"] = _get_properties(property_ids, channel=channel)
+
+
+def _filter_properties_by_commute(
+    property_locations: list[rightmove.models.PropertyLocation],
+) -> list[rightmove.models.PropertyLocation]:
+    commute_queries: list[tuple[float, float, float, float]] = []
+    for location in property_locations:
+        for query_lon, query_lat, max_duration in st.session_state["queries"]:
+            commute_queries.append(
+                (
+                    location.location.longitude,
+                    location.location.latitude,
+                    query_lon,
+                    query_lat,
+                )
+            )
+    durations = asyncio.run(_get_properties_journey_duration_cached(commute_queries))
+
+    filtered_property_locations: list[rightmove.models.PropertyLocation] = []
+    index = 0
+    for location in property_locations:
+        meets_commute = True
+        for query_lon, query_lat, max_duration in st.session_state["queries"]:
+            duration = durations[index]
+            index += 1
+            if duration is None or duration > max_duration:
+                meets_commute = False
+        if meets_commute:
+            filtered_property_locations.append(location)
+    return filtered_property_locations
 
 
 def render_results_section() -> None:
