@@ -53,6 +53,8 @@ dev = [
 [project.scripts]
 search = "rightmove.scripts.search:main"
 update-search-locations = "rightmove.scripts.update_search_locations:main"
+flathunter = "flathunt.scripts.flathunter:main"
+flathunt-dagster-dev = "flathunt.scripts.dagster_dev:main"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
