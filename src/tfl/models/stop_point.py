@@ -1,6 +1,6 @@
 """Pydantic models for TfL StopPoint API responses."""
 
-from typing import Optional
+from typing import Literal, Optional
 
 import pydantic
 
@@ -38,6 +38,9 @@ class StopPointLine(TflModel):
     """Line information for a stop point."""
 
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
+    line_type: Optional[str] = pydantic.Field(default=None, alias="type")
+    route_type: Optional[str] = None
+    status: Optional[Literal["Unknown"]] = None
     id: str
     name: str
     uri: str
