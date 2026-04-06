@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Literal
 
 from shapely import Point, Polygon
@@ -12,7 +12,11 @@ import rightmove.models
 import rightmove.price
 import tfl.api
 from flathunt.cache import ModelCache
-from flathunt.search_utils import check_property_size, fetch_journey_results, get_property_ids_in_area
+from flathunt.search_utils import (
+    check_property_size,
+    fetch_journey_results,
+    get_property_ids_in_area,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,28 +185,32 @@ def filter_properties_by_budget_and_features(
     ]
 
 
-def filter_properties_by_commute(
+async def get_commute_durations(
     properties: list[rightmove.models.MapProperty],
     queries: list[tuple[float, float, float]],
-    journey_cache: ModelCache[int | None],
+    cache: ModelCache[int | None],
     tfl_api_key: str,
-) -> list[rightmove.models.MapProperty]:
-    commute_queries: list[tuple[float, float, float, float]] = [
+) -> list[list[int | None]]:
+    flat_to_froms: list[tuple[float, float, float, float]] = [
         (prop.location.longitude, prop.location.latitude, query_lon, query_lat)
         for prop in properties
         for query_lon, query_lat, _ in queries
     ]
-    durations = asyncio.run(
-        get_properties_journey_duration_cached(commute_queries, journey_cache, tfl_api_key)
-    )
+    flat_durations = await get_properties_journey_duration_cached(flat_to_froms, cache, tfl_api_key)
+    n = len(queries)
+    return [flat_durations[i * n : (i + 1) * n] for i in range(len(properties))]
 
-    filtered: list[rightmove.models.MapProperty] = []
-    for i, prop in enumerate(properties):
-        meets_commute = all(
-            durations[i * len(queries) + j] is not None
-            and durations[i * len(queries) + j] <= max_duration
-            for j, (_, _, max_duration) in enumerate(queries)
+
+def filter_by_commute(
+    properties: Sequence[rightmove.models.MapProperty],
+    durations: Sequence[Sequence[int | None]],
+    queries: Sequence[tuple[float, float, float]],
+) -> list[tuple[rightmove.models.MapProperty, Sequence[int | None]]]:
+    return [
+        (prop, prop_durations)
+        for prop, prop_durations in zip(properties, durations, strict=True)
+        if all(
+            d is not None and d <= max_duration
+            for d, (_, _, max_duration) in zip(prop_durations, queries, strict=True)
         )
-        if meets_commute:
-            filtered.append(prop)
-    return filtered
+    ]

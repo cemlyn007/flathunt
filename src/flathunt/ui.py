@@ -25,9 +25,9 @@ from flathunt.isochrone import (
     make_poly,
 )
 from flathunt.property_search import (
+    filter_by_commute,
     filter_properties_by_budget_and_features,
-    filter_properties_by_commute,
-    get_properties_journey_duration_cached,
+    get_commute_durations,
     get_property_ids_in_area_cached,
 )
 
@@ -265,16 +265,15 @@ def render_property_search_section() -> None:
             )
         ]
         st.write(f"Found {len(property_locations)} unfiltered properties in the area.")
-        filtered_properties = filter_properties_by_commute(
-            property_locations,
-            st.session_state["queries"],
-            get_journey_cache(),
-            tfl_api_key,
+        queries = st.session_state["queries"]
+        durations = asyncio.run(
+            get_commute_durations(property_locations, queries, get_journey_cache(), tfl_api_key)
         )
+        filtered = filter_by_commute(property_locations, durations, queries)
         st.write(
-            f"Found {len(filtered_properties)} properties in the area within commute criteria."
+            f"Found {len(filtered)} properties in the area within commute criteria."
         )
-        st.session_state["properties"] = filtered_properties
+        st.session_state["properties"] = [p for p, _ in filtered]
 
 
 
@@ -328,23 +327,23 @@ def render_results_section() -> None:
             square_meters,
             channel,
         )
-        filtered_properties = filter_properties_by_commute(
-            candidates,
-            st.session_state["queries"],
-            get_journey_cache(),
-            tfl_api_key,
+        queries = st.session_state["queries"]
+        durations = asyncio.run(
+            get_commute_durations(candidates, queries, get_journey_cache(), tfl_api_key)
         )
-        st.write(f"{len(filtered_properties)} properties match the criteria.")
-        render_property_table(filtered_properties)
+        filtered = filter_by_commute(candidates, durations, queries)
+        st.write(f"{len(filtered)} properties match the criteria.")
+        render_property_table(filtered, queries)
 
 
 
 def render_property_table(
-    filtered_properties: list[rightmove.models.MapProperty],
+    filtered: list[tuple[rightmove.models.MapProperty, list[int | None]]],
+    queries: list[tuple[float, float, float]],
 ) -> None:
     property_data = []
     channel = st.session_state["channel_selectbox"]
-    for property in filtered_properties:
+    for property, prop_durations in filtered:
         if property.property_url is None:
             continue
         if channel == "RENT":
@@ -353,30 +352,13 @@ def render_property_table(
             )
         else:
             normalized_price = property.price.amount if property.price else None
-        commute_durations = {}
-        commute_values = []
-        queries = st.session_state["queries"]
-        for index, (query_lon, query_lat, _) in enumerate(queries):
-            (duration,) = asyncio.run(
-                get_properties_journey_duration_cached(
-                    [
-                        (
-                            property.location.longitude,
-                            property.location.latitude,
-                            query_lon,
-                            query_lat,
-                        )
-                    ],
-                    get_journey_cache(),
-                    tfl_api_key,
-                )
+        commute_durations = {
+            f"Commute to Query {i + 1}": (
+                f"{d} mins" if d is not None else "N/A"
             )
-            if duration is not None:
-                commute_values.append(duration)
-            commute_durations["Commute to Query {}".format(index + 1)] = (
-                f"{duration} mins" if duration is not None else "N/A"
-            )
-
+            for i, d in enumerate(prop_durations)
+        }
+        commute_values = [d for d in prop_durations if d is not None]
         property_data.append(
             {
                 "Name": property.display_address or "N/A",
