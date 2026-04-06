@@ -8,7 +8,7 @@ import pydantic
 class AdditionalProperties(pydantic.BaseModel):
     """Additional properties for a stop point, such as facilities and contact info."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     category: str
@@ -20,7 +20,7 @@ class AdditionalProperties(pydantic.BaseModel):
 class LineGroup(pydantic.BaseModel):
     """Line group information for a stop point."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     naptan_id_reference: Optional[str] = pydantic.Field(
@@ -35,7 +35,7 @@ class LineGroup(pydantic.BaseModel):
 class LineModeGroup(pydantic.BaseModel):
     """Line mode group information."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     mode_name: str = pydantic.Field(alias="modeName")
@@ -45,7 +45,7 @@ class LineModeGroup(pydantic.BaseModel):
 class StopPointLine(pydantic.BaseModel):
     """Line information for a stop point."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     id: str
@@ -69,7 +69,7 @@ class StopPointDetail(pydantic.BaseModel):
     or other transport stop.
     """
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     naptan_id: str = pydantic.Field(alias="naptanId")
@@ -130,7 +130,7 @@ class StopPointDetail(pydantic.BaseModel):
 class StopPointSearchMatch(pydantic.BaseModel):
     """A single match from a stop point search."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     ics_id: Optional[str] = pydantic.Field(default=None, alias="icsId")
@@ -149,7 +149,7 @@ class StopPointSearchMatch(pydantic.BaseModel):
 class StopPointSearchResponse(pydantic.BaseModel):
     """Response from a stop point search query."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     query: str
@@ -160,7 +160,7 @@ class StopPointSearchResponse(pydantic.BaseModel):
 class StopPointsResponse(pydantic.BaseModel):
     """Response containing a list of stop points."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     stop_points: list[StopPointDetail] = pydantic.Field(default=[], alias="stopPoints")

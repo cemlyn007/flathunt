@@ -3,12 +3,16 @@ from __future__ import annotations
 import pydantic
 
 
-class PassengerFlow(pydantic.BaseModel):
+class _TflBase(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class PassengerFlow(_TflBase):
     time_slice: str = pydantic.Field(alias="timeSlice")
     value: int
 
 
-class TrainLoading(pydantic.BaseModel):
+class TrainLoading(_TflBase):
     line: str
     line_direction: str = pydantic.Field(alias="lineDirection")
     platform_direction: str = pydantic.Field(alias="platformDirection")
@@ -18,7 +22,7 @@ class TrainLoading(pydantic.BaseModel):
     value: int
 
 
-class Crowding(pydantic.BaseModel):
+class Crowding(_TflBase):
     passenger_flows: list[PassengerFlow] | None = pydantic.Field(
         default=None, alias="passengerFlows"
     )
@@ -27,7 +31,7 @@ class Crowding(pydantic.BaseModel):
     )
 
 
-class LineInfo(pydantic.BaseModel):
+class LineInfo(_TflBase):
     id: str
     name: str
     uri: str
@@ -40,7 +44,7 @@ class LineInfo(pydantic.BaseModel):
     network: str | None = None
 
 
-class StationStop(pydantic.BaseModel):
+class StationStop(_TflBase):
     route_id: int | None = pydantic.Field(default=None, alias="routeId")
     parent_id: str | None = pydantic.Field(default=None, alias="parentId")
     station_id: str | None = pydantic.Field(default=None, alias="stationId")
@@ -67,40 +71,40 @@ class StationStop(pydantic.BaseModel):
     lon: float
 
 
-class Interval(pydantic.BaseModel):
+class Interval(_TflBase):
     stop_id: str = pydantic.Field(alias="stopId")
     time_to_arrival: float = pydantic.Field(alias="timeToArrival")
 
 
-class StationInterval(pydantic.BaseModel):
+class StationInterval(_TflBase):
     id: str
     intervals: list[Interval]
 
 
-class KnownJourney(pydantic.BaseModel):
+class KnownJourney(_TflBase):
     hour: str
     minute: str
     interval_id: int = pydantic.Field(alias="intervalId")
 
 
-class TwentyFourHourClockTime(pydantic.BaseModel):
+class TwentyFourHourClockTime(_TflBase):
     hour: str
     minute: str
 
 
-class ServiceFrequency(pydantic.BaseModel):
+class ServiceFrequency(_TflBase):
     lowest_frequency: float = pydantic.Field(alias="lowestFrequency")
     highest_frequency: float = pydantic.Field(alias="highestFrequency")
 
 
-class Period(pydantic.BaseModel):
+class Period(_TflBase):
     type: str
     from_time: TwentyFourHourClockTime = pydantic.Field(alias="fromTime")
     to_time: TwentyFourHourClockTime = pydantic.Field(alias="toTime")
     frequency: ServiceFrequency | None = None
 
 
-class Schedule(pydantic.BaseModel):
+class Schedule(_TflBase):
     name: str
     known_journeys: list[KnownJourney] = pydantic.Field(alias="knownJourneys")
     first_journey: KnownJourney | None = pydantic.Field(
@@ -112,28 +116,28 @@ class Schedule(pydantic.BaseModel):
     periods: list[Period] | None = None
 
 
-class TimetableRoute(pydantic.BaseModel):
+class TimetableRoute(_TflBase):
     station_intervals: list[StationInterval] = pydantic.Field(alias="stationIntervals")
     schedules: list[Schedule]
 
 
-class Timetable(pydantic.BaseModel):
+class Timetable(_TflBase):
     departure_stop_id: str = pydantic.Field(alias="departureStopId")
     routes: list[TimetableRoute]
 
 
-class TimetableDisambiguationOption(pydantic.BaseModel):
+class TimetableDisambiguationOption(_TflBase):
     description: str
     uri: str
 
 
-class TimetableDisambiguation(pydantic.BaseModel):
+class TimetableDisambiguation(_TflBase):
     disambiguation_options: list[TimetableDisambiguationOption] | None = pydantic.Field(
         default=None, alias="disambiguationOptions"
     )
 
 
-class TimetableResponse(pydantic.BaseModel):
+class TimetableResponse(_TflBase):
     type: str | None = pydantic.Field(default=None, alias="$type")
     line_id: str | None = pydantic.Field(default=None, alias="lineId")
     line_name: str | None = pydantic.Field(default=None, alias="lineName")

@@ -4,7 +4,11 @@ import enum
 import pydantic
 
 
-class Place(pydantic.BaseModel):
+class _TflBase(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class Place(_TflBase):
     type: str = pydantic.Field(alias="$type")
     url: str
     common_name: str = pydantic.Field(alias="commonName")
@@ -14,7 +18,7 @@ class Place(pydantic.BaseModel):
     lon: float
 
 
-class DisambiguationOption(pydantic.BaseModel):
+class DisambiguationOption(_TflBase):
     type: str = pydantic.Field(alias="$type")
     parameter_value: str = pydantic.Field(alias="parameterValue")
     uri: str
@@ -22,7 +26,7 @@ class DisambiguationOption(pydantic.BaseModel):
     match_quality: int = pydantic.Field(alias="matchQuality")
 
 
-class Disambiguation(pydantic.BaseModel):
+class Disambiguation(_TflBase):
     type: str = pydantic.Field(alias="$type")
     disambiguation_options: list[DisambiguationOption] | None = pydantic.Field(
         default=None, alias="disambiguationOptions"
@@ -30,7 +34,7 @@ class Disambiguation(pydantic.BaseModel):
     match_status: str = pydantic.Field(alias="matchStatus")
 
 
-class DisambiguationResult(pydantic.BaseModel):
+class DisambiguationResult(_TflBase):
     type: str = pydantic.Field(alias="$type")
     to_location_disambiguation: Disambiguation = pydantic.Field(
         alias="toLocationDisambiguation"
@@ -46,11 +50,11 @@ class DisambiguationResult(pydantic.BaseModel):
     journey_vector: "JourneyVector" = pydantic.Field(alias="journeyVector")
 
 
-class PathAttribute(pydantic.BaseModel):
+class PathAttribute(_TflBase):
     type: str = pydantic.Field(alias="$type")
 
 
-class InstructionStep(pydantic.BaseModel):
+class InstructionStep(_TflBase):
     type: str = pydantic.Field(alias="$type")
     description: str
     turn_direction: str = pydantic.Field(alias="turnDirection")
@@ -68,20 +72,20 @@ class InstructionStep(pydantic.BaseModel):
     travel_time: int = pydantic.Field(alias="travelTime")
 
 
-class Instruction(pydantic.BaseModel):
+class Instruction(_TflBase):
     type: str = pydantic.Field(alias="$type")
     summary: str
     detailed: str
     steps: list[InstructionStep]
 
 
-class Point(pydantic.BaseModel):
+class Point(_TflBase):
     type: str = pydantic.Field(alias="$type")
     lat: float
     lon: float
 
 
-class StopPoint(pydantic.BaseModel):
+class StopPoint(_TflBase):
     type: str = pydantic.Field(alias="$type")
     name: str | None = None
     ics_code: str | None = pydantic.Field(default=None, alias="icsCode")
@@ -91,23 +95,31 @@ class StopPoint(pydantic.BaseModel):
     modes: list[str] | None = None
     stop_letter: str | None = pydantic.Field(default=None, alias="stopLetter")
     common_name: str = pydantic.Field(alias="commonName")
+    platform_name: str | None = pydantic.Field(default=None, alias="platformName")
+    place_type: str | None = pydantic.Field(default=None, alias="placeType")
+    additional_properties: list = pydantic.Field(
+        default=[], alias="additionalProperties"
+    )
+    lat: float | None = None
+    lon: float | None = None
 
 
-class RouteOption(pydantic.BaseModel):
+class RouteOption(_TflBase):
     type: str = pydantic.Field(alias="$type")
     name: str
     directions: list[str]
+    direction: str | None = None
     line_identifier: dict | None = pydantic.Field(default=None, alias="lineIdentifier")
 
 
-class Fare(pydantic.BaseModel):
+class Fare(_TflBase):
     type: str = pydantic.Field(alias="$type")
     total_cost: int = pydantic.Field(alias="totalCost")
     fares: list
     caveats: list
 
 
-class Obstacle(pydantic.BaseModel):
+class Obstacle(_TflBase):
     type: str = pydantic.Field(alias="$type")
     obstacle_type: str = pydantic.Field(alias="type")
     incline: str
@@ -115,7 +127,7 @@ class Obstacle(pydantic.BaseModel):
     position: str
 
 
-class Path(pydantic.BaseModel):
+class Path(_TflBase):
     type: str = pydantic.Field(alias="$type")
     line_string: str = pydantic.Field(alias="lineString")
     stop_points: list = pydantic.Field(alias="stopPoints")
@@ -143,7 +155,7 @@ class ModeId(str, enum.Enum):
     WALKING = "walking"
 
 
-class Mode(pydantic.BaseModel):
+class Mode(_TflBase):
     type: str = pydantic.Field(alias="$type")
     id: ModeId
     name: str
@@ -154,7 +166,7 @@ class Mode(pydantic.BaseModel):
     network: str
 
 
-class Leg(pydantic.BaseModel):
+class Leg(_TflBase):
     type: str = pydantic.Field(alias="$type")
     duration: int
     instruction: Instruction
@@ -201,7 +213,7 @@ class Leg(pydantic.BaseModel):
         return v
 
 
-class Journey(pydantic.BaseModel):
+class Journey(_TflBase):
     type: str = pydantic.Field(alias="$type")
     start_date_time: pydantic.AwareDatetime = pydantic.Field(alias="startDateTime")
     duration: int
@@ -221,10 +233,13 @@ class Journey(pydantic.BaseModel):
         return v
 
 
-class SearchCriteria(pydantic.BaseModel):
+class SearchCriteria(_TflBase):
     type: str = pydantic.Field(alias="$type")
     date_time: pydantic.AwareDatetime = pydantic.Field(alias="dateTime")
     date_time_type: str = pydantic.Field(alias="dateTimeType")
+    time_adjustments: dict | None = pydantic.Field(
+        default=None, alias="timeAdjustments"
+    )
 
     @pydantic.field_validator("date_time", mode="before")
     @classmethod
@@ -237,7 +252,7 @@ class SearchCriteria(pydantic.BaseModel):
         return v
 
 
-class JourneyVector(pydantic.BaseModel):
+class JourneyVector(_TflBase):
     type: str = pydantic.Field(alias="$type")
     from_location: str = pydantic.Field(alias="from")
     to_location: str = pydantic.Field(alias="to")
@@ -245,21 +260,21 @@ class JourneyVector(pydantic.BaseModel):
     uri: str
 
 
-class Crowding(pydantic.BaseModel):
+class Crowding(_TflBase):
     type: str = pydantic.Field(alias="$type")
 
 
-class LineServiceTypeInfo(pydantic.BaseModel):
+class LineServiceTypeInfo(_TflBase):
     type: str = pydantic.Field(alias="$type")
     name: str
     uri: str
 
 
-class ValidityPeriod(pydantic.BaseModel):
+class ValidityPeriod(_TflBase):
     type: str = pydantic.Field(alias="$type")
 
 
-class LineStatus(pydantic.BaseModel):
+class LineStatus(_TflBase):
     type: str = pydantic.Field(alias="$type")
     id: int
     status_severity: int = pydantic.Field(alias="statusSeverity")
@@ -278,7 +293,7 @@ class LineStatus(pydantic.BaseModel):
         return v
 
 
-class Line(pydantic.BaseModel):
+class Line(_TflBase):
     type: str = pydantic.Field(alias="$type")
     id: str
     name: str
@@ -302,7 +317,7 @@ class Line(pydantic.BaseModel):
         return v
 
 
-class JourneyResults(pydantic.BaseModel):
+class JourneyResults(_TflBase):
     type: str = pydantic.Field(alias="$type")
     journeys: list[Journey]
     lines: list[Line]

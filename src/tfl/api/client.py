@@ -5,7 +5,11 @@ from typing import Optional
 from tfl import models
 from tfl.api._transport import get_ratelimited_client
 from tfl.api.journey import get_journey_results
-from tfl.api.lines import get_all_lines_routes, get_lines_by_mode, get_stop_points_by_line
+from tfl.api.lines import (
+    get_all_lines_routes,
+    get_lines_by_mode,
+    get_stop_points_by_line,
+)
 from tfl.api.stations import get_stations_facilities
 from tfl.api.stop_points import get_stop_points_by_mode
 from tfl.api.timetable import Direction, get_timetable, get_timetable_between_stops

@@ -10,7 +10,7 @@ from tfl.models.journey_results import ModeId
 class LineDisruption(pydantic.BaseModel):
     """Disruption information for a line."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     category: Optional[str] = None
@@ -26,7 +26,7 @@ class LineDisruption(pydantic.BaseModel):
 class LineCrowding(pydantic.BaseModel):
     """Crowding information for a line."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
 
@@ -37,7 +37,7 @@ class LineServiceType(pydantic.BaseModel):
     Note: The TFL API returns this as LineServiceTypeInfo in some endpoints.
     """
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     name: str
@@ -50,7 +50,7 @@ class MatchedRoute(pydantic.BaseModel):
     This represents a route section with direction and terminus information.
     """
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     name: Optional[str] = None
@@ -71,7 +71,7 @@ class MatchedRoute(pydantic.BaseModel):
 class LineRouteSection(pydantic.BaseModel):
     """Route section information for a line."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     name: Optional[str] = None
@@ -92,7 +92,7 @@ class LineRouteSection(pydantic.BaseModel):
 class LineStatusDisruption(pydantic.BaseModel):
     """Disruption details within a line status."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     category: Optional[str] = None
@@ -110,7 +110,7 @@ class LineStatusDisruption(pydantic.BaseModel):
 class LineStatusValidityPeriod(pydantic.BaseModel):
     """Validity period for a line status."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     from_date: str = pydantic.Field(alias="fromDate")
@@ -121,7 +121,7 @@ class LineStatusValidityPeriod(pydantic.BaseModel):
 class LineStatus(pydantic.BaseModel):
     """Status information for a line."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     id: int
@@ -139,7 +139,7 @@ class LineStatus(pydantic.BaseModel):
 class Line(pydantic.BaseModel):
     """A TfL line (e.g., a tube line like Bakerloo, Central, etc.)."""
 
-    model_config = pydantic.ConfigDict(populate_by_name=True)
+    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     id: str
