@@ -20,7 +20,7 @@ class ModelCache(Generic[T]):
         self.model_cls = model_cls
         self.cache_file = Path(cache_file)
         self.cache: dict[str, _CacheItem[T]] = {}
-        self._adapter = TypeAdapter(dict[str, _CacheItem[model_cls]])
+        self._adapter = TypeAdapter(dict[str, _CacheItem[model_cls]])  # type: ignore
         self.ttl = ttl
         self._load()
 
