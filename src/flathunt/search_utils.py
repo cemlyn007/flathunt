@@ -42,9 +42,17 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
         if intersection.geom_type == "Polygon":
             parts.append(intersection)
         elif intersection.geom_type == "MultiPolygon":
-            parts.extend(intersection.geoms)
+            if not hasattr(intersection, "geoms"):
+                raise ValueError(
+                    f"Expected MultiPolygon to have 'geoms' attribute, got {type(intersection)}"
+                )
+            parts.extend(getattr(intersection, "geoms"))
         elif intersection.geom_type == "GeometryCollection":
-            for geom in intersection.geoms:
+            if not hasattr(intersection, "geoms"):
+                raise ValueError(
+                    f"Expected MultiPolygon to have 'geoms' attribute, got {type(intersection)}"
+                )
+            for geom in getattr(intersection, "geoms"):
                 if geom.geom_type == "Polygon":
                     parts.append(geom)
                 elif geom.geom_type == "MultiPolygon":
@@ -164,8 +172,9 @@ async def get_property_ids_in_area(
             return search_results
 
 
-
-def check_property_size(property: rightmove.models.MapProperty, min_square_meters: float):
+def check_property_size(
+    property: rightmove.models.MapProperty, min_square_meters: float
+):
     if property.display_size:
         if property.display_size.endswith(" sq. ft."):
             square_ft = int(
