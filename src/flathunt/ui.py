@@ -1,9 +1,7 @@
 import asyncio
 import concurrent.futures
-import itertools
 import json
 import logging
-import operator
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -26,12 +24,12 @@ from flathunt.isochrone import (
     lookup,
     make_poly,
 )
-from flathunt.property_search import (
+from flathunt.filters import (
+    fetch_properties_within_optimal_regions,
     filter_by_commute,
     filter_properties_by_budget_and_features,
-    get_commute_durations,
-    get_property_ids_in_area_cached,
 )
+from flathunt.property_search import get_commute_durations
 
 logger = logging.getLogger("flathunt")
 
@@ -195,49 +193,6 @@ def render_map_section() -> None:
             tuple(tuple(poly for poly in poly_list) for poly_list in isochrone_polys),
         )
         st.plotly_chart(fig, use_container_width=True)
-
-
-def _poly_bng_to_wgs84_coords(poly: Polygon) -> list[tuple[float, float]]:
-    xs, ys = poly.exterior.coords.xy
-    points_wgs84 = gpd.GeoSeries(
-        [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs="EPSG:27700"
-    ).to_crs("EPSG:4326")
-    return list(map(operator.attrgetter("x", "y"), points_wgs84))
-
-
-def _poly_bng_to_wgs84(poly: Polygon) -> Polygon:
-    converted = gpd.GeoSeries([poly], crs="EPSG:27700").to_crs("EPSG:4326")
-    if len(converted) != 1:
-        raise ValueError(
-            f"Expected 1 geometry after reprojection, got {len(converted)}"
-        )
-    return converted.iloc[0]  # pyright: ignore[reportReturnType]
-
-
-def fetch_properties_within_optimal_regions(
-    polys: list[Polygon],
-    channel: Literal["RENT", "BUY"],
-    bounding_polygon: Polygon,
-    cache: ModelCache[list[rightmove.models.MapProperty]],
-) -> list[rightmove.models.MapProperty]:
-    non_empty = [poly for poly in polys if not poly.is_empty]
-    locations = list(
-        itertools.chain.from_iterable(
-            get_property_ids_in_area_cached(
-                bounding_polygon, _poly_bng_to_wgs84_coords(poly), channel, cache
-            )
-            for poly in polys
-        )
-    )
-    polys_wgs84 = [_poly_bng_to_wgs84(poly) for poly in non_empty]
-    return [
-        loc
-        for loc in locations
-        if any(
-            poly.contains(Point(loc.location.longitude, loc.location.latitude))
-            for poly in polys_wgs84
-        )
-    ]
 
 
 def render_property_search_section() -> None:
