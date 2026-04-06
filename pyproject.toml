@@ -45,6 +45,7 @@ dev = [
     "pre-commit>=3.3.0",
     "py-spy>=0.4.1",
     "pytest>=7.3.0",
+    "pytest-asyncio>=0.23.0",
     "python-dotenv>=1.2.1",
     "python-semantic-release==9.21",
     "ruff>=0.14.6",
@@ -64,6 +65,7 @@ markers = [
     "regression: marks tests as regression tests",
 ]
 addopts = "-m 'not regression'"
+asyncio_mode = "auto"
 
 [tool.semantic_release]
 version_toml = [
