@@ -106,6 +106,22 @@ def _process_isochrone_data(
     return polys, isochrone_polys
 
 
+def add_or_update_query(
+    queries: list[tuple[float, float, int]],
+    longitude: float,
+    latitude: float,
+    max_duration: int,
+) -> list[tuple[float, float, int]]:
+    queries = queries.copy()
+    query = (longitude, latitude, max_duration)
+    for i, (other_longitude, other_latitude, *_) in enumerate(queries):
+        if (longitude, latitude) == (other_longitude, other_latitude):
+            queries[i] = query
+            return queries
+    queries.append(query)
+    return queries
+
+
 def render_query_section() -> None:
     st.header("Flathunt!")
     longitude_value = st.text_input("Enter longitude:", key="longitude_input")
@@ -113,44 +129,26 @@ def render_query_section() -> None:
     max_duration = st.slider(
         "Maximum duration (in minutes):", min_value=1, max_value=120, value=30
     )
-    add_query = st.button("Add query", key="add_query_button")
-    if add_query:
-        if not longitude_value or not latitude_value:
-            st.status("Please enter both longitude and latitude values.", state="error")
+
+    if st.button("Add query", key="add_query_button"):
+        try:
+            longitude = float(longitude_value)
+            latitude = float(latitude_value)
+        except ValueError:
+            st.error("Please enter valid numeric values for longitude and latitude.")
         else:
-            try:
-                longitude_value = float(longitude_value)
-                latitude_value = float(latitude_value)
-            except ValueError:
-                st.error(
-                    "Please enter valid numeric values for longitude and latitude."
-                )
+            queries = st.session_state.get("queries", [])
+            queries = add_or_update_query(queries, longitude, latitude, max_duration)
+            if queries:
+                st.session_state["queries"] = queries
             else:
-                query = (longitude_value, latitude_value, max_duration)
-                queries = st.session_state.get("queries", [])
-                if any(
-                    (longitude_value, latitude_value)
-                    == (other_longitude, other_latitude)
-                    for other_longitude, other_latitude, *_ in queries
-                ):
-                    query_index = next(
-                        i
-                        for i, (other_longitude, other_latitude, *_) in enumerate(
-                            queries
-                        )
-                        if (longitude_value, latitude_value)
-                        == (other_longitude, other_latitude)
-                    )
-                    queries[query_index] = query
-                else:
-                    queries.append(query)
-                if queries:
-                    st.session_state["queries"] = queries
-                elif "queries" in st.session_state:
-                    del st.session_state["queries"]
-                st.status(f"Accepted query: {query}", state="complete")
+                st.session_state.pop("queries", None)
 
     if "queries" in st.session_state:
+        st.status(
+            f"Accepted query: {(longitude_value, latitude_value, max_duration)}",
+            state="complete",
+        )
         st.table(
             pd.DataFrame(
                 st.session_state["queries"],
