@@ -45,26 +45,28 @@ if not st.session_state.get("initialized", False):
 
 @st.cache_resource
 def get_property_ids_in_area_cache() -> ModelCache[list[rightmove.models.MapProperty]]:
-    cache = data_dir / "property_locations_cache.json"
-    if cache.exists():
-        graph_path = Path(".dagster/storage/roads_and_transport")
-        if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
-            cache.unlink()
-    return ModelCache(
+    return _get_road_and_transport_dependent_cache(
         list[rightmove.models.MapProperty],
-        cache,
+        data_dir / "property_locations_cache.json",
     )
 
 
 @st.cache_resource
 def get_journey_cache() -> ModelCache[int | None]:
-    cache = data_dir / "journey_cache.json"
+    return _get_road_and_transport_dependent_cache(
+        int | None,  # type: ignore[arg-type]
+        data_dir / "journey_cache.json",
+    )
+
+
+def _get_road_and_transport_dependent_cache[T](
+    t: type[T], cache: Path
+) -> ModelCache[T]:
     if cache.exists():
         graph_path = Path(".dagster/storage/roads_and_transport")
         if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
             cache.unlink()
-    return ModelCache(int | None, cache)  # type: ignore
-
+    return ModelCache(t, cache)
 
 
 @st.cache_data(persist="disk")
@@ -102,8 +104,6 @@ def _process_isochrone_data(
         ]
         polys = [future.result() for future in intersections_polys_futures]
     return polys, isochrone_polys
-
-
 
 
 def render_query_section() -> None:
