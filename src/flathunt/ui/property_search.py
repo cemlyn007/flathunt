@@ -9,8 +9,8 @@ from shapely.geometry import box
 
 import rightmove.models
 import tfl.api
-from flathunt.cache import ModelCache
-from flathunt.search_utils import (
+from flathunt.ui.cache import ModelCache
+from flathunt.ui.search_utils import (
     fetch_journey_results,
     get_property_ids_in_area,
 )
@@ -168,8 +168,8 @@ async def get_commute_durations(
         for prop in properties
         for query_lon, query_lat, _ in queries
     ]
-    flat_durations = await get_properties_journey_duration_cached(flat_to_froms, cache, tfl_api_key)
+    flat_durations = await get_properties_journey_duration_cached(
+        flat_to_froms, cache, tfl_api_key
+    )
     n = len(queries)
     return [flat_durations[i * n : (i + 1) * n] for i in range(len(properties))]
-
-

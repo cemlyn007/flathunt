@@ -14,8 +14,8 @@ import streamlit as st
 from shapely import GeometryCollection, Point, Polygon
 
 import rightmove.models
-from flathunt.cache import ModelCache
-from flathunt.isochrone import (
+from flathunt.ui.cache import ModelCache
+from flathunt.ui.isochrone import (
     EDGE_BUFFER,
     NODE_BUFFER,
     bounds_to_polygon,
@@ -24,12 +24,12 @@ from flathunt.isochrone import (
     lookup,
     make_poly,
 )
-from flathunt.filters import (
+from flathunt.ui.filters import (
     fetch_properties_within_optimal_regions,
     filter_by_commute,
     filter_properties_by_budget_and_features,
 )
-from flathunt.property_search import get_commute_durations
+from flathunt.ui.property_search import get_commute_durations
 
 logger = logging.getLogger("flathunt")
 

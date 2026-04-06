@@ -4,12 +4,11 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 import rightmove.models
-from flathunt.property_search import (
+from flathunt.ui.property_search import (
     filter_by_commute,
     filter_properties_by_budget_and_features,
     get_commute_durations,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -112,15 +111,17 @@ def test_filter_by_commute_mismatched_durations_and_queries_raises():
 
 
 def test_get_commute_durations_reshapes_flat_to_2d():
-    props = [make_property(id=1, longitude=-0.1, latitude=51.5),
-             make_property(id=2, longitude=-0.2, latitude=51.6)]
+    props = [
+        make_property(id=1, longitude=-0.1, latitude=51.5),
+        make_property(id=2, longitude=-0.2, latitude=51.6),
+    ]
     queries = [(-0.3, 51.7, 30), (-0.4, 51.8, 30)]
 
     # Flat order: prop0->q0, prop0->q1, prop1->q0, prop1->q1
     flat_durations = [10, 20, 30, 40]
 
     with patch(
-        "flathunt.property_search.get_properties_journey_duration_cached",
+        "flathunt.ui.property_search.get_properties_journey_duration_cached",
         new=AsyncMock(return_value=flat_durations),
     ):
         result = asyncio.run(
@@ -136,7 +137,7 @@ def test_get_commute_durations_single_property_single_query():
     flat_durations = [15]
 
     with patch(
-        "flathunt.property_search.get_properties_journey_duration_cached",
+        "flathunt.ui.property_search.get_properties_journey_duration_cached",
         new=AsyncMock(return_value=flat_durations),
     ):
         result = asyncio.run(
@@ -148,7 +149,7 @@ def test_get_commute_durations_single_property_single_query():
 
 def test_get_commute_durations_empty_properties():
     with patch(
-        "flathunt.property_search.get_properties_journey_duration_cached",
+        "flathunt.ui.property_search.get_properties_journey_duration_cached",
         new=AsyncMock(return_value=[]),
     ):
         result = asyncio.run(
@@ -169,7 +170,7 @@ def test_get_commute_durations_passes_correct_to_froms():
         return [10]
 
     with patch(
-        "flathunt.property_search.get_properties_journey_duration_cached",
+        "flathunt.ui.property_search.get_properties_journey_duration_cached",
         new=mock_fetch,
     ):
         asyncio.run(

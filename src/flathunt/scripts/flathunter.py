@@ -2,7 +2,7 @@ import logging
 
 import dotenv
 
-from flathunt.ui import (
+from flathunt.ui.components import (
     render_isochrone_section,
     render_map_section,
     render_property_search_section,
