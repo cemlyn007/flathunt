@@ -4,6 +4,7 @@ import pickle
 import threading
 from collections.abc import Hashable
 from pathlib import Path
+from typing import cast
 
 import geopandas as gpd
 import networkx as nx
@@ -275,4 +276,4 @@ def get_isochrone_polys(
         for subgraph_polys in isochrone_polys
     ):
         raise ValueError("Some isochrone polygons were not generated.")
-    return isochrone_polys  # pyright: ignore[reportReturnType]
+    return cast(list[list[Polygon]], isochrone_polys)
