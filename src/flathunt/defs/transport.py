@@ -103,6 +103,8 @@ async def transport(config: Config) -> nx.Graph:
 
     for line_id in line_id_stop_points.keys():
         for stop_point in line_id_stop_points[line_id]:
+            if stop_point.lon is None or stop_point.lat is None:
+                continue
             x, y = project_to_meters(stop_point.lon, stop_point.lat)
             if (x, y) not in transport_graph:
                 transport_graph.add_node(
@@ -123,6 +125,10 @@ async def transport(config: Config) -> nx.Graph:
             stop_id = stop_point.naptan_id
             other_id = other_stop_point.naptan_id
 
+            if stop_point.lon is None or stop_point.lat is None:
+                continue
+            if other_stop_point.lon is None or other_stop_point.lat is None:
+                continue
             x1, y1 = project_to_meters(stop_point.lon, stop_point.lat)
             x2, y2 = project_to_meters(other_stop_point.lon, other_stop_point.lat)
 

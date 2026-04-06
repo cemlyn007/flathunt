@@ -1,10 +1,7 @@
 import datetime
-import itertools
 import logging
-from collections.abc import Collection
 from typing import Literal
 
-import tqdm
 from shapely.geometry import box
 from shapely.geometry.polygon import Polygon
 
@@ -21,7 +18,6 @@ TARGET_DATETIME = tfl.api.get_next_datetime(
 )
 MAX_RIGHTMOVE_POLYLINE_POINTS = 1000
 MAX_RIGHTMOVE_SEARCH_PROPERTIES = 499
-MAX_RIGHTMOVE_GET_PROPERTIES = 25
 
 
 def split_polygon(polygon: Polygon) -> list[Polygon]:
@@ -126,7 +122,7 @@ def _subdivide_exterior(
 
 async def get_property_ids_in_area(
     coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT", depth=0
-) -> list[rightmove.models.PropertyLocation]:
+) -> list[rightmove.models.MapProperty]:
     rightmove_client = rightmove.api.Rightmove()
     # Ensure coords limit
     if len(coords) > MAX_RIGHTMOVE_POLYLINE_POINTS:
@@ -146,7 +142,6 @@ async def get_property_ids_in_area(
             rightmove.api.SearchQuery(
                 location_identifier=rightmove.api.polyline_identifier(coords),
                 is_fetching=True,
-                view_type="MAP",
                 channel=channel,
             )
         )
@@ -168,30 +163,6 @@ async def get_property_ids_in_area(
         else:
             return search_results
 
-
-async def get_properties(
-    property_ids: Collection[int],
-    channel: Literal["RENT", "BUY"] = "RENT",
-) -> list[rightmove.models.Property]:
-    rightmove_client = rightmove.api.Rightmove()
-    property_results: list[rightmove.models.Property] = []
-    with tqdm.tqdm(total=len(property_ids)) as pbar:
-        for apids in itertools.batched(property_ids, MAX_RIGHTMOVE_GET_PROPERTIES):
-            try:
-                property_results.extend(
-                    await rightmove_client.search_by_ids(apids, channel=channel)
-                )
-            except Exception:
-                for apid in apids:
-                    try:
-                        props = await rightmove_client.search_by_ids(
-                            [apid], channel=channel
-                        )
-                        property_results.extend(props)
-                    except Exception:
-                        logger.exception("Exception fetching property ID %s", apid)
-            pbar.update(len(apids))
-    return property_results
 
 
 def check_property_size(property: rightmove.models.Property, min_square_meters: float):
