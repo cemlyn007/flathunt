@@ -3,7 +3,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Literal, cast
 
@@ -267,14 +267,15 @@ def render_property_search_section() -> None:
         st.write(f"Found {len(property_locations)} unfiltered properties in the area.")
         queries = st.session_state["queries"]
         durations = asyncio.run(
-            get_commute_durations(property_locations, queries, get_journey_cache(), tfl_api_key)
+            get_commute_durations(
+                property_locations, queries, get_journey_cache(), tfl_api_key
+            )
         )
         filtered = filter_by_commute(property_locations, durations, queries)
         st.write(
             f"Found {len(filtered)} properties in the area within commute criteria."
         )
         st.session_state["properties"] = [p for p, _ in filtered]
-
 
 
 def render_results_section() -> None:
@@ -333,42 +334,14 @@ def render_results_section() -> None:
         )
         filtered = filter_by_commute(candidates, durations, queries)
         st.write(f"{len(filtered)} properties match the criteria.")
-        render_property_table(filtered, queries)
-
+        render_property_table(filtered)
 
 
 def render_property_table(
-    filtered: list[tuple[rightmove.models.MapProperty, list[int | None]]],
-    queries: list[tuple[float, float, float]],
+    properties: Iterable[tuple[rightmove.models.MapProperty, Sequence[int | None]]],
 ) -> None:
-    property_data = []
     channel = st.session_state["channel_selectbox"]
-    for property, prop_durations in filtered:
-        if property.property_url is None:
-            continue
-        if channel == "RENT":
-            normalized_price = (
-                rightmove.price.normalize(property.price) if property.price else None
-            )
-        else:
-            normalized_price = property.price.amount if property.price else None
-        commute_durations = {
-            f"Commute to Query {i + 1}": (
-                f"{d} mins" if d is not None else "N/A"
-            )
-            for i, d in enumerate(prop_durations)
-        }
-        commute_values = [d for d in prop_durations if d is not None]
-        property_data.append(
-            {
-                "Name": property.display_address or "N/A",
-                "Price": f"£{normalized_price:,}" if normalized_price else "N/A",
-                "Size": property.display_size or "N/A",
-                "URL": rightmove.api.property_url(property.property_url),
-                "Minutes to Commute": max(commute_values) if commute_values else "N/A",
-                **commute_durations,
-            }
-        )
+    property_data = _convert_properties_to_dicts(properties, channel)
     st.dataframe(
         property_data,
         column_config={
@@ -376,6 +349,40 @@ def render_property_table(
         },
         width="stretch",
     )
+
+
+def _convert_properties_to_dicts(
+    properties: Iterable[tuple[rightmove.models.MapProperty, Sequence[int | None]]],
+    channel: Literal["RENT", "BUY"],
+) -> list[dict[str, str | int]]:
+    property_data = []
+    for property, prop_durations in properties:
+        if property.property_url is None:
+            continue
+        if channel == "RENT":
+            price = (
+                rightmove.price.normalize(property.price) if property.price else "N/A"
+            )
+        elif channel == "BUY":
+            price = property.price.amount if property.price else "N/A"
+        else:
+            raise ValueError("Invalid channel")
+        commute_durations = {
+            f"Commute to Query {i + 1}": (f"{d} mins" if d is not None else "N/A")
+            for i, d in enumerate(prop_durations)
+        }
+        commute_values = [d for d in prop_durations if d is not None]
+        property_data.append(
+            {
+                "Name": property.display_address or "N/A",
+                "Price": f"£{price:,}" if isinstance(price, (int, float)) else price,
+                "Size": property.display_size or "N/A",
+                "URL": rightmove.api.property_url(property.property_url),
+                "Minutes to Commute": max(commute_values) if commute_values else "N/A",
+                **commute_durations,
+            }
+        )
+    return property_data
 
 
 @st.cache_data(
