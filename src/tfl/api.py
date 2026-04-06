@@ -1,11 +1,14 @@
+import asyncio
 import datetime
 import enum
 import logging
+import types
 import urllib.parse
 from collections.abc import Iterable
 from typing import Any, Optional
 
 import httpx
+from httpx_limiter.abstract_async_limiter import AbstractAsyncLimiter
 from httpx_limiter.async_rate_limited_transport import AsyncRateLimitedTransport
 from httpx_limiter.rate import Rate
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
@@ -234,11 +237,34 @@ async def get_timetable_between_stops(
     return models.TimetableResponse.model_validate_json(content, strict=True)
 
 
+class _SemaphoreRateLimiter(AbstractAsyncLimiter):
+    """Token-bucket rate limiter backed by asyncio.Semaphore.
+
+    Allows at most ``rate.magnitude`` requests per ``rate.duration`` window.
+    """
+
+    def __init__(self, rate: Rate) -> None:
+        self._semaphore = asyncio.Semaphore(rate.magnitude)
+        self._window = rate.in_seconds()
+
+    async def __aenter__(self) -> "_SemaphoreRateLimiter":
+        await self._semaphore.acquire()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: types.TracebackType | None,
+    ) -> None:
+        asyncio.get_event_loop().call_later(self._window, self._semaphore.release)
+
+
 def get_ratelimited_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(
         base_url=API_BASE_URL,
         transport=AsyncRateLimitedTransport.create(
-            Rate.create(magnitude=(25 - 1), duration=3)
+            _SemaphoreRateLimiter(Rate.create(magnitude=(25 - 1), duration=3))
         ),
     )
 
