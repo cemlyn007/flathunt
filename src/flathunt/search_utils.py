@@ -165,7 +165,7 @@ async def get_property_ids_in_area(
 
 
 
-def check_property_size(property: rightmove.models.Property, min_square_meters: float):
+def check_property_size(property: rightmove.models.MapProperty, min_square_meters: float):
     if property.display_size:
         if property.display_size.endswith(" sq. ft."):
             square_ft = int(

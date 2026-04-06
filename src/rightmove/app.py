@@ -33,7 +33,7 @@ class App:
             if self._cache:
                 self._cache.add(property.model_dump(mode="json"))
 
-    def _show(self, property: models.Property) -> None:
+    def _show(self, property: models.ListingProperty) -> None:
         self._show_advert(property)
         if not self._commute_coordinates or self._skip():
             return
@@ -43,14 +43,14 @@ class App:
             if index != len(self._commute_coordinates) - 1:
                 self._wait("Press enter for next commute location...")
 
-    def _show_advert(self, property: models.Property) -> None:
+    def _show_advert(self, property: models.ListingProperty) -> None:
         # Some properties don't have a URL.
         if property.property_url:
             url = api.property_url(property.property_url)
             webbrowser.open_new_tab(url)
 
     def _show_route(
-        self, property: models.Property, start_coordinate: tuple[float, float]
+        self, property: models.ListingProperty, start_coordinate: tuple[float, float]
     ) -> None:
         destination = (
             property.location.latitude,

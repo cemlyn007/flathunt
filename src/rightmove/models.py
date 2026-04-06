@@ -19,8 +19,11 @@ __all__ = [
     "ProductLabel",
     "MatchingLozenges",
     "LozengeModel",
-    "Property",
-    "PropertyLocation",
+    "Tenure",
+    "KeyFeature",
+    "StreetView",
+    "MapProperty",
+    "ListingProperty",
 ]
 
 
@@ -30,6 +33,7 @@ class CamelCaseModel(pydantic.BaseModel):
         populate_by_name=True,
         from_attributes=True,
         serialize_by_alias=True,
+        extra="forbid",
     )
 
 
@@ -65,11 +69,6 @@ class Location(CamelCaseModel):
     longitude: float
 
 
-class PropertyLocation(CamelCaseModel):
-    id: int
-    location: Location
-
-
 class PropertyImage(CamelCaseModel):
     url: str
     caption: Optional[str] = None
@@ -83,8 +82,8 @@ class PropertyImages(CamelCaseModel):
 
 
 class ListingUpdate(CamelCaseModel):
-    listing_update_reason: Optional[str]
-    listing_update_date: Optional[pydantic.AwareDatetime]
+    listing_update_reason: Optional[str] = None
+    listing_update_date: Optional[pydantic.AwareDatetime] = None
 
 
 class DisplayPrice(CamelCaseModel):
@@ -115,7 +114,7 @@ class DevelopmentContent(CamelCaseModel):
 
 class Customer(CamelCaseModel):
     branch_id: Optional[int] = None
-    brand_plus_logo_uri: Optional[str] = None
+    brand_plus_logo_uri: Optional[str] = pydantic.Field(None, alias="brandPlusLogoURI")
     contact_telephone: Optional[str] = None
     branch_display_name: Optional[str] = None
     branch_name: Optional[str] = None
@@ -123,6 +122,7 @@ class Customer(CamelCaseModel):
     branch_landing_page_url: Optional[str] = None
     development: bool
     show_reduced_properties: Optional[bool] = None
+    has_brand_plus: Optional[bool] = None
     commercial: bool
     show_on_map: Optional[bool] = None
     enhanced_listing: Optional[bool] = None
@@ -130,10 +130,13 @@ class Customer(CamelCaseModel):
     build_to_rent: Optional[bool] = None
     build_to_rent_benefits: list[BuildToRentBenefits]
     brand_plus_logo_url: Optional[str] = None
+    media_server_url: Optional[str] = None
+    update_date: Optional[pydantic.AwareDatetime] = None
+    primary_brand_colour: Optional[str] = None
 
 
 class ProductLabel(CamelCaseModel):
-    product_label_text: Optional[str]
+    product_label_text: Optional[str] = None
     spotlight_label: bool
 
 
@@ -146,56 +149,89 @@ class LozengeModel(CamelCaseModel):
     matching_lozenges: list[MatchingLozenges]
 
 
-class Property(CamelCaseModel):
+class Tenure(CamelCaseModel):
+    tenure_type: Optional[str] = None
+
+
+class KeyFeature(CamelCaseModel):
+    order: int
+    description: str
+    html_description: str
+
+
+class StreetView(CamelCaseModel):
+    show_street_view: bool
+
+
+class MapProperty(CamelCaseModel):
+    """Properties returned by the map search endpoint."""
+
     id: int
-    bedrooms: int
-    bathrooms: Optional[int]
-    number_of_images: Optional[int] = None
-    number_of_floorplans: Optional[int] = None
-    number_of_virtual_tours: Optional[int] = None
-    summary: str
-    display_address: Optional[str] = None
-    country_code: Optional[str] = None
     location: Location
-    property_images: Optional[PropertyImages] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    number_of_images: int
+    number_of_floorplans: int
+    summary: str
+    display_address: str
+    images: list[PropertyImage]
+    property_images: PropertyImages
     property_sub_type: Optional[str] = None
     listing_update: Optional[ListingUpdate] = None
-    price: Optional[Price] = None
-    premium_listing: Optional[bool] = None
-    featured_property: Optional[bool] = None
-    customer: Optional[Customer] = None
+    price: Price
+    premium_listing: bool
+    featured_property: bool
+    customer: Customer
+    auction: bool
+    display_size: Optional[str] = None
+    property_url: str
+    channel: str
+    saved: bool
+    online_viewings_available: bool
+    lozenge_model: LozengeModel
+
+
+class ListingProperty(MapProperty):
+    """Properties returned by the listing search endpoint."""
+
+    number_of_virtual_tours: int
+    country_code: str
     distance: Optional[float] = None
-    transaction_type: Optional[str] = None
+    transaction_type: str
     product_label: Optional[ProductLabel] = None
     commercial: bool
     development: bool
     residential: bool
     students: bool
-    auction: bool
-    fees_apply: Optional[bool] = None
+    fees_apply: bool
     fees_apply_text: Optional[str] = None
-    display_size: Optional[str] = None
-    show_on_map: Optional[bool] = None
-    property_url: Optional[str] = None
-    contact_url: Optional[str] = None
+    show_on_map: bool
+    contact_url: str
     static_map_url: Optional[str] = None
-    channel: str
-    first_visible_date: Optional[pydantic.AwareDatetime] = None
-    keywords: Optional[list[str]] = None
-    keyword_match_type: Optional[str] = None
-    saved: Optional[bool]
-    hidden: Optional[bool]
-    online_viewings_available: Optional[bool] = None
-    lozenge_model: Optional[LozengeModel] = None
-    has_brand_plus: Optional[bool] = None
-    display_status: Optional[str] = None
+    first_visible_date: pydantic.AwareDatetime
+    keywords: list[str]
+    tags: list[str]
+    keyword_match_type: str
+    hidden: bool
+    enhanced_listing: bool
+    formatted_branch_name: str
+    added_or_reduced: str
+    formatted_distance: str
+    heading: str
+    property_type_full_description: str
+    display_status: str
+    is_recent: bool
+    has_brand_plus: bool
     enquired_timestamp: Optional[str] = None
     enquiry_added_timestamp: Optional[str] = None
     enquiry_called_timestamp: Optional[str] = None
-    heading: str | None = None
-    is_recent: Optional[bool] = None
-    enhanced_listing: Optional[bool] = None
-    added_or_reduced: Optional[str] = None
-    formatted_branch_name: Optional[str] = None
-    formatted_distance: Optional[str] = None
-    property_type_full_description: Optional[str] = None
+    is_rdl_property: Optional[bool] = None
+    additional_properties: Optional[list[Any]] = None
+    number_of_additional_properties: Optional[int] = None
+    tenure: Optional[Tenure] = None
+    let_available_date: Optional[str] = None
+    key_features: list[KeyFeature]
+    street_view: Optional[StreetView] = None
+    reviews: Optional[Any] = None
+    update_date: pydantic.AwareDatetime
+    commercial_search_prominence_selected: bool

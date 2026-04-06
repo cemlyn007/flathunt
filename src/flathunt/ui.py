@@ -6,7 +6,7 @@ import math
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import geopandas as gpd
 import pandas as pd
@@ -30,7 +30,6 @@ from flathunt.isochrone import (
 from flathunt.search_utils import (
     check_property_size,
     fetch_journey_results,
-    get_properties,
     get_property_ids_in_area,
 )
 
@@ -47,16 +46,14 @@ if not st.session_state.get("initialized", False):
 
 
 @st.cache_resource
-def get_property_ids_in_area_cache() -> ModelCache[
-    list[rightmove.models.PropertyLocation]
-]:
+def get_property_ids_in_area_cache() -> ModelCache[list[rightmove.models.MapProperty]]:
     cache = data_dir / "property_locations_cache.json"
     if cache.exists():
         graph_path = Path(".dagster/storage/roads_and_transport")
         if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
             cache.unlink()
     return ModelCache(
-        list[rightmove.models.PropertyLocation],
+        list[rightmove.models.MapProperty],
         cache,
     )
 
@@ -68,17 +65,8 @@ def get_journey_cache() -> ModelCache[int | None]:
         graph_path = Path(".dagster/storage/roads_and_transport")
         if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
             cache.unlink()
-    return ModelCache(int | None, cache)
+    return ModelCache(int | None, cache)  # type: ignore
 
-
-@st.cache_resource
-def get_property_cache() -> ModelCache[rightmove.models.Property]:
-    cache = data_dir / "property_cache.json"
-    if cache.exists():
-        graph_path = Path(".dagster/storage/roads_and_transport")
-        if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
-            cache.unlink()
-    return ModelCache(rightmove.models.Property, cache)
 
 
 @st.cache_data(persist="disk")
@@ -155,7 +143,7 @@ def _get_property_ids_in_area_cached(
     map_polygon_boundary: Polygon,
     coords: list[tuple[float, float]],
     channel: Literal["RENT", "BUY"] = "RENT",
-) -> list[rightmove.models.PropertyLocation]:
+) -> list[rightmove.models.MapProperty]:
     shapely_coords = [(lon, lat) for lat, lon in coords]
     search_polygon = Polygon(shapely_coords)
     if not search_polygon.is_valid:
@@ -201,7 +189,7 @@ def _get_property_ids_in_area_cached(
         cache.update(cache_updates)
 
     # Deduplicate by ID
-    unique_properties: list[rightmove.models.PropertyLocation] = []
+    unique_properties: list[rightmove.models.MapProperty] = []
     seen_ids = set()
     for p in all_properties:
         if p.id not in seen_ids:
@@ -209,7 +197,7 @@ def _get_property_ids_in_area_cached(
             seen_ids.add(p.id)
 
     # Filter by original polygon
-    filtered_properties: list[rightmove.models.PropertyLocation] = []
+    filtered_properties: list[rightmove.models.MapProperty] = []
     for p in unique_properties:
         point = Point(p.location.longitude, p.location.latitude)
         if search_polygon.contains(point):
@@ -262,30 +250,6 @@ async def _get_properties_journey_duration_cached(
     return durations
 
 
-def _get_properties(
-    property_ids: list[int], channel: Literal["RENT", "BUY"] = "RENT"
-) -> list[rightmove.models.Property]:
-    found_properties = []
-    missing_ids = []
-    cache = get_property_cache()
-    for property_id in property_ids:
-        try:
-            property = cache.get(json.dumps({"id": property_id, "channel": channel}))
-            found_properties.append(property)
-        except KeyError:
-            missing_ids.append(property_id)
-
-    if missing_ids:
-        logger.info(f"Fetching {len(missing_ids)} properties from Rightmove...")
-        new_properties = asyncio.run(get_properties(missing_ids, channel=channel))
-        cache.update(
-            (json.dumps({"id": property.id, "channel": channel}), property)
-            for property in new_properties
-        )
-        found_properties.extend(new_properties)
-
-    return found_properties
-
 
 def render_query_section() -> None:
     st.header("Flathunt!")
@@ -335,7 +299,7 @@ def render_query_section() -> None:
         st.table(
             pd.DataFrame(
                 st.session_state["queries"],
-                columns=["Longitude", "Latitude", "Max Duration"],
+                columns=["Longitude", "Latitude", "Max Duration"],  # type: ignore
             )
         )
         st.button("Clear queries", on_click=lambda: st.session_state.pop("queries"))
@@ -388,6 +352,7 @@ def render_property_search_section() -> None:
     if channel != "RENT" and channel != "BUY":
         st.error("Invalid channel selected.")
         return
+    channel = cast(Literal["RENT", "BUY"], channel)
     if last_channel != channel:
         if "properties" in st.session_state:
             del st.session_state["properties"]
@@ -396,7 +361,7 @@ def render_property_search_section() -> None:
     )
     if list_property_ids:
         polys = st.session_state["intersection_polys"]
-        property_locations: list[rightmove.models.PropertyLocation] = []
+        property_locations: list[rightmove.models.MapProperty] = []
         graph = load_graph(0)
         bounding_polygon = bounds_to_polygon(
             (
@@ -424,34 +389,53 @@ def render_property_search_section() -> None:
                 )
             )
 
+        # Convert intersection polygons from EPSG:27700 to WGS84 for point-in-polygon
+        # checks against property locations (which are in WGS84 lat/lon).
+        polys_wgs84 = []
+        for poly in polys:
+            if poly.is_empty:
+                continue
+            converted = gpd.GeoSeries([poly], crs="EPSG:27700").to_crs("EPSG:4326")
+            if len(converted) != 1:
+                raise ValueError(
+                    f"Expected 1 geometry after reprojection, got {len(converted)}"
+                )
+            polys_wgs84.append(converted.iloc[0])
+        property_locations = [
+            loc
+            for loc in property_locations
+            if any(
+                p.contains(Point(loc.location.longitude, loc.location.latitude))
+                for p in polys_wgs84
+            )
+        ]
         st.write(f"Found {len(property_locations)} unfiltered properties in the area.")
-        filtered_property_locations = _filter_properties_by_commute(property_locations)
-        property_ids = [location.id for location in filtered_property_locations]
+        filtered_properties = _filter_properties_by_commute(property_locations)
         st.write(
-            f"Found {len(property_ids)} properties in the area within commute criteria."
+            f"Found {len(filtered_properties)} properties in the area within commute criteria."
         )
-        st.session_state["properties"] = _get_properties(property_ids, channel=channel)
+        st.session_state["properties"] = filtered_properties
 
 
 def _filter_properties_by_commute(
-    property_locations: list[rightmove.models.PropertyLocation],
-) -> list[rightmove.models.PropertyLocation]:
+    properties: list[rightmove.models.MapProperty],
+) -> list[rightmove.models.MapProperty]:
     commute_queries: list[tuple[float, float, float, float]] = []
-    for location in property_locations:
+    for prop in properties:
         for query_lon, query_lat, max_duration in st.session_state["queries"]:
             commute_queries.append(
                 (
-                    location.location.longitude,
-                    location.location.latitude,
+                    prop.location.longitude,
+                    prop.location.latitude,
                     query_lon,
                     query_lat,
                 )
             )
     durations = asyncio.run(_get_properties_journey_duration_cached(commute_queries))
 
-    filtered_property_locations: list[rightmove.models.PropertyLocation] = []
+    filtered: list[rightmove.models.MapProperty] = []
     index = 0
-    for location in property_locations:
+    for prop in properties:
         meets_commute = True
         for query_lon, query_lat, max_duration in st.session_state["queries"]:
             duration = durations[index]
@@ -459,8 +443,8 @@ def _filter_properties_by_commute(
             if duration is None or duration > max_duration:
                 meets_commute = False
         if meets_commute:
-            filtered_property_locations.append(location)
-    return filtered_property_locations
+            filtered.append(prop)
+    return filtered
 
 
 def render_results_section() -> None:
@@ -518,7 +502,7 @@ def render_results_section() -> None:
 
 
 def filter_properties_by_criteria(
-    properties: Iterable[rightmove.models.Property],
+    properties: Iterable[rightmove.models.MapProperty],
     min_budget: float,
     max_budget: float,
     has_floorplans: bool,
@@ -570,7 +554,7 @@ def filter_properties_by_criteria(
 
 
 def render_property_table(
-    filtered_properties: list[rightmove.models.Property],
+    filtered_properties: list[rightmove.models.MapProperty],
 ) -> None:
     property_data = []
     channel = st.session_state["channel_selectbox"]
@@ -668,6 +652,7 @@ def _get_geo_dataframe(
     center_point = gpd.GeoSeries([Point(center_lon, center_lat)], crs="EPSG:27700")
     center_point_wgs84 = center_point.to_crs("EPSG:4326")
 
+    all_polys_gdf.geometry = all_polys_gdf.geometry.simplify(tolerance=10)
     all_polys_gdf = all_polys_gdf.to_crs("EPSG:4326")
     return all_polys_gdf, center_point_wgs84
 
@@ -688,10 +673,10 @@ def _get_map(
         other_polys = []
     else:
         other_polys = isochrone_polys
-    polys = [poly for poly in polys if not poly.is_empty]
-    st.write(f"Found {len(polys)} intersection graphs.")
+    non_empty_polys = [poly for poly in polys if not poly.is_empty]
+    st.write(f"Found {len(non_empty_polys)} intersection graphs.")
     all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(
-        tuple(polys), tuple(tuple(poly) for poly in other_polys)
+        tuple(non_empty_polys), tuple(tuple(poly) for poly in other_polys)
     )
     return _get_choropleth_map_figure(
         all_polys_gdf,
