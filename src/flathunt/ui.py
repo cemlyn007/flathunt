@@ -1,7 +1,9 @@
 import asyncio
 import concurrent.futures
+import itertools
 import json
 import logging
+import operator
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -195,6 +197,49 @@ def render_map_section() -> None:
         st.plotly_chart(fig, use_container_width=True)
 
 
+def _poly_bng_to_wgs84_coords(poly: Polygon) -> list[tuple[float, float]]:
+    xs, ys = poly.exterior.coords.xy
+    points_wgs84 = gpd.GeoSeries(
+        [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs="EPSG:27700"
+    ).to_crs("EPSG:4326")
+    return list(map(operator.attrgetter("x", "y"), points_wgs84))
+
+
+def _poly_bng_to_wgs84(poly: Polygon) -> Polygon:
+    converted = gpd.GeoSeries([poly], crs="EPSG:27700").to_crs("EPSG:4326")
+    if len(converted) != 1:
+        raise ValueError(
+            f"Expected 1 geometry after reprojection, got {len(converted)}"
+        )
+    return converted.iloc[0]  # pyright: ignore[reportReturnType]
+
+
+def fetch_properties_within_optimal_regions(
+    polys: list[Polygon],
+    channel: Literal["RENT", "BUY"],
+    bounding_polygon: Polygon,
+    cache: ModelCache[list[rightmove.models.MapProperty]],
+) -> list[rightmove.models.MapProperty]:
+    non_empty = [poly for poly in polys if not poly.is_empty]
+    locations = list(
+        itertools.chain.from_iterable(
+            get_property_ids_in_area_cached(
+                bounding_polygon, _poly_bng_to_wgs84_coords(poly), channel, cache
+            )
+            for poly in polys
+        )
+    )
+    polys_wgs84 = [_poly_bng_to_wgs84(poly) for poly in non_empty]
+    return [
+        loc
+        for loc in locations
+        if any(
+            poly.contains(Point(loc.location.longitude, loc.location.latitude))
+            for poly in polys_wgs84
+        )
+    ]
+
+
 def render_property_search_section() -> None:
     if "intersection_polys" not in st.session_state:
         return
@@ -207,14 +252,9 @@ def render_property_search_section() -> None:
         return
     channel = cast(Literal["RENT", "BUY"], channel)
     if last_channel != channel:
-        if "properties" in st.session_state:
-            del st.session_state["properties"]
-    list_property_ids = st.button(
-        "Get property IDs in area", key="get_property_ids_button"
-    )
-    if list_property_ids:
-        polys = st.session_state["intersection_polys"]
-        property_locations: list[rightmove.models.MapProperty] = []
+        st.session_state.pop("properties", None)
+
+    if st.button("Get property IDs in area", key="get_property_ids_button"):
         graph = load_graph(0)
         bounding_polygon = bounds_to_polygon(
             (
@@ -224,44 +264,12 @@ def render_property_search_section() -> None:
                 max(data["lat"] for data in graph.nodes.values()),
             )
         )
-        for poly in polys:
-            if poly.is_empty:
-                continue
-            xs, ys = poly.exterior.coords.xy
-            # Convert from British National Grid (EPSG:27700) to WGS84 (EPSG:4326)
-            points_bng = gpd.GeoSeries(
-                [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs="EPSG:27700"
-            )
-            points_wgs84 = points_bng.to_crs("EPSG:4326")
-            lon = [point.x for point in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
-            lat = [point.y for point in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
-            coords = list(zip(lat, lon, strict=True))
-            property_locations.extend(
-                get_property_ids_in_area_cached(
-                    bounding_polygon, coords, channel, get_property_ids_in_area_cache()
-                )
-            )
-
-        # Convert intersection polygons from EPSG:27700 to WGS84 for point-in-polygon
-        # checks against property locations (which are in WGS84 lat/lon).
-        polys_wgs84 = []
-        for poly in polys:
-            if poly.is_empty:
-                continue
-            converted = gpd.GeoSeries([poly], crs="EPSG:27700").to_crs("EPSG:4326")
-            if len(converted) != 1:
-                raise ValueError(
-                    f"Expected 1 geometry after reprojection, got {len(converted)}"
-                )
-            polys_wgs84.append(converted.iloc[0])
-        property_locations = [
-            loc
-            for loc in property_locations
-            if any(
-                p.contains(Point(loc.location.longitude, loc.location.latitude))
-                for p in polys_wgs84
-            )
-        ]
+        property_locations = fetch_properties_within_optimal_regions(
+            st.session_state["intersection_polys"],
+            channel,
+            bounding_polygon,
+            get_property_ids_in_area_cache(),
+        )
         st.write(f"Found {len(property_locations)} unfiltered properties in the area.")
         queries = st.session_state["queries"]
         durations = asyncio.run(
