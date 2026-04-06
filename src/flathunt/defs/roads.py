@@ -6,7 +6,9 @@ import geopandas as gpd
 import networkx as nx
 import numpy as np
 import tqdm
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString
+
+from flathunt.geometry import wgs84_to_bng
 
 
 class Config(dg.Config):
@@ -15,12 +17,6 @@ class Config(dg.Config):
         "greater-london-251126-free/gis_osm_roads_free_1.shp",
     )
     meters_per_minute: float = 60
-
-
-def project_to_meters(lon: float, lat: float):
-    point_wgs84 = gpd.GeoSeries([Point(lon, lat)], crs="EPSG:4326")
-    point_osgb36 = point_wgs84.to_crs("EPSG:27700")
-    return point_osgb36.x.item(), point_osgb36.y.item()
 
 
 def euclidean(x1, y1, x2, y2):
@@ -33,8 +29,8 @@ def create_roads_graph(
     graph = nx.Graph()
     for _, road in tqdm.tqdm(roads_gdf.iterrows(), total=len(roads_gdf)):
         for (lon1, lat1), (lon2, lat2) in itertools.pairwise(road.geometry.coords):
-            x1, y1 = project_to_meters(lon1, lat1)
-            x2, y2 = project_to_meters(lon2, lat2)
+            x1, y1 = wgs84_to_bng(lon1, lat1)
+            x2, y2 = wgs84_to_bng(lon2, lat2)
             if (x1, y1) not in graph:
                 graph.add_node((x1, y1), x=x1, y=y1, lat=lat1, lon=lon1)
             if (x2, y2) not in graph:

@@ -5,17 +5,17 @@ import os
 from datetime import timezone
 
 import dagster as dg
-import geopandas as gpd
 import networkx as nx
 import numpy as np
 import tqdm
 import tqdm.asyncio
 from pydantic import Field
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString
 
 import tfl.api
 import tfl.exceptions
 import tfl.models
+from flathunt.geometry import wgs84_to_bng
 
 
 class Config(dg.Config):
@@ -31,12 +31,6 @@ class Config(dg.Config):
             tfl.models.ModeId.WALKING,
         ]
     )
-
-
-def project_to_meters(lon: float, lat: float):
-    point_wgs84 = gpd.GeoSeries([Point(lon, lat)], crs="EPSG:4326")
-    point_osgb36 = point_wgs84.to_crs("EPSG:27700")
-    return point_osgb36.x.item(), point_osgb36.y.item()
 
 
 def euclidean(x1, y1, x2, y2):
@@ -105,7 +99,7 @@ async def transport(config: Config) -> nx.Graph:
         for stop_point in line_id_stop_points[line_id]:
             if stop_point.lon is None or stop_point.lat is None:
                 continue
-            x, y = project_to_meters(stop_point.lon, stop_point.lat)
+            x, y = wgs84_to_bng(stop_point.lon, stop_point.lat)
             if (x, y) not in transport_graph:
                 transport_graph.add_node(
                     (x, y),
@@ -129,8 +123,8 @@ async def transport(config: Config) -> nx.Graph:
                 continue
             if other_stop_point.lon is None or other_stop_point.lat is None:
                 continue
-            x1, y1 = project_to_meters(stop_point.lon, stop_point.lat)
-            x2, y2 = project_to_meters(other_stop_point.lon, other_stop_point.lat)
+            x1, y1 = wgs84_to_bng(stop_point.lon, stop_point.lat)
+            x2, y2 = wgs84_to_bng(other_stop_point.lon, other_stop_point.lat)
 
             # Try both directions since station_intervals only go one way
             duration = None

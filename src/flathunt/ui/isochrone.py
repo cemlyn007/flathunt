@@ -13,14 +13,10 @@ import tqdm
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+from flathunt.geometry import wgs84_to_bng
+
 NODE_BUFFER = 0
 EDGE_BUFFER = 25
-
-
-def project_to_meters(lon: float, lat: float):
-    point_wgs84 = gpd.GeoSeries([Point(lon, lat)], crs="EPSG:4326")
-    point_osgb36 = point_wgs84.to_crs("EPSG:27700")
-    return point_osgb36.x.item(), point_osgb36.y.item()
 
 
 def isochrones(graph: nx.Graph, node: Hashable, trip_time: float) -> list[nx.Graph]:
@@ -82,7 +78,7 @@ def load_graph(station_cost: float) -> nx.Graph:
 def lookup(
     graph: nx.Graph, lon: float, lat: float, max_duration: float
 ) -> list[nx.Graph]:
-    x, y = project_to_meters(lon, lat)
+    x, y = wgs84_to_bng(lon, lat)
     road_nodes = [
         node_id
         for node_id, data in graph.nodes(data=True)
