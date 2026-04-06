@@ -1,3 +1,4 @@
+from tfl.models.base import TflModel
 from tfl.models.journey_results import (
     Crowding,
     Disambiguation,
@@ -170,6 +171,7 @@ __all__ = [
     "TimetableDisambiguationOption",
     "TimetableResponse",
     "TimetableRoute",
+    "TflModel",
     "TrainLoading",
     "TwentyFourHourClockTime",
 ]

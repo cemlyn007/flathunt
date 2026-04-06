@@ -4,157 +4,124 @@ from typing import Optional
 
 import pydantic
 
+from tfl.models.base import TflModel
 from tfl.models.journey_results import ModeId
 
 
-class LineDisruption(pydantic.BaseModel):
+class LineDisruption(TflModel):
     """Disruption information for a line."""
-
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     category: Optional[str] = None
-    category_description: Optional[str] = pydantic.Field(
-        default=None, alias="categoryDescription"
-    )
+    category_description: Optional[str] = None
     description: Optional[str] = None
-    affected_routes: list = pydantic.Field(default=[], alias="affectedRoutes")
-    affected_stops: list = pydantic.Field(default=[], alias="affectedStops")
-    closure_text: Optional[str] = pydantic.Field(default=None, alias="closureText")
+    affected_routes: list = pydantic.Field(default_factory=list)
+    affected_stops: list = pydantic.Field(default_factory=list)
+    closure_text: Optional[str] = None
 
 
-class LineCrowding(pydantic.BaseModel):
+class LineCrowding(TflModel):
     """Crowding information for a line."""
-
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
 
 
-class LineServiceType(pydantic.BaseModel):
+class LineServiceType(TflModel):
     """Service type information for a line (e.g., Regular, Night).
 
     Note: The TFL API returns this as LineServiceTypeInfo in some endpoints.
     """
-
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     name: str
     uri: Optional[str] = None
 
 
-class MatchedRoute(pydantic.BaseModel):
+class MatchedRoute(TflModel):
     """Matched route information returned by the /Line/Route endpoint.
 
     This represents a route section with direction and terminus information.
     """
 
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
-
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     name: Optional[str] = None
     direction: Optional[str] = None
-    origination_name: Optional[str] = pydantic.Field(
-        default=None, alias="originationName"
-    )
-    destination_name: Optional[str] = pydantic.Field(
-        default=None, alias="destinationName"
-    )
+    origination_name: Optional[str] = None
+    destination_name: Optional[str] = None
     originator: Optional[str] = None
     destination: Optional[str] = None
-    service_type: Optional[str] = pydantic.Field(default=None, alias="serviceType")
-    valid_to: Optional[str] = pydantic.Field(default=None, alias="validTo")
-    valid_from: Optional[str] = pydantic.Field(default=None, alias="validFrom")
+    service_type: Optional[str] = None
+    valid_to: Optional[str] = None
+    valid_from: Optional[str] = None
 
 
-class LineRouteSection(pydantic.BaseModel):
+class LineRouteSection(TflModel):
     """Route section information for a line."""
 
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
-
     type: Optional[str] = pydantic.Field(default=None, alias="$type")
     name: Optional[str] = None
     direction: Optional[str] = None
-    origination_name: Optional[str] = pydantic.Field(
-        default=None, alias="originationName"
-    )
-    destination_name: Optional[str] = pydantic.Field(
-        default=None, alias="destinationName"
-    )
+    origination_name: Optional[str] = None
+    destination_name: Optional[str] = None
     originator: Optional[str] = None
     destination: Optional[str] = None
-    service_type: Optional[str] = pydantic.Field(default=None, alias="serviceType")
-    valid_to: Optional[str] = pydantic.Field(default=None, alias="validTo")
-    valid_from: Optional[str] = pydantic.Field(default=None, alias="validFrom")
+    service_type: Optional[str] = None
+    valid_to: Optional[str] = None
+    valid_from: Optional[str] = None
 
 
-class LineStatusDisruption(pydantic.BaseModel):
+class LineStatusDisruption(TflModel):
     """Disruption details within a line status."""
-
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     category: Optional[str] = None
-    category_description: Optional[str] = pydantic.Field(
-        default=None, alias="categoryDescription"
-    )
+    category_description: Optional[str] = None
     description: Optional[str] = None
-    additional_info: Optional[str] = pydantic.Field(
-        default=None, alias="additionalInfo"
-    )
+    additional_info: Optional[str] = None
     created: Optional[str] = None
-    last_update: Optional[str] = pydantic.Field(default=None, alias="lastUpdate")
+    last_update: Optional[str] = None
 
 
-class LineStatusValidityPeriod(pydantic.BaseModel):
+class LineStatusValidityPeriod(TflModel):
     """Validity period for a line status."""
 
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
-
     type: str = pydantic.Field(alias="$type")
-    from_date: str = pydantic.Field(alias="fromDate")
-    to_date: str = pydantic.Field(alias="toDate")
-    is_now: bool = pydantic.Field(default=False, alias="isNow")
+    from_date: str
+    to_date: str
+    is_now: bool = False
 
 
-class LineStatus(pydantic.BaseModel):
+class LineStatus(TflModel):
     """Status information for a line."""
-
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     id: int
-    status_severity: int = pydantic.Field(alias="statusSeverity")
-    status_severity_description: str = pydantic.Field(alias="statusSeverityDescription")
+    status_severity: int
+    status_severity_description: str
     reason: Optional[str] = None
     created: Optional[str] = None
     modified: Optional[str] = None
     validity_periods: list[LineStatusValidityPeriod] = pydantic.Field(
-        default=[], alias="validityPeriods"
+        default_factory=list
     )
     disruption: Optional[LineStatusDisruption] = None
 
 
-class Line(pydantic.BaseModel):
+class Line(TflModel):
     """A TfL line (e.g., a tube line like Bakerloo, Central, etc.)."""
-
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
 
     type: str = pydantic.Field(alias="$type")
     id: str
     name: str
-    mode_name: ModeId = pydantic.Field(alias="modeName")
-    disruptions: list[LineDisruption] = pydantic.Field(default=[])
+    mode_name: ModeId
+    disruptions: list[LineDisruption] = pydantic.Field(default_factory=list)
     created: str
     modified: str
-    line_statuses: list[LineStatus] = pydantic.Field(default=[], alias="lineStatuses")
+    line_statuses: list[LineStatus] = pydantic.Field(default_factory=list)
     route_sections: list[MatchedRoute | LineRouteSection] = pydantic.Field(
-        default=[], alias="routeSections"
+        default_factory=list
     )
-    service_types: list[LineServiceType] = pydantic.Field(
-        default=[], alias="serviceTypes"
-    )
+    service_types: list[LineServiceType] = pydantic.Field(default_factory=list)
     crowding: Optional[LineCrowding] = None
 
 

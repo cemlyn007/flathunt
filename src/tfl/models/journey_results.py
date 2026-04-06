@@ -3,134 +3,120 @@ import enum
 
 import pydantic
 
-
-class _TflBase(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra="forbid", populate_by_name=True)
+from tfl.models.base import TflModel
 
 
-class Place(_TflBase):
+class Place(TflModel):
     type: str = pydantic.Field(alias="$type")
     url: str
-    common_name: str = pydantic.Field(alias="commonName")
-    place_type: str = pydantic.Field(alias="placeType")
-    additional_properties: list = pydantic.Field(alias="additionalProperties")
+    common_name: str
+    place_type: str
+    additional_properties: list
     lat: float
     lon: float
 
 
-class DisambiguationOption(_TflBase):
+class DisambiguationOption(TflModel):
     type: str = pydantic.Field(alias="$type")
-    parameter_value: str = pydantic.Field(alias="parameterValue")
+    parameter_value: str
     uri: str
     place: Place
-    match_quality: int = pydantic.Field(alias="matchQuality")
+    match_quality: int
 
 
-class Disambiguation(_TflBase):
+class Disambiguation(TflModel):
     type: str = pydantic.Field(alias="$type")
-    disambiguation_options: list[DisambiguationOption] | None = pydantic.Field(
-        default=None, alias="disambiguationOptions"
-    )
-    match_status: str = pydantic.Field(alias="matchStatus")
+    disambiguation_options: list[DisambiguationOption] | None = None
+    match_status: str
 
 
-class DisambiguationResult(_TflBase):
+class DisambiguationResult(TflModel):
     type: str = pydantic.Field(alias="$type")
-    to_location_disambiguation: Disambiguation = pydantic.Field(
-        alias="toLocationDisambiguation"
-    )
-    from_location_disambiguation: Disambiguation = pydantic.Field(
-        alias="fromLocationDisambiguation"
-    )
-    via_location_disambiguation: Disambiguation = pydantic.Field(
-        alias="viaLocationDisambiguation"
-    )
-    recommended_max_age_minutes: int = pydantic.Field(alias="recommendedMaxAgeMinutes")
-    search_criteria: "SearchCriteria" = pydantic.Field(alias="searchCriteria")
-    journey_vector: "JourneyVector" = pydantic.Field(alias="journeyVector")
+    to_location_disambiguation: Disambiguation
+    from_location_disambiguation: Disambiguation
+    via_location_disambiguation: Disambiguation
+    recommended_max_age_minutes: int
+    search_criteria: "SearchCriteria"
+    journey_vector: "JourneyVector"
 
 
-class PathAttribute(_TflBase):
+class PathAttribute(TflModel):
     type: str = pydantic.Field(alias="$type")
 
 
-class InstructionStep(_TflBase):
+class InstructionStep(TflModel):
     type: str = pydantic.Field(alias="$type")
     description: str
-    turn_direction: str = pydantic.Field(alias="turnDirection")
-    street_name: str = pydantic.Field(alias="streetName")
+    turn_direction: str
+    street_name: str
     distance: int
-    cumulative_distance: int = pydantic.Field(alias="cumulativeDistance")
-    sky_direction: int = pydantic.Field(alias="skyDirection")
-    sky_direction_description: str = pydantic.Field(alias="skyDirectionDescription")
-    cumulative_travel_time: int = pydantic.Field(alias="cumulativeTravelTime")
+    cumulative_distance: int
+    sky_direction: int
+    sky_direction_description: str
+    cumulative_travel_time: int
     latitude: float
     longitude: float
-    path_attribute: PathAttribute = pydantic.Field(alias="pathAttribute")
-    description_heading: str = pydantic.Field(alias="descriptionHeading")
-    track_type: str = pydantic.Field(alias="trackType")
-    travel_time: int = pydantic.Field(alias="travelTime")
+    path_attribute: PathAttribute
+    description_heading: str
+    track_type: str
+    travel_time: int
 
 
-class Instruction(_TflBase):
+class Instruction(TflModel):
     type: str = pydantic.Field(alias="$type")
     summary: str
     detailed: str
     steps: list[InstructionStep]
 
 
-class Point(_TflBase):
+class Point(TflModel):
     type: str = pydantic.Field(alias="$type")
     lat: float
     lon: float
 
 
-class StopPoint(_TflBase):
+class StopPoint(TflModel):
     type: str = pydantic.Field(alias="$type")
     name: str | None = None
-    ics_code: str | None = pydantic.Field(default=None, alias="icsCode")
-    top_most_parent_id: str | None = pydantic.Field(
-        default=None, alias="topMostParentId"
-    )
+    ics_code: str | None = None
+    top_most_parent_id: str | None = None
     modes: list[str] | None = None
-    stop_letter: str | None = pydantic.Field(default=None, alias="stopLetter")
-    common_name: str = pydantic.Field(alias="commonName")
-    platform_name: str | None = pydantic.Field(default=None, alias="platformName")
-    place_type: str | None = pydantic.Field(default=None, alias="placeType")
-    additional_properties: list = pydantic.Field(
-        default=[], alias="additionalProperties"
-    )
+    stop_letter: str | None = None
+    common_name: str
+    platform_name: str | None = None
+    place_type: str | None = None
+    additional_properties: list = pydantic.Field(default_factory=list)
     lat: float | None = None
     lon: float | None = None
 
 
-class RouteOption(_TflBase):
+class RouteOption(TflModel):
     type: str = pydantic.Field(alias="$type")
     name: str
     directions: list[str]
     direction: str | None = None
-    line_identifier: dict | None = pydantic.Field(default=None, alias="lineIdentifier")
+    line_identifier: dict | None = None
 
 
-class Fare(_TflBase):
+class Fare(TflModel):
     type: str = pydantic.Field(alias="$type")
-    total_cost: int = pydantic.Field(alias="totalCost")
+    total_cost: int
     fares: list
     caveats: list
 
 
-class Obstacle(_TflBase):
+class Obstacle(TflModel):
     type: str = pydantic.Field(alias="$type")
     obstacle_type: str = pydantic.Field(alias="type")
     incline: str
-    stop_id: int = pydantic.Field(alias="stopId")
+    stop_id: int
     position: str
 
 
-class Path(_TflBase):
+class Path(TflModel):
     type: str = pydantic.Field(alias="$type")
-    line_string: str = pydantic.Field(alias="lineString")
-    stop_points: list = pydantic.Field(alias="stopPoints")
+    line_string: str
+    stop_points: list
     elevation: list
 
 
@@ -155,46 +141,38 @@ class ModeId(str, enum.Enum):
     WALKING = "walking"
 
 
-class Mode(_TflBase):
+class Mode(TflModel):
     type: str = pydantic.Field(alias="$type")
     id: ModeId
     name: str
     mode_type: str = pydantic.Field(alias="type")
-    route_type: str = pydantic.Field(alias="routeType")
+    route_type: str
     status: str
-    mot_type: str = pydantic.Field(alias="motType")
+    mot_type: str
     network: str
 
 
-class Leg(_TflBase):
+class Leg(TflModel):
     type: str = pydantic.Field(alias="$type")
     duration: int
     instruction: Instruction
     obstacles: list[Obstacle]
-    departure_time: pydantic.AwareDatetime = pydantic.Field(alias="departureTime")
-    arrival_time: pydantic.AwareDatetime = pydantic.Field(alias="arrivalTime")
-    departure_point: StopPoint = pydantic.Field(alias="departurePoint")
-    arrival_point: StopPoint = pydantic.Field(alias="arrivalPoint")
+    departure_time: pydantic.AwareDatetime
+    arrival_time: pydantic.AwareDatetime
+    departure_point: StopPoint
+    arrival_point: StopPoint
     path: Path
-    route_options: list[RouteOption] = pydantic.Field(alias="routeOptions")
+    route_options: list[RouteOption]
     mode: Mode
     disruptions: list
-    planned_works: list = pydantic.Field(alias="plannedWorks")
+    planned_works: list
     distance: float | None = None
-    is_disrupted: bool = pydantic.Field(alias="isDisrupted")
-    has_fixed_locations: bool = pydantic.Field(alias="hasFixedLocations")
-    scheduled_departure_time: pydantic.AwareDatetime = pydantic.Field(
-        alias="scheduledDepartureTime"
-    )
-    scheduled_arrival_time: pydantic.AwareDatetime = pydantic.Field(
-        alias="scheduledArrivalTime"
-    )
-    inter_change_duration: str | None = pydantic.Field(
-        default=None, alias="interChangeDuration"
-    )
-    inter_change_position: str | None = pydantic.Field(
-        default=None, alias="interChangePosition"
-    )
+    is_disrupted: bool
+    has_fixed_locations: bool
+    scheduled_departure_time: pydantic.AwareDatetime
+    scheduled_arrival_time: pydantic.AwareDatetime
+    inter_change_duration: str | None = None
+    inter_change_position: str | None = None
 
     @pydantic.field_validator(
         "departure_time",
@@ -213,12 +191,12 @@ class Leg(_TflBase):
         return v
 
 
-class Journey(_TflBase):
+class Journey(TflModel):
     type: str = pydantic.Field(alias="$type")
-    start_date_time: pydantic.AwareDatetime = pydantic.Field(alias="startDateTime")
+    start_date_time: pydantic.AwareDatetime
     duration: int
-    arrival_date_time: pydantic.AwareDatetime = pydantic.Field(alias="arrivalDateTime")
-    alternative_route: bool = pydantic.Field(alias="alternativeRoute")
+    arrival_date_time: pydantic.AwareDatetime
+    alternative_route: bool
     legs: list[Leg]
     fare: Fare | None = None
 
@@ -233,13 +211,11 @@ class Journey(_TflBase):
         return v
 
 
-class SearchCriteria(_TflBase):
+class SearchCriteria(TflModel):
     type: str = pydantic.Field(alias="$type")
-    date_time: pydantic.AwareDatetime = pydantic.Field(alias="dateTime")
-    date_time_type: str = pydantic.Field(alias="dateTimeType")
-    time_adjustments: dict | None = pydantic.Field(
-        default=None, alias="timeAdjustments"
-    )
+    date_time: pydantic.AwareDatetime
+    date_time_type: str
+    time_adjustments: dict | None = None
 
     @pydantic.field_validator("date_time", mode="before")
     @classmethod
@@ -252,7 +228,7 @@ class SearchCriteria(_TflBase):
         return v
 
 
-class JourneyVector(_TflBase):
+class JourneyVector(TflModel):
     type: str = pydantic.Field(alias="$type")
     from_location: str = pydantic.Field(alias="from")
     to_location: str = pydantic.Field(alias="to")
@@ -260,27 +236,27 @@ class JourneyVector(_TflBase):
     uri: str
 
 
-class Crowding(_TflBase):
+class Crowding(TflModel):
     type: str = pydantic.Field(alias="$type")
 
 
-class LineServiceTypeInfo(_TflBase):
+class LineServiceTypeInfo(TflModel):
     type: str = pydantic.Field(alias="$type")
     name: str
     uri: str
 
 
-class ValidityPeriod(_TflBase):
+class ValidityPeriod(TflModel):
     type: str = pydantic.Field(alias="$type")
 
 
-class LineStatus(_TflBase):
+class LineStatus(TflModel):
     type: str = pydantic.Field(alias="$type")
     id: int
-    status_severity: int = pydantic.Field(alias="statusSeverity")
-    status_severity_description: str = pydantic.Field(alias="statusSeverityDescription")
+    status_severity: int
+    status_severity_description: str
     created: pydantic.AwareDatetime
-    validity_periods: list[ValidityPeriod] = pydantic.Field(alias="validityPeriods")
+    validity_periods: list[ValidityPeriod]
 
     @pydantic.field_validator("created", mode="before")
     @classmethod
@@ -293,17 +269,17 @@ class LineStatus(_TflBase):
         return v
 
 
-class Line(_TflBase):
+class Line(TflModel):
     type: str = pydantic.Field(alias="$type")
     id: str
     name: str
-    mode_name: str = pydantic.Field(alias="modeName")
+    mode_name: str
     disruptions: list
     created: pydantic.AwareDatetime
     modified: pydantic.AwareDatetime
-    line_statuses: list[LineStatus] = pydantic.Field(alias="lineStatuses")
-    route_sections: list = pydantic.Field(alias="routeSections")
-    service_types: list[LineServiceTypeInfo] = pydantic.Field(alias="serviceTypes")
+    line_statuses: list[LineStatus]
+    route_sections: list
+    service_types: list[LineServiceTypeInfo]
     crowding: Crowding
 
     @pydantic.field_validator("created", "modified", mode="before")
@@ -317,11 +293,11 @@ class Line(_TflBase):
         return v
 
 
-class JourneyResults(_TflBase):
+class JourneyResults(TflModel):
     type: str = pydantic.Field(alias="$type")
     journeys: list[Journey]
     lines: list[Line]
-    stop_messages: list = pydantic.Field(alias="stopMessages")
-    recommended_max_age_minutes: int = pydantic.Field(alias="recommendedMaxAgeMinutes")
-    search_criteria: SearchCriteria = pydantic.Field(alias="searchCriteria")
-    journey_vector: JourneyVector = pydantic.Field(alias="journeyVector")
+    stop_messages: list
+    recommended_max_age_minutes: int
+    search_criteria: SearchCriteria
+    journey_vector: JourneyVector
