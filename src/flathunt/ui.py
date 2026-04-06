@@ -3,7 +3,7 @@ import concurrent.futures
 import json
 import logging
 import os
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal, cast
 
@@ -25,11 +25,11 @@ from flathunt.isochrone import (
     make_poly,
 )
 from flathunt.property_search import (
+    filter_properties_by_budget_and_features,
     filter_properties_by_commute,
     get_properties_journey_duration_cached,
     get_property_ids_in_area_cached,
 )
-from flathunt.search_utils import check_property_size
 
 logger = logging.getLogger("flathunt")
 
@@ -319,7 +319,7 @@ def render_results_section() -> None:
             key="size_slider",
         )
         properties = st.session_state["properties"]
-        filtered_properties = filter_properties_by_criteria(
+        candidates = filter_properties_by_budget_and_features(
             properties,
             min_budget,
             max_budget,
@@ -328,62 +328,15 @@ def render_results_section() -> None:
             square_meters,
             channel,
         )
-        st.write(f"{len(filtered_properties)} properties match the criteria.")
-        render_property_table(filtered_properties)
-
-
-def filter_properties_by_criteria(
-    properties: Iterable[rightmove.models.MapProperty],
-    min_budget: float,
-    max_budget: float,
-    has_floorplans: bool,
-    has_images: bool,
-    square_meters: float,
-    channel: Literal["RENT", "BUY"],
-):
-    filtered_properties = [
-        property
-        for property in properties
-        if property.property_url is not None
-        and check_property_size(property, square_meters)
-        and property.price is not None
-        and (
-            min_budget <= (rightmove.price.normalize(property.price) or 0) <= max_budget
-            if channel == "RENT"
-            else min_budget <= (property.price.amount or 0) <= max_budget
-        )
-        and ((property.number_of_images or 0) > 2 or not has_images)
-        and ((property.number_of_floorplans or 0) > 0 or not has_floorplans)
-    ]
-    queries = st.session_state["queries"]
-    commute_times = asyncio.run(
-        get_properties_journey_duration_cached(
-            [
-                (
-                    property.location.longitude,
-                    property.location.latitude,
-                    query_lon,
-                    query_lat,
-                )
-                for property in filtered_properties
-                for query_lon, query_lat, _ in queries
-            ],
+        filtered_properties = filter_properties_by_commute(
+            candidates,
+            st.session_state["queries"],
             get_journey_cache(),
             tfl_api_key,
         )
-    )
-    final_filtered_properties = []
-    for i, property in enumerate(filtered_properties):
-        meets_commute = True
-        for j in range(len(queries)):
-            duration = commute_times[i * len(queries) + j]
-            max_duration = queries[j][2]
-            if duration is None or duration > max_duration:
-                meets_commute = False
-                break
-        if meets_commute:
-            final_filtered_properties.append(property)
-    return final_filtered_properties
+        st.write(f"{len(filtered_properties)} properties match the criteria.")
+        render_property_table(filtered_properties)
+
 
 
 def render_property_table(
