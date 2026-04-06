@@ -3,7 +3,7 @@ import logging
 from typing import Literal
 
 from shapely.geometry import box
-from shapely.geometry.polygon import Polygon
+from shapely.geometry.polygon import LinearRing, Polygon
 
 import rightmove.api
 import rightmove.models
@@ -121,22 +121,21 @@ async def fetch_journey_results(
 
 
 def _subdivide_exterior(
-    coords: list[tuple[float, float]],
-) -> list[list[tuple[float, float]]]:
+    exterior: LinearRing,
+) -> list[LinearRing]:
     """Subdivide a polygon exterior into parts that each satisfy the Rightmove coordinate limit.
 
     The polygon is split into quadrants recursively until every part has at
     most ``MAX_RIGHTMOVE_POLYLINE_POINTS`` vertices (after optional simplification).
 
     Args:
-        coords: Exterior ring as ``(lat, lon)`` tuples in WGS84.
+        exterior: Exterior ring of the polygon in WGS84.
 
     Returns:
-        A list of exterior rings, each as ``(lat, lon)`` tuples, safe to pass
-        directly to the Rightmove polyline search endpoint.
+        A list of exterior rings, safe to pass directly to the Rightmove
+        polyline search endpoint.
     """
-    shapely_coords = [(lon, lat) for lat, lon in coords]
-    poly = Polygon(shapely_coords)
+    poly = Polygon(exterior)
     if not poly.is_valid:
         poly = poly.buffer(0)
 
@@ -147,16 +146,16 @@ def _subdivide_exterior(
             continue
 
         if len(sub_poly.exterior.coords) <= MAX_RIGHTMOVE_POLYLINE_POINTS:
-            exterior = sub_poly.exterior
+            sub_exterior = sub_poly.exterior
         else:
-            exterior, _ = find_min_simplify_tolerance(
-                sub_poly, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
+            sub_exterior, _ = find_min_simplify_tolerance(
+                sub_poly.exterior, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
             )
         # Check if simplified polygon is valid
-        if Polygon(exterior).area < 1e-9:
+        if Polygon(sub_exterior).area < 1e-9:
             continue
 
-        results.append([(y, x) for x, y in exterior.coords])
+        results.append(sub_exterior)
 
     return results
 
@@ -182,9 +181,11 @@ async def get_property_ids_in_area(
     rightmove_client = rightmove.api.Rightmove()
     # Ensure coords limit
     if len(coords) > MAX_RIGHTMOVE_POLYLINE_POINTS:
-        coords_list = _subdivide_exterior(coords)
+        exterior = LinearRing([(lon, lat) for lat, lon in coords])
+        sub_exteriors = _subdivide_exterior(exterior)
         results = []
-        for sub_coords in coords_list:
+        for sub_exterior in sub_exteriors:
+            sub_coords = [(y, x) for x, y in sub_exterior.coords]
             results.extend(
                 property_location
                 for property_location in await get_property_ids_in_area(
@@ -205,9 +206,11 @@ async def get_property_ids_in_area(
             logger.info(
                 f"Count {count} > {MAX_RIGHTMOVE_SEARCH_PROPERTIES}, subdividing (depth {depth})."
             )
-            coords_list = _subdivide_exterior(coords)
+            exterior = LinearRing([(lon, lat) for lat, lon in coords])
+            sub_exteriors = _subdivide_exterior(exterior)
             results = []
-            for sub_coords in coords_list:
+            for sub_exterior in sub_exteriors:
+                sub_coords = [(y, x) for x, y in sub_exterior.coords]
                 results.extend(
                     property_location
                     for property_location in await get_property_ids_in_area(

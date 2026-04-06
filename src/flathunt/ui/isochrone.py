@@ -11,7 +11,7 @@ import networkx as nx
 import numpy as np
 import tqdm
 from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
+from shapely.geometry.polygon import LinearRing, Polygon
 
 from flathunt.geometry import wgs84_to_bng
 
@@ -291,27 +291,29 @@ def get_intersection(
 
 
 def find_min_simplify_tolerance(
-    polygon: Polygon, max_coords=1000, tol=1e-6, max_iter=1000
-):
-    """Find the smallest simplification tolerance that reduces a polygon below a coordinate limit.
+    exterior: LinearRing,
+    max_coords: int = 1000,
+    tol: float = 1e-6,
+    max_iter: int = 1000,
+) -> tuple[LinearRing, float]:
+    """Find the smallest simplification tolerance that reduces a ring below a coordinate limit.
 
     Uses binary search to find the minimum Douglas-Peucker tolerance that
-    brings the exterior ring below ``max_coords`` vertices.
+    brings the ring below ``max_coords`` vertices.
 
     Args:
-        polygon: The Shapely Polygon to simplify.
-        max_coords: Maximum number of exterior coordinates allowed. Defaults to 1000.
+        exterior: The Shapely LinearRing to simplify.
+        max_coords: Maximum number of coordinates allowed. Defaults to 1000.
         tol: Convergence threshold for the binary search. Defaults to 1e-6.
         max_iter: Maximum number of binary-search iterations. Defaults to 1000.
 
     Returns:
-        A tuple of ``(simplified_exterior, tolerance_used)``. If the polygon is
+        A tuple of ``(simplified_exterior, tolerance_used)``. If the ring is
         already under the limit, ``tolerance_used`` is ``0.0``.
 
     Raises:
         ValueError: If no tolerance up to 1e6 achieves the coordinate limit.
     """
-    exterior = polygon.exterior
     original_coords = len(list(exterior.coords))
 
     # If already under the limit, no simplification needed
@@ -328,7 +330,12 @@ def find_min_simplify_tolerance(
 
     # Binary search for minimum tolerance
     low = 0.0
-    best_exterior = exterior.simplify(high)
+    _simplified = exterior.simplify(high)
+    if not isinstance(_simplified, LinearRing):
+        raise TypeError(
+            f"Expected LinearRing after simplification, got {type(_simplified).__name__}"
+        )
+    best_exterior = _simplified
     best_tolerance = high
 
     for _ in range(max_iter):
@@ -341,6 +348,10 @@ def find_min_simplify_tolerance(
 
         if num_coords < max_coords:
             # This tolerance works, try to find a smaller one
+            if not isinstance(simplified, LinearRing):
+                raise TypeError(
+                    f"Expected LinearRing after simplification, got {type(simplified).__name__}"
+                )
             best_exterior = simplified
             best_tolerance = mid
             high = mid
