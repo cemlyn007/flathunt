@@ -45,6 +45,14 @@ if not st.session_state.get("initialized", False):
 
 @st.cache_resource
 def get_property_ids_in_area_cache() -> ModelCache[list[rightmove.models.MapProperty]]:
+    """Return the Streamlit-cached property-location ModelCache.
+
+    The cache is invalidated automatically when the roads-and-transport graph
+    is newer than the cache file.
+
+    Returns:
+        A ``ModelCache`` storing lists of ``MapProperty`` objects keyed by tile.
+    """
     return _get_road_and_transport_dependent_cache(
         list[rightmove.models.MapProperty],
         data_dir / "property_locations_cache.json",
@@ -53,6 +61,14 @@ def get_property_ids_in_area_cache() -> ModelCache[list[rightmove.models.MapProp
 
 @st.cache_resource
 def get_journey_cache() -> ModelCache[int | None]:
+    """Return the Streamlit-cached journey-duration ModelCache.
+
+    The cache is invalidated automatically when the roads-and-transport graph
+    is newer than the cache file.
+
+    Returns:
+        A ``ModelCache`` storing journey durations (minutes) or ``None``.
+    """
     return _get_road_and_transport_dependent_cache(
         int | None,  # type: ignore[arg-type]
         data_dir / "journey_cache.json",
@@ -62,6 +78,18 @@ def get_journey_cache() -> ModelCache[int | None]:
 def _get_road_and_transport_dependent_cache[T](
     t: type[T], cache: Path
 ) -> ModelCache[T]:
+    """Create a ModelCache that is invalidated when the roads-and-transport graph changes.
+
+    If the cache file is older than the Dagster roads-and-transport asset it is
+    deleted so that stale data is not served.
+
+    Args:
+        t: The type parameter used to construct the ``ModelCache``.
+        cache: Path to the JSON cache file.
+
+    Returns:
+        A fresh or loaded ``ModelCache[T]``.
+    """
     if cache.exists():
         graph_path = Path(".dagster/storage/roads_and_transport")
         if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
@@ -73,6 +101,22 @@ def _get_road_and_transport_dependent_cache[T](
 def _process_isochrone_data(
     queries: Sequence[tuple[float, float, float]], offset: int
 ) -> tuple[list[Polygon], list[list[Polygon]]]:
+    """Compute intersection and per-query isochrone polygons for a set of queries.
+
+    Results are persisted to Streamlit's disk cache keyed by ``queries`` and
+    ``offset``.
+
+    Args:
+        queries: Sequence of ``(longitude, latitude, max_duration)`` tuples.
+        offset: Station-cost penalty in minutes added to every station edge
+            before computing isochrones.
+
+    Returns:
+        A tuple of ``(intersection_polys, isochrone_polys)`` where
+        ``intersection_polys`` is a flat list of polygons covering the area
+        reachable from *all* query locations, and ``isochrone_polys`` is a
+        nested list (one inner list per query) of per-component polygons.
+    """
     graph = load_graph(offset)
     with concurrent.futures.ThreadPoolExecutor() as executor:
         separate_isochrones = list(
@@ -112,6 +156,17 @@ def add_or_update_query(
     latitude: float,
     max_duration: int,
 ) -> list[tuple[float, float, int]]:
+    """Add a new query or update the max duration of an existing one with the same coordinates.
+
+    Args:
+        queries: The current list of ``(longitude, latitude, max_duration)`` tuples.
+        longitude: Longitude of the query destination.
+        latitude: Latitude of the query destination.
+        max_duration: Maximum acceptable commute duration in minutes.
+
+    Returns:
+        A new list with the query added or updated.
+    """
     queries = queries.copy()
     query = (longitude, latitude, max_duration)
     for i, (other_longitude, other_latitude, *_) in enumerate(queries):
@@ -123,6 +178,7 @@ def add_or_update_query(
 
 
 def render_query_section() -> None:
+    """Render the Streamlit section for entering and managing commute queries."""
     st.header("Flathunt!")
     longitude_value = st.text_input("Enter longitude:", key="longitude_input")
     latitude_value = st.text_input("Enter latitude:", key="latitude_input")
@@ -159,6 +215,7 @@ def render_query_section() -> None:
 
 
 def render_isochrone_section() -> None:
+    """Render the Streamlit section for computing and displaying isochrones."""
     # Keep the offset in-line with dagster:
     offset = st.slider(
         "Station Cost Offset (in minutes):",
@@ -179,6 +236,7 @@ def render_isochrone_section() -> None:
 
 
 def render_map_section() -> None:
+    """Render the Streamlit section displaying the isochrone map."""
     if (
         "intersection_polys" in st.session_state
         and "isochrone_polys" in st.session_state
@@ -196,6 +254,7 @@ def render_map_section() -> None:
 
 
 def render_property_search_section() -> None:
+    """Render the Streamlit section for fetching and filtering properties by commute."""
     if "intersection_polys" not in st.session_state:
         return
 
@@ -240,6 +299,7 @@ def render_property_search_section() -> None:
 
 
 def render_results_section() -> None:
+    """Render the Streamlit section for applying extra filters and displaying results."""
     if "properties" in st.session_state:
         st.subheader("Extra Filters")
         channel = st.session_state["channel_selectbox"]
@@ -301,6 +361,11 @@ def render_results_section() -> None:
 def render_property_table(
     properties: Iterable[tuple[rightmove.models.MapProperty, Sequence[int | None]]],
 ) -> None:
+    """Render a Streamlit dataframe of properties with prices, sizes, URLs, and commute times.
+
+    Args:
+        properties: Iterable of ``(property, durations)`` pairs to display.
+    """
     channel = st.session_state["channel_selectbox"]
     property_data = _convert_properties_to_dicts(properties, channel)
     st.dataframe(
@@ -316,6 +381,19 @@ def _convert_properties_to_dicts(
     properties: Iterable[tuple[rightmove.models.MapProperty, Sequence[int | None]]],
     channel: Literal["RENT", "BUY"],
 ) -> list[dict[str, str | int]]:
+    """Convert property/duration pairs into display-ready dicts for a Streamlit dataframe.
+
+    Args:
+        properties: Iterable of ``(property, durations)`` pairs.
+        channel: Listing channel used to format the price field.
+
+    Returns:
+        A list of dicts with keys ``Name``, ``Price``, ``Size``, ``URL``,
+        ``Minutes to Commute``, and one ``Commute to Query N`` key per query.
+
+    Raises:
+        ValueError: If ``channel`` is neither ``"RENT"`` nor ``"BUY"``.
+    """
     property_data = []
     for property, prop_durations in properties:
         if property.property_url is None:
@@ -356,6 +434,18 @@ def _get_geo_dataframe(
     polys: tuple[Polygon, ...],
     other_polys: tuple[tuple[Polygon | GeometryCollection, ...], ...],
 ) -> tuple[gpd.GeoDataFrame, gpd.GeoSeries]:
+    """Build GeoDataFrames for intersection and isochrone polygons, reprojected to WGS84.
+
+    Args:
+        polys: Intersection polygons in BNG (EPSG:27700).
+        other_polys: Per-query tuples of isochrone polygons in BNG (EPSG:27700).
+
+    Returns:
+        A tuple of ``(all_polys_gdf, center_point_wgs84)`` where
+        ``all_polys_gdf`` is a combined GeoDataFrame reprojected to WGS84 with
+        a ``type`` column, and ``center_point_wgs84`` is a single-point
+        GeoSeries at the centroid of all polygons.
+    """
     # Build GeoDataFrame for intersection polygons
     intersection_gdf = gpd.GeoDataFrame(
         {"id": list(range(len(polys))), "type": ["Intersection"] * len(polys)},
@@ -406,6 +496,19 @@ def _get_map(
     polys: tuple[Polygon, ...],
     isochrone_polys: tuple[tuple[Polygon | GeometryCollection, ...], ...],
 ):
+    """Build a Plotly choropleth map of isochrone and intersection polygons.
+
+    For a single query, only the intersection polygons are shown (the
+    per-query isochrones are omitted as they would be identical).
+
+    Args:
+        queries: Tuple of ``(longitude, latitude, max_duration)`` tuples.
+        polys: Intersection polygons in BNG (EPSG:27700).
+        isochrone_polys: Per-query tuples of isochrone polygons in BNG (EPSG:27700).
+
+    Returns:
+        A Plotly Figure containing the choropleth map.
+    """
     # Make map
     if len(queries) == 1:
         other_polys = []
@@ -430,6 +533,21 @@ def _get_choropleth_map_figure(
     center_lon: float,
     num_other_polys: int,
 ):
+    """Render a Plotly choropleth map figure from a combined GeoDataFrame.
+
+    Intersection polygons are coloured red; each query's isochrone is assigned
+    a distinct colour cycling through a fixed palette.
+
+    Args:
+        all_polys_gdf: A WGS84 GeoDataFrame with a ``type`` column whose values
+            are ``"Intersection"`` or ``"Query N"``.
+        center_lat: Latitude of the map centre in WGS84.
+        center_lon: Longitude of the map centre in WGS84.
+        num_other_polys: Number of distinct query isochrone types to colour.
+
+    Returns:
+        A Plotly Figure containing the choropleth map.
+    """
     logger.info("Plotting map of isochrones and intersections.")
     # Build color map dynamically
     query_colors = ["blue", "green", "orange", "purple", "cyan", "magenta"]

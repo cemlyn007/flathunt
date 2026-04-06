@@ -21,6 +21,14 @@ MAX_RIGHTMOVE_SEARCH_PROPERTIES = 499
 
 
 def split_polygon(polygon: Polygon) -> list[Polygon]:
+    """Split a polygon into up to four quadrant sub-polygons by bisecting its bounding box.
+
+    Args:
+        polygon: The Shapely Polygon to split.
+
+    Returns:
+        A list of Polygon parts. Empty or degenerate intersections are omitted.
+    """
     minx, miny, maxx, maxy = polygon.bounds
     midx = (minx + maxx) / 2
     midy = (miny + maxy) / 2
@@ -63,6 +71,19 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
 async def fetch_journey_results(
     client: tfl.api.Tfl, lon: float, lat: float, query_lon: float, query_lat: float
 ) -> float | None:
+    """Fetch the minimum TfL journey duration from a property to a destination.
+
+    Args:
+        client: An authenticated TfL API client.
+        lon: Longitude of the origin (property location) in WGS84.
+        lat: Latitude of the origin (property location) in WGS84.
+        query_lon: Longitude of the destination in WGS84.
+        query_lat: Latitude of the destination in WGS84.
+
+    Returns:
+        The minimum journey duration in minutes, or ``None`` if the journey
+        could not be determined (disambiguation result or API error).
+    """
     try:
         journey_results = await client.get_journey_results(
             from_location=(lat, lon),
@@ -102,6 +123,18 @@ async def fetch_journey_results(
 def _subdivide_exterior(
     coords: list[tuple[float, float]],
 ) -> list[list[tuple[float, float]]]:
+    """Subdivide a polygon exterior into parts that each satisfy the Rightmove coordinate limit.
+
+    The polygon is split into quadrants recursively until every part has at
+    most ``MAX_RIGHTMOVE_POLYLINE_POINTS`` vertices (after optional simplification).
+
+    Args:
+        coords: Exterior ring as ``(lat, lon)`` tuples in WGS84.
+
+    Returns:
+        A list of exterior rings, each as ``(lat, lon)`` tuples, safe to pass
+        directly to the Rightmove polyline search endpoint.
+    """
     shapely_coords = [(lon, lat) for lat, lon in coords]
     poly = Polygon(shapely_coords)
     if not poly.is_valid:
@@ -131,6 +164,21 @@ def _subdivide_exterior(
 async def get_property_ids_in_area(
     coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT", depth=0
 ) -> list[rightmove.models.MapProperty]:
+    """Fetch all Rightmove properties within a WGS84 polygon, subdividing as needed.
+
+    If the coordinate count exceeds ``MAX_RIGHTMOVE_POLYLINE_POINTS``, or if
+    the result count exceeds ``MAX_RIGHTMOVE_SEARCH_PROPERTIES``, the polygon
+    is split into quadrants and the search is retried recursively.
+
+    Args:
+        coords: Exterior ring of the search area as ``(lat, lon)`` tuples in WGS84.
+        channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
+            Defaults to ``"RENT"``.
+        depth: Current recursion depth (used for logging). Defaults to 0.
+
+    Returns:
+        A deduplicated list of properties within the search polygon.
+    """
     rightmove_client = rightmove.api.Rightmove()
     # Ensure coords limit
     if len(coords) > MAX_RIGHTMOVE_POLYLINE_POINTS:
@@ -175,6 +223,20 @@ async def get_property_ids_in_area(
 def check_property_size(
     property: rightmove.models.MapProperty, min_square_meters: float
 ):
+    """Check whether a property meets a minimum floor-area requirement.
+
+    Parses the ``display_size`` field, which may be expressed in square feet
+    or square metres. Properties with no size information are considered to
+    pass the check.
+
+    Args:
+        property: The Rightmove property to check.
+        min_square_meters: Minimum acceptable floor area in square metres.
+
+    Returns:
+        ``True`` if the property's size is unknown or at least ``min_square_meters``,
+        ``False`` if it is known and below the threshold.
+    """
     if property.display_size:
         if property.display_size.endswith(" sq. ft."):
             square_ft = int(

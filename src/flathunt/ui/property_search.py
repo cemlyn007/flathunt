@@ -23,6 +23,19 @@ TILE_SIZE = 0.02
 def get_tiles_covering_polygon(
     polygon: Polygon,
 ) -> list[tuple[str, list[tuple[float, float]]]]:
+    """Enumerate fixed-size WGS84 tiles that intersect a polygon.
+
+    The map is divided into a regular grid of ``TILE_SIZE`` × ``TILE_SIZE``
+    degree cells. Only cells that intersect ``polygon`` are returned.
+
+    Args:
+        polygon: A Shapely Polygon in WGS84 (EPSG:4326).
+
+    Returns:
+        A list of ``(tile_id, tile_coords)`` pairs, where ``tile_id`` is a
+        string key derived from the tile's south-west corner and ``tile_coords``
+        is a list of five ``(lat, lon)`` tuples forming the closed tile boundary.
+    """
     min_lon, min_lat, max_lon, max_lat = polygon.bounds
 
     start_lon_idx = math.floor(min_lon / TILE_SIZE)
@@ -56,6 +69,24 @@ def get_property_ids_in_area_cached(
     channel: Literal["RENT", "BUY"],
     cache: ModelCache[list[rightmove.models.MapProperty]],
 ) -> list[rightmove.models.MapProperty]:
+    """Fetch Rightmove properties within a polygon, using a tile cache to avoid redundant requests.
+
+    ``map_polygon_boundary`` is tiled and each tile is looked up in ``cache``
+    before falling back to the Rightmove API. Results are deduplicated and
+    filtered to only those contained within the search polygon derived from
+    ``coords``.
+
+    Args:
+        map_polygon_boundary: WGS84 polygon defining the overall map boundary
+            used to generate search tiles.
+        coords: Exterior ring of the search area as ``(lat, lon)`` tuples in WGS84.
+        channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
+        cache: Persistent tile-level cache for Rightmove responses.
+
+    Returns:
+        A deduplicated list of properties whose locations fall inside the
+        polygon described by ``coords``.
+    """
     shapely_coords = [(lon, lat) for lat, lon in coords]
     search_polygon = Polygon(shapely_coords)
     if not search_polygon.is_valid:
@@ -119,6 +150,20 @@ async def get_properties_journey_duration_cached(
     cache: ModelCache[int | None],
     tfl_api_key: str,
 ) -> list[int | None]:
+    """Fetch TfL journey durations for a list of origin/destination pairs, using a cache.
+
+    Cache hits are returned immediately; misses are fetched concurrently from the
+    TfL API and then stored.
+
+    Args:
+        to_froms: A list of ``(from_lon, from_lat, to_lon, to_lat)`` tuples.
+        cache: Persistent cache mapping journey keys to durations in minutes.
+        tfl_api_key: TfL API application key.
+
+    Returns:
+        A list of journey durations (minutes) aligned with ``to_froms``.
+        ``None`` indicates a failed or unavailable journey.
+    """
     durations: list[int | None] = []
     to_fetch = []
     fetch_indices = []
@@ -163,6 +208,20 @@ async def get_commute_durations(
     cache: ModelCache[int | None],
     tfl_api_key: str,
 ) -> list[list[int | None]]:
+    """Compute TfL commute durations from each property to each query destination.
+
+    Args:
+        properties: List of properties whose commute times are required.
+        queries: List of ``(longitude, latitude, max_duration)`` tuples
+            defining commute destinations (``max_duration`` is ignored here).
+        cache: Persistent cache for journey durations.
+        tfl_api_key: TfL API application key.
+
+    Returns:
+        A list aligned with ``properties``. Each element is a list of durations
+        (minutes) aligned with ``queries``. ``None`` indicates an unavailable
+        journey.
+    """
     flat_to_froms: list[tuple[float, float, float, float]] = [
         (prop.location.longitude, prop.location.latitude, query_lon, query_lat)
         for prop in properties

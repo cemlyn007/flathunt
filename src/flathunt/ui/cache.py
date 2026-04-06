@@ -17,6 +17,13 @@ class _CacheItem[T](BaseModel):
 
 class ModelCache(Generic[T]):
     def __init__(self, model_cls: type[T], cache_file: str | Path, ttl: int = 86400):
+        """Initialise the cache, loading any existing entries from disk.
+
+        Args:
+            model_cls: The Pydantic model class used to validate cached items.
+            cache_file: Path to the JSON file used for persistent storage.
+            ttl: Time-to-live for cache entries in seconds. Defaults to 86400 (24 h).
+        """
         self.model_cls = model_cls
         self.cache_file = Path(cache_file)
         self.cache: dict[str, _CacheItem[T]] = {}
@@ -25,6 +32,7 @@ class ModelCache(Generic[T]):
         self._load()
 
     def _load(self):
+        """Load the cache from disk, discarding any expired entries."""
         if self.cache_file.exists():
             try:
                 self.cache = self._adapter.validate_json(
@@ -47,6 +55,7 @@ class ModelCache(Generic[T]):
             )
 
     def _save(self):
+        """Persist the current in-memory cache to disk."""
         try:
             self.cache_file.write_bytes(self._adapter.dump_json(self.cache))
             logger.info(
@@ -56,6 +65,17 @@ class ModelCache(Generic[T]):
             logger.exception("Failed to save cache.")
 
     def get(self, id: str) -> T:
+        """Retrieve a cached item by key, raising if missing or expired.
+
+        Args:
+            id: The cache key to look up.
+
+        Returns:
+            The cached item of type T.
+
+        Raises:
+            KeyError: If the key is not present or the entry has expired.
+        """
         cache = self.cache[id]
         if cache.timestamp < time.monotonic() - self.ttl:
             del self.cache[id]
@@ -64,8 +84,12 @@ class ModelCache(Generic[T]):
         return cache.item
 
     def update(self, iterables: Iterable[tuple[str, T]]):
-        """
-        Updates the cache with new items and saves to disk.
+        """Add new key/value pairs to the cache and persist to disk.
+
+        Existing keys are not overwritten.
+
+        Args:
+            iterables: An iterable of (key, value) pairs to insert.
         """
         for key, item in iterables:
             if key in self.cache:

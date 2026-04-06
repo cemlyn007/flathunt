@@ -20,6 +20,21 @@ EDGE_BUFFER = 25
 
 
 def isochrones(graph: nx.Graph, node: Hashable, trip_time: float) -> list[nx.Graph]:
+    """Compute reachable subgraphs from a node within a given travel time.
+
+    Transit-only edges (both endpoints have a ``station_name`` attribute) are
+    removed before splitting into connected components, so each returned
+    subgraph represents a contiguous road-reachable region.
+
+    Args:
+        graph: The combined roads-and-transport graph.
+        node: The starting node identifier.
+        trip_time: Maximum travel duration in minutes.
+
+    Returns:
+        A list of subgraphs, one per connected component reachable within
+        ``trip_time`` minutes.
+    """
     subgraph = nx.ego_graph(graph, node, radius=trip_time, distance="duration")
 
     remove_edges = set()
@@ -39,6 +54,20 @@ def isochrones(graph: nx.Graph, node: Hashable, trip_time: float) -> list[nx.Gra
 
 
 def make_poly(graph: nx.Graph, edge_buff: float, node_buff: float):
+    """Build a single unioned polygon covering all road nodes and edges in a graph.
+
+    Station-to-station edges are excluded so that transit corridors do not
+    inflate the walking polygon.
+
+    Args:
+        graph: A subgraph whose nodes carry ``x`` and ``y`` attributes (BNG metres).
+        edge_buff: Buffer distance in metres applied to each edge geometry.
+        node_buff: Buffer distance in metres applied to each node point.
+
+    Returns:
+        A Shapely geometry (typically a Polygon or MultiPolygon) representing
+        the union of all buffered nodes and edges.
+    """
     node_points = [
         Point((data["x"], data["y"])) for node, data in graph.nodes(data=True)
     ]
@@ -58,16 +87,46 @@ def make_poly(graph: nx.Graph, edge_buff: float, node_buff: float):
 
 
 def euclidean(x1, y1, x2, y2):
+    """Compute the Euclidean distance between two points or arrays of points.
+
+    Args:
+        x1: X coordinate(s) of the first point(s).
+        y1: Y coordinate(s) of the first point(s).
+        x2: X coordinate(s) of the second point(s).
+        y2: Y coordinate(s) of the second point(s).
+
+    Returns:
+        Scalar or NumPy array of distances.
+    """
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def find_nearest_node(x1, y1, x2, y2):
-    """Find the nearest node to a given (x, y) coordinate."""
+    """Return the index of the nearest point in an array to a query point.
+
+    Args:
+        x1: X coordinate of the query point.
+        y1: Y coordinate of the query point.
+        x2: NumPy array of X coordinates of candidate points.
+        y2: NumPy array of Y coordinates of candidate points.
+
+    Returns:
+        Integer index into ``x2``/``y2`` of the closest candidate.
+    """
     distances = euclidean(x1, y1, x2, y2)
     return distances.argmin(axis=0).item()
 
 
 def load_graph(station_cost: float) -> nx.Graph:
+    """Load the roads-and-transport graph from Dagster storage and apply a station penalty.
+
+    Args:
+        station_cost: Additional duration in minutes added to every edge that
+            connects to at least one station node.
+
+    Returns:
+        The combined roads-and-transport NetworkX graph with adjusted edge durations.
+    """
     graph = pickle.loads(Path(".dagster/storage/roads_and_transport").read_bytes())
     for n_fr, n_to in graph.edges():
         if "station_name" in graph.nodes[n_fr] or "station_name" in graph.nodes[n_to]:
@@ -78,6 +137,18 @@ def load_graph(station_cost: float) -> nx.Graph:
 def lookup(
     graph: nx.Graph, lon: float, lat: float, max_duration: float
 ) -> list[nx.Graph]:
+    """Find isochrone subgraphs reachable from a WGS84 coordinate within a time limit.
+
+    Args:
+        graph: The combined roads-and-transport graph.
+        lon: Longitude of the origin point in WGS84.
+        lat: Latitude of the origin point in WGS84.
+        max_duration: Maximum travel duration in minutes.
+
+    Returns:
+        A list of connected subgraphs reachable within ``max_duration`` minutes
+        from the road node nearest to the given coordinate.
+    """
     x, y = wgs84_to_bng(lon, lat)
     road_nodes = [
         node_id
@@ -94,6 +165,14 @@ def lookup(
 
 
 def get_graph_bounds(graph: nx.Graph) -> tuple[float, float, float, float]:
+    """Return the axis-aligned bounding box of all nodes in a graph.
+
+    Args:
+        graph: A NetworkX graph whose nodes carry ``x`` and ``y`` attributes.
+
+    Returns:
+        A tuple ``(min_x, min_y, max_x, max_y)`` in the graph's coordinate system.
+    """
     x_coords = [data["x"] for node, data in graph.nodes(data=True)]
     y_coords = [data["y"] for node, data in graph.nodes(data=True)]
     min_x = min(x_coords)
@@ -104,6 +183,14 @@ def get_graph_bounds(graph: nx.Graph) -> tuple[float, float, float, float]:
 
 
 def bounds_to_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
+    """Convert an axis-aligned bounding box to a closed rectangular Polygon.
+
+    Args:
+        bounds: A ``(min_x, min_y, max_x, max_y)`` tuple.
+
+    Returns:
+        A Shapely Polygon representing the bounding rectangle.
+    """
     min_x, min_y, max_x, max_y = bounds
     return Polygon(
         [
@@ -121,6 +208,24 @@ def get_intersection(
     groups: list[list[nx.Graph]],
     executor: concurrent.futures.ThreadPoolExecutor | None = None,
 ) -> list[nx.Graph]:
+    """Compute the pairwise graph intersection across multiple groups of isochrone subgraphs.
+
+    For a single group the subgraphs are returned unchanged. For two groups,
+    every pair of subgraphs is intersected and the results are merged back into
+    the original graph so that full node/edge attributes are preserved. For more
+    than two groups the computation is applied recursively.
+
+    Args:
+        graph: The original full graph used to restore node and edge attributes
+            after intersection.
+        groups: A list of isochrone groups, where each group is a list of
+            subgraphs for one query location.
+        executor: Optional thread pool to reuse across recursive calls. A new
+            pool is created automatically when ``None``.
+
+    Returns:
+        A list of connected subgraphs representing the intersection of all groups.
+    """
     if executor is None:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             return get_intersection(graph, groups, executor)
@@ -188,18 +293,23 @@ def get_intersection(
 def find_min_simplify_tolerance(
     polygon: Polygon, max_coords=1000, tol=1e-6, max_iter=1000
 ):
-    """
-    Find the minimum tolerance that simplifies a polygon to have fewer than max_coords coordinates.
-    Uses binary search to find the smallest tolerance that achieves the target.
+    """Find the smallest simplification tolerance that reduces a polygon below a coordinate limit.
+
+    Uses binary search to find the minimum Douglas-Peucker tolerance that
+    brings the exterior ring below ``max_coords`` vertices.
 
     Args:
-        polygon: A shapely Polygon
-        max_coords: Maximum number of coordinates allowed (default 1000)
-        tol: Convergence tolerance for binary search (default 1e-6)
-        max_iter: Maximum iterations to prevent infinite loops
+        polygon: The Shapely Polygon to simplify.
+        max_coords: Maximum number of exterior coordinates allowed. Defaults to 1000.
+        tol: Convergence threshold for the binary search. Defaults to 1e-6.
+        max_iter: Maximum number of binary-search iterations. Defaults to 1000.
 
     Returns:
-        Tuple of (simplified_exterior, tolerance_used)
+        A tuple of ``(simplified_exterior, tolerance_used)``. If the polygon is
+        already under the limit, ``tolerance_used`` is ``0.0``.
+
+    Raises:
+        ValueError: If no tolerance up to 1e6 achieves the coordinate limit.
     """
     exterior = polygon.exterior
     original_coords = len(list(exterior.coords))
@@ -244,6 +354,21 @@ def find_min_simplify_tolerance(
 def get_isochrone_polys(
     isochrone_subgraphs: list[list[nx.Graph]],
 ) -> list[list[Polygon]]:
+    """Generate polygons for every subgraph in a nested list of isochrone subgraphs.
+
+    Polygon construction is parallelised across a thread pool. Progress is
+    reported via a ``tqdm`` progress bar.
+
+    Args:
+        isochrone_subgraphs: A list (one entry per query) of lists of subgraphs,
+            as returned by repeated calls to :func:`isochrones`.
+
+    Returns:
+        A nested list of Polygons with the same shape as ``isochrone_subgraphs``.
+
+    Raises:
+        ValueError: If any polygon failed to be generated.
+    """
     isochrone_polys = [[None] * len(subgraphs) for subgraphs in isochrone_subgraphs]
     with concurrent.futures.ThreadPoolExecutor() as executor:
         futures = [
