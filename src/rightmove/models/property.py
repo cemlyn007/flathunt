@@ -1,67 +1,8 @@
 from typing import Any, Optional
 
 import pydantic
-import pydantic.alias_generators
 
-__all__ = [
-    "Highlight",
-    "LookupMatch",
-    "LookupMatches",
-    "Location",
-    "PropertyImage",
-    "PropertyImages",
-    "ListingUpdate",
-    "DisplayPrice",
-    "Price",
-    "BuildToRentBenefits",
-    "DevelopmentContent",
-    "Customer",
-    "ProductLabel",
-    "MatchingLozenges",
-    "LozengeModel",
-    "Tenure",
-    "KeyFeature",
-    "StreetView",
-    "MapProperty",
-    "ListingProperty",
-]
-
-
-class CamelCaseModel(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel,
-        populate_by_name=True,
-        from_attributes=True,
-        serialize_by_alias=True,
-        extra="forbid",
-    )
-
-
-# Lookup Models
-
-
-class Highlight(CamelCaseModel):
-    text: str
-    highlighted: bool
-
-
-class LookupMatch(CamelCaseModel):
-    id: str
-    type: str
-    display_name: str
-    highlighting: str
-    highlights: list[Highlight]
-
-    @property
-    def location_identifier(self) -> str:
-        return f"{self.type}^{self.id}"
-
-
-class LookupMatches(CamelCaseModel):
-    matches: list[LookupMatch]
-
-
-# Property Models
+from rightmove.models.base import CamelCaseModel
 
 
 class Location(CamelCaseModel):
@@ -198,40 +139,3 @@ class ListingProperty(MapProperty):
     country_code: str
     distance: Optional[float] = None
     transaction_type: str
-    product_label: Optional[ProductLabel] = None
-    commercial: bool
-    development: bool
-    residential: bool
-    students: bool
-    fees_apply: bool
-    fees_apply_text: Optional[str] = None
-    show_on_map: bool
-    contact_url: str
-    static_map_url: Optional[str] = None
-    first_visible_date: pydantic.AwareDatetime
-    keywords: list[str]
-    tags: list[str]
-    keyword_match_type: str
-    hidden: bool
-    enhanced_listing: bool
-    formatted_branch_name: str
-    added_or_reduced: str
-    formatted_distance: str
-    heading: str
-    property_type_full_description: str
-    display_status: str
-    is_recent: bool
-    has_brand_plus: bool
-    enquired_timestamp: Optional[str] = None
-    enquiry_added_timestamp: Optional[str] = None
-    enquiry_called_timestamp: Optional[str] = None
-    is_rdl_property: Optional[bool] = None
-    additional_properties: Optional[list[Any]] = None
-    number_of_additional_properties: Optional[int] = None
-    tenure: Optional[Tenure] = None
-    let_available_date: Optional[str] = None
-    key_features: list[KeyFeature]
-    street_view: Optional[StreetView] = None
-    reviews: Optional[Any] = None
-    update_date: pydantic.AwareDatetime
-    commercial_search_prominence_selected: bool
