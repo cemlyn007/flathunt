@@ -1,68 +1,50 @@
 import logging
+import sqlite3
 import time
 from pathlib import Path
-from typing import Generic, Iterable, TypeVar
+from typing import Any, Generic, Iterable, TypeVar
 
-from pydantic import BaseModel, TypeAdapter
+from pydantic import TypeAdapter
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+_CREATE_TABLE = """
+CREATE TABLE IF NOT EXISTS cache (
+    key       TEXT PRIMARY KEY,
+    timestamp REAL NOT NULL,
+    item      TEXT NOT NULL
+)
+"""
 
-class _CacheItem[T](BaseModel):
-    timestamp: float
-    item: T
+_CREATE_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
+"""
 
 
 class ModelCache(Generic[T]):
-    def __init__(self, model_cls: type[T], cache_file: str | Path, ttl: int = 86400):
-        """Initialise the cache, loading any existing entries from disk.
+    def __init__(self, model_cls: Any, db_path: str | Path, ttl: int = 86400):
+        """Initialise the cache, creating the SQLite database if it does not exist.
 
         Args:
-            model_cls: The Pydantic model class used to validate cached items.
-            cache_file: Path to the JSON file used for persistent storage.
+            model_cls: The Pydantic-compatible type used to validate cached items.
+            db_path: Path to the SQLite database file.
             ttl: Time-to-live for cache entries in seconds. Defaults to 86400 (24 h).
         """
-        self.model_cls = model_cls
-        self.cache_file = Path(cache_file)
-        self.cache: dict[str, _CacheItem[T]] = {}
-        self._adapter = TypeAdapter(dict[str, _CacheItem[model_cls]])  # type: ignore
         self.ttl = ttl
-        self._load()
+        self._adapter: TypeAdapter[T] = TypeAdapter(model_cls)  # type: ignore[arg-type]
+        self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
+        self._conn.execute(_CREATE_TABLE)
+        self._conn.execute(_CREATE_INDEX)
+        self._conn.commit()
+        self._purge_expired()
 
-    def _load(self):
-        """Load the cache from disk, discarding any expired entries."""
-        if self.cache_file.exists():
-            try:
-                self.cache = self._adapter.validate_json(
-                    self.cache_file.read_bytes(), strict=True
-                )
-                self.cache = {
-                    k: v
-                    for k, v in self.cache.items()
-                    if v.timestamp >= time.time() - self.ttl
-                }
-                logger.info(
-                    f"Loaded {len(self.cache)} {self.model_cls.__name__} items from cache."
-                )
-            except Exception:
-                logger.exception("Failed to load cache.")
-                self.cache = {}
-        else:
-            logger.info(
-                f"No cache found for {self.model_cls.__name__}, starting fresh."
-            )
-
-    def _save(self):
-        """Persist the current in-memory cache to disk."""
-        try:
-            self.cache_file.write_bytes(self._adapter.dump_json(self.cache))
-            logger.info(
-                f"Saved {len(self.cache)} {self.model_cls.__name__} items to cache."
-            )
-        except Exception:
-            logger.exception("Failed to save cache.")
+    def _purge_expired(self) -> None:
+        """Delete all entries whose TTL has elapsed."""
+        cutoff = time.time() - self.ttl
+        self._conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
+        self._conn.commit()
 
     def get(self, id: str) -> T:
         """Retrieve a cached item by key, raising if missing or expired.
@@ -76,23 +58,29 @@ class ModelCache(Generic[T]):
         Raises:
             KeyError: If the key is not present or the entry has expired.
         """
-        cache = self.cache[id]
-        if cache.timestamp < time.time() - self.ttl:
-            del self.cache[id]
-            self._save()
-            raise KeyError(f"Cache item for {id} has expired.")
-        return cache.item
+        cutoff = time.time() - self.ttl
+        row = self._conn.execute(
+            "SELECT item FROM cache WHERE key = ? AND timestamp >= ?",
+            (id, cutoff),
+        ).fetchone()
+        if row is None:
+            raise KeyError(id)
+        return self._adapter.validate_json(row[0])
 
-    def update(self, iterables: Iterable[tuple[str, T]]):
-        """Add new key/value pairs to the cache and persist to disk.
+    def update(self, iterables: Iterable[tuple[str, T]]) -> None:
+        """Add new key/value pairs to the cache.
 
         Existing keys are not overwritten.
 
         Args:
             iterables: An iterable of (key, value) pairs to insert.
         """
-        for key, item in iterables:
-            if key in self.cache:
-                continue
-            self.cache[key] = _CacheItem(timestamp=time.time(), item=item)
-        self._save()
+        now = time.time()
+        self._conn.executemany(
+            "INSERT OR IGNORE INTO cache (key, timestamp, item) VALUES (?, ?, ?)",
+            [
+                (key, now, self._adapter.dump_json(item).decode())
+                for key, item in iterables
+            ],
+        )
+        self._conn.commit()

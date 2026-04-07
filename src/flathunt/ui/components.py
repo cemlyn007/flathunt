@@ -4,7 +4,7 @@ import logging
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import geopandas as gpd
 import pandas as pd
@@ -58,7 +58,7 @@ def get_property_ids_in_area_cache() -> ModelCache[list[rightmove.models.MapProp
     """
     return _get_road_and_transport_dependent_cache(
         list[rightmove.models.MapProperty],
-        data_dir / "property_locations_cache.json",
+        data_dir / "property_locations_cache.db",
     )
 
 
@@ -73,13 +73,14 @@ def get_journey_cache() -> ModelCache[int | None]:
         A ``ModelCache`` storing journey durations (minutes) or ``None``.
     """
     return _get_road_and_transport_dependent_cache(
-        int | None,  # type: ignore
-        data_dir / "journey_cache.json",
+        int | None,
+        data_dir / "journey_cache.db",
+        ttl=100 * 24 * 60 * 60,
     )
 
 
 def _get_road_and_transport_dependent_cache[T](
-    t: type[T], cache: Path
+    t: Any, cache: Path, ttl: int = 86400
 ) -> ModelCache[T]:
     """Create a ModelCache that is invalidated when the roads-and-transport graph changes.
 
@@ -97,7 +98,7 @@ def _get_road_and_transport_dependent_cache[T](
         graph_path = Path(".dagster/storage/roads_and_transport")
         if graph_path.exists() and cache.stat().st_mtime < graph_path.stat().st_mtime:
             cache.unlink()
-    return ModelCache(t, cache)
+    return ModelCache(t, cache, ttl=ttl)
 
 
 @st.cache_data(persist="disk")
