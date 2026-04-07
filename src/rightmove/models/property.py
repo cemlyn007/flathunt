@@ -130,6 +130,11 @@ class _PropertyBase(CamelCaseModel):
     saved: bool
     online_viewings_available: bool
     lozenge_model: LozengeModel
+    keywords: list[str] = []
+    keyword_match_type: Optional[str] = None
+    hidden: bool = False
+    has_brand_plus: Optional[bool] = None
+    display_status: Optional[str] = None
 
 
 class MapProperty(_PropertyBase):
@@ -157,10 +162,7 @@ class ListingProperty(_PropertyBase):
     contact_url: Optional[str] = None
     static_map_url: Optional[str] = None
     first_visible_date: Optional[pydantic.AwareDatetime] = None
-    keywords: list[str] = []
     tags: list[str] = []
-    keyword_match_type: Optional[str] = None
-    hidden: bool = False
     street_view: Optional[StreetView] = None
     enquired_timestamp: Optional[pydantic.AwareDatetime] = None
     update_date: Optional[pydantic.AwareDatetime] = None
@@ -174,9 +176,7 @@ class ListingProperty(_PropertyBase):
     formatted_distance: Optional[str] = None
     heading: Optional[str] = None
     property_type_full_description: Optional[str] = None
-    display_status: Optional[str] = None
     is_recent: Optional[bool] = None
-    has_brand_plus: Optional[bool] = None
     is_rdl_property: Optional[bool] = None
     additional_properties: Optional[list[Any]] = None
     number_of_additional_properties: Optional[int] = None

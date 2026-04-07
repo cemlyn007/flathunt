@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 import logging
 from typing import Literal
@@ -9,6 +10,7 @@ import rightmove.api
 import rightmove.models
 import tfl.api
 import tfl.models
+from flathunt.coords import LatLon
 from flathunt.ui.isochrone import find_min_simplify_tolerance
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,7 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
 
 async def fetch_journey_results(
     client: tfl.api.Tfl, lon: float, lat: float, query_lon: float, query_lat: float
-) -> float | None:
+) -> int | None:
     """Fetch the minimum TfL journey duration from a property to a destination.
 
     Args:
@@ -161,7 +163,11 @@ def _subdivide_exterior(
 
 
 async def get_property_ids_in_area(
-    coords: list[tuple[float, float]], channel: Literal["RENT", "BUY"] = "RENT", depth=0
+    coords: list[LatLon],
+    channel: Literal["RENT", "BUY"] = "RENT",
+    depth: int = 0,
+    *,
+    semaphore: asyncio.Semaphore,
 ) -> list[rightmove.models.MapProperty]:
     """Fetch all Rightmove properties within a WGS84 polygon, subdividing as needed.
 
@@ -170,7 +176,7 @@ async def get_property_ids_in_area(
     is split into quadrants and the search is retried recursively.
 
     Args:
-        coords: Exterior ring of the search area as ``(lat, lon)`` tuples in WGS84.
+        coords: Exterior ring of the search area as ``LatLon`` values in WGS84.
         channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
             Defaults to ``"RENT"``.
         depth: Current recursion depth (used for logging). Defaults to 0.
@@ -181,40 +187,46 @@ async def get_property_ids_in_area(
     rightmove_client = rightmove.api.Rightmove()
     # Ensure coords limit
     if len(coords) > MAX_RIGHTMOVE_POLYLINE_POINTS:
-        exterior = LinearRing([(lon, lat) for lat, lon in coords])
+        exterior = LinearRing([(c.lon, c.lat) for c in coords])
         sub_exteriors = _subdivide_exterior(exterior)
         results = []
         for sub_exterior in sub_exteriors:
-            sub_coords = [(y, x) for x, y in sub_exterior.coords]
+            sub_coords = [LatLon(lat=y, lon=x) for x, y in sub_exterior.coords]
             results.extend(
                 property_location
                 for property_location in await get_property_ids_in_area(
-                    sub_coords, channel=channel, depth=depth + 1
+                    sub_coords, channel=channel, depth=depth + 1, semaphore=semaphore
                 )
                 if not any(result.id == property_location.id for result in results)
             )
         return results
     else:
-        search_results, count = await rightmove_client.map_search(
-            rightmove.api.SearchQuery(
-                location_identifier=rightmove.api.polyline_identifier(coords),
-                is_fetching=True,
-                channel=channel,
+        async with semaphore:
+            search_results, count = await rightmove_client.map_search(
+                rightmove.api.SearchQuery(
+                    location_identifier=rightmove.api.polyline_identifier(
+                        [(c.lat, c.lon) for c in coords]
+                    ),
+                    is_fetching=True,
+                    channel=channel,
+                )
             )
-        )
         if count > MAX_RIGHTMOVE_SEARCH_PROPERTIES:
             logger.info(
                 f"Count {count} > {MAX_RIGHTMOVE_SEARCH_PROPERTIES}, subdividing (depth {depth})."
             )
-            exterior = LinearRing([(lon, lat) for lat, lon in coords])
+            exterior = LinearRing([(c.lon, c.lat) for c in coords])
             sub_exteriors = _subdivide_exterior(exterior)
             results = []
             for sub_exterior in sub_exteriors:
-                sub_coords = [(y, x) for x, y in sub_exterior.coords]
+                sub_coords = [LatLon(lat=y, lon=x) for x, y in sub_exterior.coords]
                 results.extend(
                     property_location
                     for property_location in await get_property_ids_in_area(
-                        sub_coords, channel=channel, depth=depth + 1
+                        sub_coords,
+                        channel=channel,
+                        depth=depth + 1,
+                        semaphore=semaphore,
                     )
                     if not any(result.id == property_location.id for result in results)
                 )

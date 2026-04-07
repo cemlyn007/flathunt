@@ -88,6 +88,8 @@ class StopPoint(TflModel):
     additional_properties: list = pydantic.Field(default_factory=list)
     lat: float | None = None
     lon: float | None = None
+    naptan_id: str | None = None
+    individual_stop_id: str | None = None
 
 
 class RouteOption(TflModel):

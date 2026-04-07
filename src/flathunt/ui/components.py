@@ -1,6 +1,5 @@
 import asyncio
 import concurrent.futures
-import json
 import logging
 import os
 from collections.abc import Iterable, Sequence
@@ -10,11 +9,18 @@ from typing import Literal, cast
 import geopandas as gpd
 import pandas as pd
 import plotly.express as px
+import pydantic
 import streamlit as st
 from shapely import GeometryCollection, Point, Polygon
 
 import rightmove.models
+from flathunt.coords import CommuteDest
 from flathunt.ui.cache import ModelCache
+from flathunt.ui.filters import (
+    fetch_properties_within_optimal_regions,
+    filter_by_commute,
+    filter_properties_by_budget_and_features,
+)
 from flathunt.ui.isochrone import (
     EDGE_BUFFER,
     NODE_BUFFER,
@@ -23,11 +29,6 @@ from flathunt.ui.isochrone import (
     load_graph,
     lookup,
     make_poly,
-)
-from flathunt.ui.filters import (
-    fetch_properties_within_optimal_regions,
-    filter_by_commute,
-    filter_properties_by_budget_and_features,
 )
 from flathunt.ui.property_search import get_commute_durations
 
@@ -39,7 +40,9 @@ tfl_api_key = st.secrets["tfl"]["api_key"]
 
 if not st.session_state.get("initialized", False):
     data_dir.mkdir(parents=True, exist_ok=True)
-    st.session_state["queries"] = json.loads(os.environ["FLATHUNT__QUERIES"])
+    st.session_state["queries"] = pydantic.TypeAdapter(list[CommuteDest]).validate_json(
+        os.environ["FLATHUNT__QUERIES"]
+    )
     st.session_state["initialized"] = True
 
 
@@ -70,7 +73,7 @@ def get_journey_cache() -> ModelCache[int | None]:
         A ``ModelCache`` storing journey durations (minutes) or ``None``.
     """
     return _get_road_and_transport_dependent_cache(
-        int | None,  # type: ignore[arg-type]
+        int | None,  # type: ignore
         data_dir / "journey_cache.json",
     )
 
@@ -99,7 +102,7 @@ def _get_road_and_transport_dependent_cache[T](
 
 @st.cache_data(persist="disk")
 def _process_isochrone_data(
-    queries: Sequence[tuple[float, float, float]], offset: int
+    queries: Sequence[CommuteDest], offset: int
 ) -> tuple[list[Polygon], list[list[Polygon]]]:
     """Compute intersection and per-query isochrone polygons for a set of queries.
 
@@ -107,7 +110,7 @@ def _process_isochrone_data(
     ``offset``.
 
     Args:
-        queries: Sequence of ``(longitude, latitude, max_duration)`` tuples.
+        queries: Sequence of ``CommuteDest`` values defining commute destinations.
         offset: Station-cost penalty in minutes added to every station edge
             before computing isochrones.
 
@@ -123,9 +126,9 @@ def _process_isochrone_data(
             executor.map(
                 lookup,
                 [graph] * len(queries),
-                [q[0] for q in queries],
-                [q[1] for q in queries],
-                [q[2] for q in queries],
+                [q.lon for q in queries],
+                [q.lat for q in queries],
+                [q.max_duration for q in queries],
             )
         )
         polys_futures = [
@@ -151,15 +154,15 @@ def _process_isochrone_data(
 
 
 def add_or_update_query(
-    queries: list[tuple[float, float, int]],
+    queries: list[CommuteDest],
     longitude: float,
     latitude: float,
     max_duration: int,
-) -> list[tuple[float, float, int]]:
+) -> list[CommuteDest]:
     """Add a new query or update the max duration of an existing one with the same coordinates.
 
     Args:
-        queries: The current list of ``(longitude, latitude, max_duration)`` tuples.
+        queries: The current list of ``CommuteDest`` values.
         longitude: Longitude of the query destination.
         latitude: Latitude of the query destination.
         max_duration: Maximum acceptable commute duration in minutes.
@@ -168,9 +171,9 @@ def add_or_update_query(
         A new list with the query added or updated.
     """
     queries = queries.copy()
-    query = (longitude, latitude, max_duration)
-    for i, (other_longitude, other_latitude, *_) in enumerate(queries):
-        if (longitude, latitude) == (other_longitude, other_latitude):
+    query = CommuteDest(lon=longitude, lat=latitude, max_duration=max_duration)
+    for i, existing in enumerate(queries):
+        if (existing.lon, existing.lat) == (longitude, latitude):
             queries[i] = query
             return queries
     queries.append(query)
@@ -492,7 +495,7 @@ def _get_geo_dataframe(
     }
 )
 def _get_map(
-    queries: tuple[tuple[float, float, float], ...],
+    queries: tuple[CommuteDest, ...],
     polys: tuple[Polygon, ...],
     isochrone_polys: tuple[tuple[Polygon | GeometryCollection, ...], ...],
 ):
@@ -502,7 +505,7 @@ def _get_map(
     per-query isochrones are omitted as they would be identical).
 
     Args:
-        queries: Tuple of ``(longitude, latitude, max_duration)`` tuples.
+        queries: Tuple of ``CommuteDest`` values defining commute destinations.
         polys: Intersection polygons in BNG (EPSG:27700).
         isochrone_polys: Per-query tuples of isochrone polygons in BNG (EPSG:27700).
 

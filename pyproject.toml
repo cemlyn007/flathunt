@@ -31,6 +31,7 @@ dependencies = [
     "plotly>=6.5.0",
     "streamlit>=1.50.0",
     "pyarrow==22.0.0",
+    "python-dotenv>=1.2.2",
 ]
 
 [project.optional-dependencies]

@@ -41,7 +41,7 @@ class ModelCache(Generic[T]):
                 self.cache = {
                     k: v
                     for k, v in self.cache.items()
-                    if v.timestamp >= time.monotonic() - self.ttl
+                    if v.timestamp >= time.time() - self.ttl
                 }
                 logger.info(
                     f"Loaded {len(self.cache)} {self.model_cls.__name__} items from cache."
@@ -77,7 +77,7 @@ class ModelCache(Generic[T]):
             KeyError: If the key is not present or the entry has expired.
         """
         cache = self.cache[id]
-        if cache.timestamp < time.monotonic() - self.ttl:
+        if cache.timestamp < time.time() - self.ttl:
             del self.cache[id]
             self._save()
             raise KeyError(f"Cache item for {id} has expired.")
@@ -93,6 +93,6 @@ class ModelCache(Generic[T]):
         """
         for key, item in iterables:
             if key in self.cache:
-                return
-            self.cache[key] = _CacheItem(timestamp=time.monotonic(), item=item)
+                continue
+            self.cache[key] = _CacheItem(timestamp=time.time(), item=item)
         self._save()

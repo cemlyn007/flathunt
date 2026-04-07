@@ -6,6 +6,7 @@ from shapely import Point, Polygon
 
 import rightmove.models
 import rightmove.price
+from flathunt.coords import CommuteDest
 from flathunt.ui.cache import ModelCache
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
 from flathunt.ui.property_search import get_property_ids_in_area_cached
@@ -55,7 +56,7 @@ def fetch_properties_within_optimal_regions(
 def filter_by_commute(
     properties: Sequence[rightmove.models.MapProperty],
     durations: Sequence[Sequence[int | None]],
-    queries: Sequence[tuple[float, float, float]],
+    queries: Sequence[CommuteDest],
 ) -> list[tuple[rightmove.models.MapProperty, Sequence[int | None]]]:
     """Retain only properties whose commute durations satisfy every query's maximum.
 
@@ -63,8 +64,8 @@ def filter_by_commute(
         properties: Sequence of properties to filter.
         durations: Per-property commute durations (minutes) for each query,
             aligned with ``properties``. ``None`` indicates an unknown duration.
-        queries: Sequence of ``(longitude, latitude, max_duration)`` tuples
-            defining each commute destination and its time limit.
+        queries: Sequence of ``CommuteDest`` values defining each commute
+            destination and its time limit.
 
     Returns:
         A list of ``(property, durations)`` pairs where every duration is
@@ -74,8 +75,8 @@ def filter_by_commute(
         (prop, prop_durations)
         for prop, prop_durations in zip(properties, durations, strict=True)
         if all(
-            d is not None and d <= max_duration
-            for d, (_, _, max_duration) in zip(prop_durations, queries, strict=True)
+            d is not None and d <= query.max_duration
+            for d, query in zip(prop_durations, queries, strict=True)
         )
     ]
 

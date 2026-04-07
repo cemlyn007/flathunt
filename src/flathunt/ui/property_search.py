@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import math
+from collections.abc import Sequence
 from typing import Literal
 
 from shapely import Point, Polygon
@@ -9,6 +10,7 @@ from shapely.geometry import box
 
 import rightmove.models
 import tfl.api
+from flathunt.coords import CommuteDest, LatLon
 from flathunt.ui.cache import ModelCache
 from flathunt.ui.search_utils import (
     fetch_journey_results,
@@ -18,11 +20,12 @@ from flathunt.ui.search_utils import (
 logger = logging.getLogger(__name__)
 
 TILE_SIZE = 0.02
+_RIGHTMOVE_CONCURRENCY = 3
 
 
 def get_tiles_covering_polygon(
     polygon: Polygon,
-) -> list[tuple[str, list[tuple[float, float]]]]:
+) -> list[tuple[str, list[LatLon]]]:
     """Enumerate fixed-size WGS84 tiles that intersect a polygon.
 
     The map is divided into a regular grid of ``TILE_SIZE`` × ``TILE_SIZE``
@@ -34,7 +37,7 @@ def get_tiles_covering_polygon(
     Returns:
         A list of ``(tile_id, tile_coords)`` pairs, where ``tile_id`` is a
         string key derived from the tile's south-west corner and ``tile_coords``
-        is a list of five ``(lat, lon)`` tuples forming the closed tile boundary.
+        is a list of five ``LatLon`` values forming the closed tile boundary.
     """
     min_lon, min_lat, max_lon, max_lat = polygon.bounds
 
@@ -50,13 +53,12 @@ def get_tiles_covering_polygon(
             lat = lat_idx * TILE_SIZE
             tile_poly = box(lon, lat, lon + TILE_SIZE, lat + TILE_SIZE)
             if polygon.intersects(tile_poly):
-                # coords as (lat, lon)
                 tile_coords = [
-                    (lat, lon),
-                    (lat + TILE_SIZE, lon),
-                    (lat + TILE_SIZE, lon + TILE_SIZE),
-                    (lat, lon + TILE_SIZE),
-                    (lat, lon),
+                    LatLon(lat=lat, lon=lon),
+                    LatLon(lat=lat + TILE_SIZE, lon=lon),
+                    LatLon(lat=lat + TILE_SIZE, lon=lon + TILE_SIZE),
+                    LatLon(lat=lat, lon=lon + TILE_SIZE),
+                    LatLon(lat=lat, lon=lon),
                 ]
                 tile_id = f"{lat:.4f}_{lon:.4f}"
                 tiles.append((tile_id, tile_coords))
@@ -65,7 +67,7 @@ def get_tiles_covering_polygon(
 
 def get_property_ids_in_area_cached(
     map_polygon_boundary: Polygon,
-    coords: list[tuple[float, float]],
+    coords: Sequence[LatLon],
     channel: Literal["RENT", "BUY"],
     cache: ModelCache[list[rightmove.models.MapProperty]],
 ) -> list[rightmove.models.MapProperty]:
@@ -79,7 +81,7 @@ def get_property_ids_in_area_cached(
     Args:
         map_polygon_boundary: WGS84 polygon defining the overall map boundary
             used to generate search tiles.
-        coords: Exterior ring of the search area as ``(lat, lon)`` tuples in WGS84.
+        coords: Exterior ring of the search area as ``LatLon`` values in WGS84.
         channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
         cache: Persistent tile-level cache for Rightmove responses.
 
@@ -87,8 +89,7 @@ def get_property_ids_in_area_cached(
         A deduplicated list of properties whose locations fall inside the
         polygon described by ``coords``.
     """
-    shapely_coords = [(lon, lat) for lat, lon in coords]
-    search_polygon = Polygon(shapely_coords)
+    search_polygon = Polygon([(c.lon, c.lat) for c in coords])
     if not search_polygon.is_valid:
         search_polygon = search_polygon.buffer(0)
 
@@ -96,8 +97,7 @@ def get_property_ids_in_area_cached(
 
     selected_tiles = []
     for tile_id, tile_coords in tiles:
-        # tile_coords is (lat, lon)
-        tile_poly = Polygon([(lon, lat) for lat, lon in tile_coords])
+        tile_poly = Polygon([(c.lon, c.lat) for c in tile_coords])
         if search_polygon.intersects(tile_poly):
             selected_tiles.append((tile_id, tile_coords))
 
@@ -117,10 +117,21 @@ def get_property_ids_in_area_cached(
     if tiles_to_fetch:
         logger.info(f"Fetching {len(tiles_to_fetch)} tiles from Rightmove.")
 
-        results = [
-            asyncio.run(get_property_ids_in_area(tc, channel=channel))
-            for _, tc in tiles_to_fetch
-        ]
+        semaphore = asyncio.Semaphore(_RIGHTMOVE_CONCURRENCY)
+
+        async def _fetch_all() -> list[list[rightmove.models.MapProperty]]:
+            return list(
+                await asyncio.gather(
+                    *[
+                        get_property_ids_in_area(
+                            tc, channel=channel, semaphore=semaphore
+                        )
+                        for _, tc in tiles_to_fetch
+                    ]
+                )
+            )
+
+        results = asyncio.run(_fetch_all())
 
         cache_updates = []
         for (key, _), props in zip(tiles_to_fetch, results, strict=True):
@@ -146,7 +157,7 @@ def get_property_ids_in_area_cached(
 
 
 async def get_properties_journey_duration_cached(
-    to_froms: list[tuple[float, float, float, float]],
+    to_froms: Sequence[tuple[float, float, float, float]],
     cache: ModelCache[int | None],
     tfl_api_key: str,
 ) -> list[int | None]:
@@ -203,8 +214,8 @@ async def get_properties_journey_duration_cached(
 
 
 async def get_commute_durations(
-    properties: list[rightmove.models.MapProperty],
-    queries: list[tuple[float, float, float]],
+    properties: Sequence[rightmove.models.MapProperty],
+    queries: Sequence[CommuteDest],
     cache: ModelCache[int | None],
     tfl_api_key: str,
 ) -> list[list[int | None]]:
@@ -212,8 +223,7 @@ async def get_commute_durations(
 
     Args:
         properties: List of properties whose commute times are required.
-        queries: List of ``(longitude, latitude, max_duration)`` tuples
-            defining commute destinations (``max_duration`` is ignored here).
+        queries: List of ``CommuteDest`` values defining commute destinations.
         cache: Persistent cache for journey durations.
         tfl_api_key: TfL API application key.
 
@@ -223,9 +233,9 @@ async def get_commute_durations(
         journey.
     """
     flat_to_froms: list[tuple[float, float, float, float]] = [
-        (prop.location.longitude, prop.location.latitude, query_lon, query_lat)
+        (prop.location.longitude, prop.location.latitude, query.lon, query.lat)
         for prop in properties
-        for query_lon, query_lat, _ in queries
+        for query in queries
     ]
     flat_durations = await get_properties_journey_duration_cached(
         flat_to_froms, cache, tfl_api_key

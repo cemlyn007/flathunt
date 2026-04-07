@@ -1,7 +1,7 @@
-import operator
-
 import geopandas as gpd
 from shapely import Point, Polygon
+
+from flathunt.coords import LatLon
 
 WGS84 = "EPSG:4326"
 BNG = "EPSG:27700"
@@ -22,20 +22,20 @@ def wgs84_to_bng(lon: float, lat: float) -> tuple[float, float]:
     return point_bng.x.item(), point_bng.y.item()
 
 
-def poly_bng_to_wgs84_coords(poly: Polygon) -> list[tuple[float, float]]:
-    """Convert the exterior ring of a BNG polygon to a list of WGS84 (lon, lat) coordinates.
+def poly_bng_to_wgs84_coords(poly: Polygon) -> list[LatLon]:
+    """Convert the exterior ring of a BNG polygon to a list of WGS84 coordinates.
 
     Args:
         poly: A Shapely Polygon whose coordinates are in BNG (EPSG:27700).
 
     Returns:
-        A list of (longitude, latitude) tuples in WGS84 (EPSG:4326).
+        A list of ``LatLon`` coordinates in WGS84 (EPSG:4326).
     """
     xs, ys = poly.exterior.coords.xy
     points_wgs84 = gpd.GeoSeries(
         [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs=BNG
     ).to_crs(WGS84)
-    return list(map(operator.attrgetter("x", "y"), points_wgs84))
+    return [LatLon(lat=p.y, lon=p.x) for p in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def poly_bng_to_wgs84(poly: Polygon) -> Polygon:
