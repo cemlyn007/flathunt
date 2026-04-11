@@ -24,13 +24,14 @@ CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
 
 
 class ModelCache(Generic[T]):
-    def __init__(self, model_cls: Any, db_path: str | Path, ttl: int = 86400):
+    def __init__(self, model_cls: Any, db_path: str | Path, ttl: int | None = 86400):
         """Initialise the cache, creating the SQLite database if it does not exist.
 
         Args:
             model_cls: The Pydantic-compatible type used to validate cached items.
             db_path: Path to the SQLite database file.
             ttl: Time-to-live for cache entries in seconds. Defaults to 86400 (24 h).
+                Set to None to disable expiry.
         """
         self.ttl = ttl
         self._adapter: TypeAdapter[T] = TypeAdapter(model_cls)  # type: ignore[arg-type]
@@ -42,6 +43,8 @@ class ModelCache(Generic[T]):
 
     def _purge_expired(self) -> None:
         """Delete all entries whose TTL has elapsed."""
+        if self.ttl is None:
+            return
         cutoff = time.time() - self.ttl
         self._conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
         self._conn.commit()
@@ -58,11 +61,17 @@ class ModelCache(Generic[T]):
         Raises:
             KeyError: If the key is not present or the entry has expired.
         """
-        cutoff = time.time() - self.ttl
-        row = self._conn.execute(
-            "SELECT item FROM cache WHERE key = ? AND timestamp >= ?",
-            (id, cutoff),
-        ).fetchone()
+        if self.ttl is None:
+            row = self._conn.execute(
+                "SELECT item FROM cache WHERE key = ?",
+                (id,),
+            ).fetchone()
+        else:
+            cutoff = time.time() - self.ttl
+            row = self._conn.execute(
+                "SELECT item FROM cache WHERE key = ? AND timestamp >= ?",
+                (id, cutoff),
+            ).fetchone()
         if row is None:
             raise KeyError(id)
         return self._adapter.validate_json(row[0])

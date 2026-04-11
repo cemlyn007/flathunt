@@ -30,3 +30,13 @@ def test_parse_annual_ground_rent(property_details_html: str) -> None:
 def test_parse_council_tax_band(property_details_html: str) -> None:
     details = parse_property_details(property_details_html)
     assert details.living_costs.council_tax_band == "F"
+
+
+def test_parse_tenure_type(property_details_html: str) -> None:
+    details = parse_property_details(property_details_html)
+    assert details.tenure_type == "LEASEHOLD"
+
+
+def test_parse_years_remaining_on_lease(property_details_html: str) -> None:
+    details = parse_property_details(property_details_html)
+    assert details.years_remaining_on_lease == 974

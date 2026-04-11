@@ -5,12 +5,12 @@ import pytest
 
 import rightmove.models
 from flathunt.coords import CommuteDest
-from flathunt.ui.cache import ModelCache
-from flathunt.ui.filters import (
+from flathunt.cache import ModelCache
+from flathunt.filters import (
     filter_by_commute,
     filter_properties_by_budget_and_features,
 )
-from flathunt.ui.property_search import get_commute_durations
+from flathunt.property_search import get_commute_durations
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -123,7 +123,7 @@ def test_get_commute_durations_reshapes_flat_to_2d():
     flat_durations = [10, 20, 30, 40]
 
     with patch(
-        "flathunt.ui.property_search.get_properties_journey_duration_cached",
+        "flathunt.property_search.get_properties_journey_duration_cached",
         new=AsyncMock(return_value=flat_durations),
     ):
         result = asyncio.run(
@@ -141,7 +141,7 @@ def test_get_commute_durations_single_property_single_query():
     flat_durations = [15]
 
     with patch(
-        "flathunt.ui.property_search.get_properties_journey_duration_cached",
+        "flathunt.property_search.get_properties_journey_duration_cached",
         new=AsyncMock(return_value=flat_durations),
     ):
         result = asyncio.run(
@@ -155,7 +155,7 @@ def test_get_commute_durations_single_property_single_query():
 
 def test_get_commute_durations_empty_properties():
     with patch(
-        "flathunt.ui.property_search.get_properties_journey_duration_cached",
+        "flathunt.property_search.get_properties_journey_duration_cached",
         new=AsyncMock(return_value=[]),
     ):
         result = asyncio.run(
@@ -181,7 +181,7 @@ def test_get_commute_durations_passes_correct_to_froms():
         return [10]
 
     with patch(
-        "flathunt.ui.property_search.get_properties_journey_duration_cached",
+        "flathunt.property_search.get_properties_journey_duration_cached",
         new=mock_fetch,
     ):
         asyncio.run(

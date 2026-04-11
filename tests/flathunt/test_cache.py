@@ -1,6 +1,6 @@
 import pytest
 
-from flathunt.ui.cache import ModelCache
+from flathunt.cache import ModelCache
 
 
 @pytest.fixture

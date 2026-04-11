@@ -11,8 +11,8 @@ from shapely.geometry import box
 import rightmove.models
 import tfl.api
 from flathunt.coords import CommuteDest, LatLon
-from flathunt.ui.cache import ModelCache
-from flathunt.ui.search_utils import (
+from flathunt.cache import ModelCache
+from flathunt.search_utils import (
     fetch_journey_results,
     get_property_ids_in_area,
 )

@@ -11,7 +11,7 @@ import rightmove.models
 import tfl.api
 import tfl.models
 from flathunt.coords import LatLon
-from flathunt.ui.isochrone import find_min_simplify_tolerance
+from flathunt.isochrone import find_min_simplify_tolerance
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 import pytest
 from shapely.geometry.polygon import LinearRing
 
-from flathunt.ui.isochrone import find_min_simplify_tolerance
+from flathunt.isochrone import find_min_simplify_tolerance
 
 
 def make_ring(n_points: int) -> LinearRing:
