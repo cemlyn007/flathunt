@@ -30,3 +30,8 @@ class FinalProperty(pydantic.BaseModel):
     annual_service_charge: float | None = None
     tenure_type: str | None = None
     years_remaining_on_lease: int | None = None
+    extracted_years_remaining_on_lease: int | None = None
+    extracted_tenure_type: str | None = None
+    extracted_annual_service_charge: float | None = None
+    extracted_annual_ground_rent: float | None = None
+    extracted_council_tax_band: str | None = None

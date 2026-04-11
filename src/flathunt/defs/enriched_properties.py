@@ -12,11 +12,16 @@ import rightmove.api
 import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.models import FinalProperty, MatchedProperty
+from rightmove.description_extractor import (
+    ExtractedPropertyInfo,
+    PropertyDescriptionExtractor,
+)
 from rightmove.floor_plan import FloorPlanSizeExtractor
 
 logger = logging.getLogger(__name__)
 
 _FLOOR_PLAN_CACHE_TTL = 30 * 24 * 3600  # 30 days
+_LEASEHOLD_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _PROPERTY_DETAILS_CACHE_TTL = 7 * 24 * 3600  # 7 days
 _LLM_CONCURRENCY = 1
 _LLM_CALL_INTERVAL = 5.0  # seconds between LLM calls
@@ -96,13 +101,70 @@ async def _get_floor_plan_sqm(
     return sqm
 
 
+async def _get_description_info(
+    prop_id: int,
+    details: rightmove.models.PropertyDetails | None,
+    cache: ModelCache[ExtractedPropertyInfo],
+    extractor: PropertyDescriptionExtractor,
+    llm_semaphore: asyncio.Semaphore,
+) -> ExtractedPropertyInfo:
+    """Return extracted property info, using cache or LLM extraction.
+
+    Only writes to the cache on a successful extraction attempt so that
+    transient failures (network errors, rate limits) are retried on the
+    next run rather than being permanently recorded as missing.
+    """
+    cache_key = str(prop_id)
+    try:
+        return cache.get(cache_key)
+    except KeyError:
+        pass
+
+    @retry(
+        retry=retry_if_exception(_is_rate_limit_error),
+        wait=wait_exponential(multiplier=1, min=4, max=60),
+        stop=stop_after_attempt(6),
+        reraise=True,
+    )
+    async def _extract_with_retry(description: str) -> ExtractedPropertyInfo:
+        async with llm_semaphore:
+            info = await extractor.extract(description)
+            await asyncio.sleep(_LLM_CALL_INTERVAL)
+        return info
+
+    info = ExtractedPropertyInfo()
+    try:
+        description = details.description if details else None
+        if not description:
+            logger.warning(
+                "Property %d has no description for info extraction.", prop_id
+            )
+        else:
+            info = await _extract_with_retry(description)
+            logger.info(
+                "Extracted description info for property %d: %s",
+                prop_id,
+                info.model_dump(exclude_none=True),
+            )
+        cache.update([(cache_key, info)])
+    except Exception:
+        logger.exception(
+            "Failed to extract description info for property %d — keeping property.",
+            prop_id,
+        )
+
+    return info
+
+
 async def _process_property(
     prop: rightmove.models.MapProperty,
     matched: MatchedProperty,
     needs_extraction: bool,
     floor_plan_cache: ModelCache[float | None],
+    description_info_cache: ModelCache[ExtractedPropertyInfo],
     details_cache: ModelCache[rightmove.models.PropertyDetails],
     extractor: FloorPlanSizeExtractor,
+    description_extractor: PropertyDescriptionExtractor,
     rightmove_client: rightmove.api.Rightmove,
     details_semaphore: asyncio.Semaphore,
     llm_semaphore: asyncio.Semaphore,
@@ -129,6 +191,11 @@ async def _process_property(
             prop.id, details, floor_plan_cache, extractor, llm_semaphore
         )
 
+    api_years = details.years_remaining_on_lease if details else None
+    desc_info = await _get_description_info(
+        prop.id, details, description_info_cache, description_extractor, llm_semaphore
+    )
+
     lc = details.living_costs if details else None
     return FinalProperty(
         id=prop.id,
@@ -150,7 +217,12 @@ async def _process_property(
         ),
         annual_service_charge=lc.annual_service_charge if lc else None,
         tenure_type=details.tenure_type if details else None,
-        years_remaining_on_lease=details.years_remaining_on_lease if details else None,
+        years_remaining_on_lease=api_years,
+        extracted_years_remaining_on_lease=desc_info.years_remaining_on_lease,
+        extracted_tenure_type=desc_info.tenure_type,
+        extracted_annual_service_charge=desc_info.annual_service_charge,
+        extracted_annual_ground_rent=desc_info.annual_ground_rent,
+        extracted_council_tax_band=desc_info.council_tax_band,
     )
 
 
@@ -161,7 +233,7 @@ class Config(dg.Config):
 
 
 @dg.asset
-def size_filtered_property_ids(
+def enriched_properties(
     config: Config,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
@@ -205,7 +277,17 @@ def size_filtered_property_ids(
         ttl=_PROPERTY_DETAILS_CACHE_TTL,
     )
 
+    description_info_cache_path = (
+        Path(config.cache_data_dir) / "description_info_cache.db"
+    )
+    description_info_cache: ModelCache[ExtractedPropertyInfo] = ModelCache(
+        ExtractedPropertyInfo,
+        description_info_cache_path,
+        ttl=_LEASEHOLD_CACHE_TTL,
+    )
+
     extractor = FloorPlanSizeExtractor(token=config.github_token)
+    description_extractor = PropertyDescriptionExtractor(token=config.github_token)
     rightmove_client = rightmove.api.Rightmove()
 
     async def _run_all() -> list[FinalProperty]:
@@ -224,8 +306,10 @@ def size_filtered_property_ids(
                     matched,
                     needs_extraction,
                     floor_plan_cache,
+                    description_info_cache,
                     details_cache,
                     extractor,
+                    description_extractor,
                     rightmove_client,
                     details_semaphore,
                     llm_semaphore,

@@ -12,6 +12,11 @@ def property_details_html() -> str:
     return (_FIXTURES / "property_details.html").read_text(encoding="utf-8")
 
 
+@pytest.fixture
+def property_133551089_html() -> str:
+    return (_FIXTURES / "property_details_133551089.html").read_text(encoding="utf-8")
+
+
 def test_parse_property_id(property_details_html: str) -> None:
     details = parse_property_details(property_details_html)
     assert details.id == "168974183"
@@ -40,3 +45,13 @@ def test_parse_tenure_type(property_details_html: str) -> None:
 def test_parse_years_remaining_on_lease(property_details_html: str) -> None:
     details = parse_property_details(property_details_html)
     assert details.years_remaining_on_lease == 974
+
+
+def test_parse_years_remaining_on_lease_zero_treated_as_none(
+    property_133551089_html: str,
+) -> None:
+    # Rightmove returns yearsRemainingOnLease=0 for this property, which is
+    # invalid (the description states the lease was extended to 170 years).
+    # Zero should be coerced to None so the LLM extractor is used instead.
+    details = parse_property_details(property_133551089_html)
+    assert details.years_remaining_on_lease is None

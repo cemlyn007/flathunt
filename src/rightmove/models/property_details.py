@@ -34,6 +34,17 @@ class Tenure(pydantic.BaseModel):
     tenure_type: Optional[str] = None
     years_remaining_on_lease: Optional[int] = None
 
+    @pydantic.field_validator("years_remaining_on_lease", mode="before")
+    @classmethod
+    def _reject_zero(cls, v: object) -> object:
+        return None if v == 0 else v
+
+
+class PropertyText(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="ignore")
+
+    description: Optional[str] = None
+
 
 class PropertyDetails(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(
@@ -46,6 +57,7 @@ class PropertyDetails(pydantic.BaseModel):
     living_costs: LivingCosts
     floorplans: list[Floorplan] = []
     tenure: Optional[Tenure] = None
+    text: Optional[PropertyText] = None
 
     @property
     def tenure_type(self) -> Optional[str]:
@@ -54,3 +66,7 @@ class PropertyDetails(pydantic.BaseModel):
     @property
     def years_remaining_on_lease(self) -> Optional[int]:
         return self.tenure.years_remaining_on_lease if self.tenure else None
+
+    @property
+    def description(self) -> Optional[str]:
+        return self.text.description if self.text else None

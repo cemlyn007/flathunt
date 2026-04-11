@@ -10,7 +10,7 @@ import yaml
 
 import rightmove.api
 import rightmove.price
-from flathunt.defs.size_filtered_property_ids import _parse_display_size
+from flathunt.defs.enriched_properties import _parse_display_size
 from flathunt.models import FinalProperty
 
 _DAGSTER_STORAGE = Path(".dagster/storage")
@@ -79,14 +79,22 @@ def _build_rows(
             {
                 "Address": fp.display_address,
                 "Price": price_value,
-                "Tenure": fp.tenure_type or "N/A",
-                "Lease Remaining": getattr(fp, "years_remaining_on_lease", None),
+                "Tenure": fp.tenure_type or fp.extracted_tenure_type or "N/A",
+                "Lease Remaining": fp.years_remaining_on_lease
+                if fp.years_remaining_on_lease is not None
+                else fp.extracted_years_remaining_on_lease,
                 "Beds": fp.bedrooms,
                 "Baths": fp.bathrooms,
                 "Size": sqm,
-                "Council Tax": fp.council_tax_band or "N/A",
-                "Ground Rent": fp.annual_ground_rent,
-                "Service Charge": fp.annual_service_charge,
+                "Council Tax": fp.council_tax_band
+                or fp.extracted_council_tax_band
+                or "N/A",
+                "Ground Rent": fp.annual_ground_rent
+                if fp.annual_ground_rent is not None
+                else fp.extracted_annual_ground_rent,
+                "Service Charge": fp.annual_service_charge
+                if fp.annual_service_charge is not None
+                else fp.extracted_annual_service_charge,
                 "Max Commute": max_commute,
                 "URL": (
                     rightmove.api.property_url(fp.property_url)
@@ -102,12 +110,10 @@ def _build_rows(
 st.set_page_config(page_title="Flathunt Results", layout="wide")
 st.title("Flathunt Results")
 
-final_properties: list[FinalProperty] | None = _load_asset("size_filtered_property_ids")
+final_properties: list[FinalProperty] | None = _load_asset("enriched_properties")
 
 if final_properties is None:
-    st.warning(
-        "Missing DAG output: size_filtered_property_ids. Run the flathunt job first."
-    )
+    st.warning("Missing DAG output: enriched_properties. Run the flathunt job first.")
     st.stop()
 
 run_config = _load_run_config()
