@@ -52,35 +52,6 @@ def _get_query_labels(run_config: dict) -> list[str]:
     ]
 
 
-def _format_price(fp: FinalProperty, channel: str) -> str:
-    if fp.price is None:
-        return "N/A"
-    if channel == "RENT":
-        monthly = rightmove.price.normalize(fp.price)
-        return f"£{monthly:,.0f}/mo" if isinstance(monthly, (int, float)) else "N/A"
-    return f"£{fp.price.amount:,}"
-
-
-def _format_sqm(fp: FinalProperty) -> str:
-    sqm = _parse_display_size(fp.display_size) if fp.display_size else None
-    if sqm is not None:
-        return f"{sqm:.0f} sqm"
-    if fp.extracted_sqm is not None:
-        return f"{fp.extracted_sqm:.0f} sqm (extracted)"
-    return "N/A"
-
-
-def _format_ground_rent(fp: FinalProperty) -> str:
-    if fp.annual_ground_rent is None:
-        return "N/A"
-    parts = [f"£{fp.annual_ground_rent:,}/yr"]
-    if fp.ground_rent_review_period_in_years:
-        parts.append(f"review every {fp.ground_rent_review_period_in_years}yr")
-    if fp.ground_rent_percentage_increase:
-        parts.append(f"+{fp.ground_rent_percentage_increase:.1f}%")
-    return ", ".join(parts)
-
-
 def _build_rows(
     properties: list[FinalProperty],
     channel: str,
@@ -88,31 +59,35 @@ def _build_rows(
 ) -> list[dict]:
     rows = []
     for fp in properties:
-        commutes = {
-            label: (f"{d} min" if d is not None else "N/A")
-            for label, d in zip(query_labels, fp.commute_durations)
-        }
+        commutes = {label: d for label, d in zip(query_labels, fp.commute_durations)}
+        commute_values = [d for d in fp.commute_durations if d is not None]
+        max_commute = max(commute_values) if commute_values else None
+
+        price_value: float | None = None
+        if fp.price is not None:
+            if channel == "RENT":
+                monthly = rightmove.price.normalize(fp.price)
+                price_value = monthly if isinstance(monthly, (int, float)) else None
+            else:
+                price_value = fp.price.amount
+
+        sqm = _parse_display_size(fp.display_size) if fp.display_size else None
+        if sqm is None and fp.extracted_sqm is not None:
+            sqm = fp.extracted_sqm
+
         rows.append(
             {
                 "Address": fp.display_address,
-                "Price": _format_price(fp, channel),
+                "Price": price_value,
                 "Tenure": fp.tenure_type or "N/A",
-                "Lease Remaining": (
-                    f"{yrl} yrs"
-                    if (yrl := getattr(fp, "years_remaining_on_lease", None))
-                    is not None
-                    else "N/A"
-                ),
+                "Lease Remaining": getattr(fp, "years_remaining_on_lease", None),
                 "Beds": fp.bedrooms,
                 "Baths": fp.bathrooms,
-                "Size": _format_sqm(fp),
+                "Size": sqm,
                 "Council Tax": fp.council_tax_band or "N/A",
-                "Ground Rent": _format_ground_rent(fp),
-                "Service Charge": (
-                    f"£{fp.annual_service_charge:,}/yr"
-                    if fp.annual_service_charge is not None
-                    else "N/A"
-                ),
+                "Ground Rent": fp.annual_ground_rent,
+                "Service Charge": fp.annual_service_charge,
+                "Max Commute": max_commute,
                 "URL": (
                     rightmove.api.property_url(fp.property_url)
                     if fp.property_url
@@ -147,12 +122,33 @@ if not final_properties:
 
 rows = _build_rows(final_properties, channel, query_labels)
 
+price_label = "Price (£/mo)" if channel == "RENT" else "Price (£)"
+price_format = "£%.0f/mo" if channel == "RENT" else "£%.0f"
+commute_config = {
+    label: st.column_config.NumberColumn(label, format="%.0f") for label in query_labels
+}
+
 st.dataframe(
     pd.DataFrame(rows),
     column_config={
         "URL": st.column_config.LinkColumn("URL"),
+        "Price": st.column_config.NumberColumn(price_label, format=price_format),
+        "Lease Remaining": st.column_config.NumberColumn(
+            "Lease Remaining (yrs)", format="%.0f"
+        ),
         "Beds": st.column_config.NumberColumn("Beds"),
         "Baths": st.column_config.NumberColumn("Baths"),
+        "Size": st.column_config.NumberColumn("Size (sqm)", format="%.0f"),
+        "Ground Rent": st.column_config.NumberColumn(
+            "Ground Rent (£/yr)", format="£%.0f"
+        ),
+        "Service Charge": st.column_config.NumberColumn(
+            "Service Charge (£/yr)", format="£%.0f"
+        ),
+        "Max Commute": st.column_config.NumberColumn(
+            "Max Commute (min)", format="%.0f"
+        ),
+        **commute_config,
     },
     use_container_width=True,
     hide_index=True,
