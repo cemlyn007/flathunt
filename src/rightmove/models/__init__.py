@@ -1,4 +1,5 @@
 from rightmove.models.lookup import Highlight, LookupMatch, LookupMatches
+from rightmove.models.property_details import LivingCosts, PropertyDetails
 from rightmove.models.property import (
     BuildToRentBenefits,
     Customer,
@@ -21,6 +22,8 @@ from rightmove.models.property import (
 
 __all__ = [
     "Highlight",
+    "LivingCosts",
+    "PropertyDetails",
     "LookupMatch",
     "LookupMatches",
     "Location",

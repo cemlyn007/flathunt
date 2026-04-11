@@ -11,6 +11,7 @@ import pydantic
 from tenacity import AsyncRetrying
 
 from rightmove import models
+from rightmove.property_details import parse_property_details
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +200,21 @@ class Rightmove:
             for feature in features
         ], int(location_results["resultCount"].replace(",", ""))
 
+    async def get_property_details(
+        self,
+        property_url: str,
+    ) -> models.PropertyDetails:
+        """Fetch and parse the details page for a property.
+
+        Args:
+            property_url: The property URL path (e.g. ``MapProperty.property_url``).
+
+        Returns:
+            A ``PropertyDetails`` instance parsed from the page.
+        """
+        html = await self._raw_api.property_details(property_url)
+        return parse_property_details(html)
+
 
 def property_url(property_url: str) -> str:
     return f"https://{_RawRightmove.BASE_HOST}{property_url}"
@@ -278,6 +294,12 @@ class _RawRightmove:
                 result = response.json()
                 full_response["properties"].extend(result["properties"])
             return full_response
+
+    async def property_details(self, property_url: str) -> str:
+        async with httpx.AsyncClient(base_url=f"https://{self.BASE_HOST}") as client:
+            response = await client.get(property_url, headers=self._HEADERS)
+            response.raise_for_status()
+            return response.text
 
     async def map_search(
         self,
