@@ -24,7 +24,7 @@ _FLOOR_PLAN_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _LEASEHOLD_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _PROPERTY_DETAILS_CACHE_TTL = 7 * 24 * 3600  # 7 days
 _LLM_CONCURRENCY = 1
-_LLM_CALL_INTERVAL = 5.0  # seconds between LLM calls
+_LLM_CALL_INTERVAL = 15.0  # seconds between LLM calls
 _DETAILS_CONCURRENCY = 3
 
 
@@ -190,6 +190,7 @@ async def _process_property(
         extracted_sqm = await _get_floor_plan_sqm(
             prop.id, details, floor_plan_cache, extractor, llm_semaphore
         )
+        await asyncio.sleep(_LLM_CALL_INTERVAL)
 
     api_years = details.years_remaining_on_lease if details else None
     desc_info = await _get_description_info(
