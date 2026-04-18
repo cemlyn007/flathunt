@@ -95,38 +95,53 @@ async def get(
         return response.status_code, response.content
     except httpx.HTTPStatusError as e:
         e.add_note(e.response.text)
-        logger.error(
-            "HTTP error %s for URL %s with headers %s and content %s",
-            e.response.status_code,
-            url,
-            e.response.headers,
-            e.response.content,
-        )
-        if e.response.status_code == 404:
-            try:
-                error_data = e.response.json()
-                message = error_data.get("message", "Not found")
-                exception_type = error_data.get("exceptionType")
+        try:
+            error_data = e.response.json()
+            message = error_data.get(
+                "message", e.response.reason_phrase or "HTTP error"
+            )
+            exception_type = error_data.get("exceptionType")
+            http_status_code = (
+                error_data.get("httpStatusCode") or e.response.status_code
+            )
 
-                if exception_type == "EntityNotFoundException":
-                    raise exceptions.JourneyNotFoundError(
-                        message=message,
-                        http_status_code=error_data.get("httpStatusCode"),
-                        exception_type=exception_type,
-                        timestamp_utc=error_data.get("timestampUtc"),
-                        relative_uri=error_data.get("relativeUri"),
-                    ) from e
-                else:
-                    raise exceptions.TflApiError(
-                        message=message,
-                        http_status_code=(
-                            error_data.get("httpStatusCode") or e.response.status_code
-                        ),
-                        exception_type=exception_type,
-                        timestamp_utc=error_data.get("timestampUtc"),
-                        relative_uri=error_data.get("relativeUri"),
-                    ) from e
-            except (ValueError, KeyError):
-                # If JSON parsing fails, re-raise the original exception
-                raise
-        raise
+            if exception_type == "EntityNotFoundException":
+                logger.debug(
+                    "No journey found (404 EntityNotFoundException) for URL %s: %s",
+                    url,
+                    message,
+                )
+                raise exceptions.JourneyNotFoundError(
+                    message=message,
+                    http_status_code=http_status_code,
+                    exception_type=exception_type,
+                    timestamp_utc=error_data.get("timestampUtc"),
+                    relative_uri=error_data.get("relativeUri"),
+                ) from e
+            else:
+                logger.error(
+                    "HTTP error %s for URL %s with headers %s and content %s",
+                    e.response.status_code,
+                    url,
+                    e.response.headers,
+                    e.response.content,
+                )
+                raise exceptions.TflApiError(
+                    message=message,
+                    http_status_code=http_status_code,
+                    exception_type=exception_type,
+                    timestamp_utc=error_data.get("timestampUtc"),
+                    relative_uri=error_data.get("relativeUri"),
+                ) from e
+        except (ValueError, KeyError):
+            logger.error(
+                "HTTP error %s for URL %s with headers %s and content %s",
+                e.response.status_code,
+                url,
+                e.response.headers,
+                e.response.content,
+            )
+            raise exceptions.TflApiError(
+                message=str(e),
+                http_status_code=e.response.status_code,
+            ) from e
