@@ -8,6 +8,7 @@ import numpy as np
 import tqdm
 from shapely.geometry import LineString
 
+from flathunt.defs.sources import roads_shapefile
 from flathunt.geometry import wgs84_to_bng
 
 
@@ -47,7 +48,10 @@ def create_roads_graph(
     return graph
 
 
-@dg.asset
+@dg.asset(
+    deps=[roads_shapefile],
+    automation_condition=dg.AutomationCondition.eager(),
+)
 def roads(context: dg.AssetExecutionContext, config: Config) -> nx.Graph:
     roads_gdf = gpd.read_file(config.file_path)
     graph = create_roads_graph(roads_gdf, config.meters_per_minute)

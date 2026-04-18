@@ -15,6 +15,7 @@ from shapely.geometry import LineString
 import tfl.api
 import tfl.exceptions
 import tfl.models
+from flathunt.defs.sources import tfl_network_topology
 from flathunt.geometry import wgs84_to_bng
 
 
@@ -37,7 +38,10 @@ def euclidean(x1, y1, x2, y2):
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
-@dg.asset
+@dg.asset(
+    deps=[tfl_network_topology],
+    automation_condition=dg.AutomationCondition.eager(),
+)
 async def transport(config: Config) -> nx.Graph:
     tf_client = tfl.api.Tfl(app_key=config.tfl_api_key)
     lines = await tf_client.get_all_lines_routes()

@@ -1,4 +1,10 @@
-from dagster import Definitions, config_from_files, define_asset_job
+from dagster import (
+    AssetSelection,
+    AutomationConditionSensorDefinition,
+    Definitions,
+    config_from_files,
+    define_asset_job,
+)
 
 from flathunt.defs.candidate_properties import candidate_properties
 from flathunt.defs.enriched_properties import enriched_properties
@@ -6,6 +12,11 @@ from flathunt.defs.isochrone_intersection import isochrone_intersection
 from flathunt.defs.matched_property_ids import matched_property_ids
 from flathunt.defs.roads import roads
 from flathunt.defs.roads_and_transport import roads_and_transport
+from flathunt.defs.sources import (
+    monitor_map_file_and_tfl_lines,
+    roads_shapefile,
+    tfl_network_topology,
+)
 from flathunt.defs.transport import transport
 
 flathunt_job = define_asset_job(
@@ -21,6 +32,8 @@ flathunt_job = define_asset_job(
 
 defs = Definitions(
     assets=[
+        roads_shapefile,
+        tfl_network_topology,
         roads,
         transport,
         roads_and_transport,
@@ -30,4 +43,11 @@ defs = Definitions(
         enriched_properties,
     ],
     jobs=[flathunt_job],
+    sensors=[
+        monitor_map_file_and_tfl_lines,
+        AutomationConditionSensorDefinition(
+            name="flathunt_automation_sensor",
+            target=AssetSelection.all(),
+        ),
+    ],
 )
