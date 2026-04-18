@@ -1,5 +1,4 @@
-import itertools
-from collections.abc import Iterable, Sequence
+from collections.abc import AsyncIterator, Iterable, Sequence
 from typing import Literal
 
 from shapely import Point, Polygon
@@ -13,16 +12,17 @@ from flathunt.property_search import get_property_ids_in_area_cached
 from flathunt.search_utils import check_property_size
 
 
-def fetch_properties_within_optimal_regions(
+async def fetch_properties_within_optimal_regions(
     polys: list[Polygon],
     channel: Literal["RENT", "BUY"],
     bounding_polygon: Polygon,
     cache: ModelCache[list[rightmove.models.MapProperty]],
-) -> list[rightmove.models.MapProperty]:
-    """Fetch all Rightmove properties that fall inside the given BNG polygons.
+) -> AsyncIterator[list[rightmove.models.MapProperty]]:
+    """Async generator yielding per-tile property lists as each tile is resolved.
 
-    Tiles are derived from ``bounding_polygon`` to drive the Rightmove search,
-    and results are then filtered to only those contained within ``polys``.
+    Fetches all Rightmove properties that fall inside the given BNG polygons,
+    yielding results tile by tile.  Use :func:`~flathunt.property_search.count_tiles`
+    on each polygon before iterating if you need a total for progress display.
 
     Args:
         polys: Isochrone intersection polygons in BNG (EPSG:27700).
@@ -30,27 +30,22 @@ def fetch_properties_within_optimal_regions(
         bounding_polygon: WGS84 polygon used to enumerate search tiles.
         cache: Persistent cache for Rightmove map-search responses.
 
-    Returns:
-        A deduplicated list of properties located inside at least one of ``polys``.
+    Yields:
+        A list of properties within each tile that also fall inside a search polygon.
     """
     non_empty = [poly for poly in polys if not poly.is_empty]
-    locations = list(
-        itertools.chain.from_iterable(
-            get_property_ids_in_area_cached(
-                bounding_polygon, poly_bng_to_wgs84_coords(poly), channel, cache
-            )
-            for poly in non_empty
-        )
-    )
-    polys_wgs84 = [poly_bng_to_wgs84(poly) for poly in non_empty]
-    return [
-        loc
-        for loc in locations
-        if any(
-            poly.contains(Point(loc.location.longitude, loc.location.latitude))
-            for poly in polys_wgs84
-        )
-    ]
+
+    for poly in non_empty:
+        coords = poly_bng_to_wgs84_coords(poly)
+        poly_wgs84 = poly_bng_to_wgs84(poly)
+        async for tile_props in get_property_ids_in_area_cached(
+            bounding_polygon, coords, channel, cache
+        ):
+            yield [
+                p
+                for p in tile_props
+                if poly_wgs84.contains(Point(p.location.longitude, p.location.latitude))
+            ]
 
 
 def filter_by_commute(

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -14,7 +15,8 @@ from flathunt.filters import (
     fetch_properties_within_optimal_regions,
     filter_properties_by_budget_and_features,
 )
-from flathunt.geometry import poly_bng_to_wgs84
+from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
+from flathunt.property_search import count_tiles
 
 _DAILY_CRON = os.environ.get("FLATHUNT__DAILY_CRON", "0 22 * * *")
 
@@ -34,6 +36,7 @@ class Config(dg.Config):
 
 @dg.asset(automation_condition=dg.AutomationCondition.on_cron(_DAILY_CRON))
 def candidate_properties(
+    context: dg.AssetExecutionContext,
     config: Config,
     isochrone_intersection: list[Polygon],
 ) -> list[rightmove.models.MapProperty]:
@@ -45,6 +48,7 @@ def candidate_properties(
     avoid redundant API calls on subsequent runs.
 
     Args:
+        context: Dagster asset execution context, used for progress logging.
         config: Asset configuration: channel (RENT/BUY), price range, feature
             flags, size threshold, and the path to the cache directory.
         isochrone_intersection: BNG Polygons from the ``isochrone_intersection``
@@ -73,12 +77,30 @@ def candidate_properties(
         config.channel,
         len(non_empty),
     )
-    properties = fetch_properties_within_optimal_regions(
-        non_empty,
-        config.channel,
-        bounding_polygon,
-        cache,
+
+    total = sum(
+        count_tiles(bounding_polygon, poly_bng_to_wgs84_coords(poly))
+        for poly in non_empty
     )
+
+    async def _fetch() -> list[rightmove.models.MapProperty]:
+        all_properties = []
+        done = 0
+        async for props in fetch_properties_within_optimal_regions(
+            non_empty, config.channel, bounding_polygon, cache
+        ):
+            all_properties.extend(props)
+            done += 1
+            context.log.info("Tile %d / %d fetched.", done, total)
+        seen: set[int] = set()
+        result = []
+        for p in all_properties:
+            if p.id not in seen:
+                seen.add(p.id)
+                result.append(p)
+        return result
+
+    properties = asyncio.run(_fetch())
     logger.info(
         "Retrieved %d propert(ies) before budget/feature filtering.", len(properties)
     )

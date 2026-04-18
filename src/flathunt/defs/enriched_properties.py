@@ -235,6 +235,7 @@ class Config(dg.Config):
 
 @dg.asset(automation_condition=dg.AutomationCondition.eager())
 def enriched_properties(
+    context: dg.AssetExecutionContext,
     config: Config,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
@@ -316,7 +317,12 @@ def enriched_properties(
                     llm_semaphore,
                 )
             )
-        return list(await asyncio.gather(*tasks))
+        total = len(tasks)
+        results = []
+        for i, coro in enumerate(asyncio.as_completed(tasks), start=1):
+            results.append(await coro)
+            context.log.info("Enriched property %d / %d.", i, total)
+        return results
 
     final_properties = asyncio.run(_run_all())
 

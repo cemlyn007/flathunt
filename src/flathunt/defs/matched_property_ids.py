@@ -12,7 +12,7 @@ from flathunt.defs.config import CommuteDestConfig
 from flathunt.cache import ModelCache
 from flathunt.filters import filter_by_commute
 from flathunt.models import MatchedProperty
-from flathunt.property_search import get_commute_durations
+from flathunt.property_search import get_properties_journey_duration_cached
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ class Config(dg.Config):
 
 @dg.asset(automation_condition=dg.AutomationCondition.eager())
 def matched_property_ids(
+    context: dg.AssetExecutionContext,
     config: Config,
     candidate_properties: list[rightmove.models.MapProperty],
 ) -> list[MatchedProperty]:
@@ -40,6 +41,7 @@ def matched_property_ids(
     ``max_duration`` are included in the output.
 
     Args:
+        context: Dagster asset execution context, used for progress logging.
         config: Asset configuration: commute destinations with time limits,
             TfL API key, and cache directory path.
         candidate_properties: Properties pre-filtered by area and basic
@@ -64,19 +66,32 @@ def matched_property_ids(
         int | None, cache_path, ttl=_JOURNEY_CACHE_TTL
     )
 
+    flat_to_froms = [
+        (prop.location.longitude, prop.location.latitude, q.lon, q.lat)
+        for prop in candidate_properties
+        for q in queries
+    ]
+    total = len(flat_to_froms)
     logger.info(
         "Fetching TfL commute durations for %d propert(ies) × %d destination(s).",
         len(candidate_properties),
         len(queries),
     )
-    durations = asyncio.run(
-        get_commute_durations(
-            candidate_properties,
-            queries,
-            journey_cache,
-            config.tfl_api_key,
-        )
-    )
+
+    async def _run_all() -> list[list[int | None]]:
+        results: list[int | None] = [None] * total
+        received = 0
+        async for idx, duration in get_properties_journey_duration_cached(
+            flat_to_froms, journey_cache, config.tfl_api_key
+        ):
+            results[idx] = duration
+            received += 1
+            if received % 10 == 0 or received == total:
+                context.log.info("Journey results received: %d / %d.", received, total)
+        n = len(queries)
+        return [results[i * n : (i + 1) * n] for i in range(len(candidate_properties))]
+
+    durations = asyncio.run(_run_all())
 
     matched = filter_by_commute(candidate_properties, durations, queries)
     result = [

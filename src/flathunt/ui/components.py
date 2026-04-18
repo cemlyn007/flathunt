@@ -282,12 +282,25 @@ def render_property_search_section() -> None:
                 max(data["lat"] for data in graph.nodes.values()),
             )
         )
-        property_locations = fetch_properties_within_optimal_regions(
-            st.session_state["intersection_polys"],
-            channel,
-            bounding_polygon,
-            get_property_ids_in_area_cache(),
-        )
+
+        async def _collect_properties():
+            all_props = []
+            async for props in fetch_properties_within_optimal_regions(
+                st.session_state["intersection_polys"],
+                channel,
+                bounding_polygon,
+                get_property_ids_in_area_cache(),
+            ):
+                all_props.extend(props)
+            seen: set[int] = set()
+            result = []
+            for p in all_props:
+                if p.id not in seen:
+                    seen.add(p.id)
+                    result.append(p)
+            return result
+
+        property_locations = asyncio.run(_collect_properties())
         st.write(f"Found {len(property_locations)} unfiltered properties in the area.")
         queries = st.session_state["queries"]
         durations = asyncio.run(

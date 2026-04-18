@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import math
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from typing import Literal
 
 from shapely import Point, Polygon
@@ -65,17 +65,41 @@ def get_tiles_covering_polygon(
     return tiles
 
 
-def get_property_ids_in_area_cached(
+def count_tiles(
+    map_polygon_boundary: Polygon,
+    coords: Sequence[LatLon],
+) -> int:
+    """Return the total number of tiles that intersect the search area.
+
+    Args:
+        map_polygon_boundary: WGS84 polygon used to enumerate search tiles.
+        coords: Exterior ring of the search area as ``LatLon`` values in WGS84.
+
+    Returns:
+        The number of tiles that overlap the search polygon.
+    """
+    search_polygon = Polygon([(c.lon, c.lat) for c in coords])
+    if not search_polygon.is_valid:
+        search_polygon = search_polygon.buffer(0)
+    tiles = get_tiles_covering_polygon(map_polygon_boundary)
+    return sum(
+        1
+        for _, tile_coords in tiles
+        if search_polygon.intersects(Polygon([(c.lon, c.lat) for c in tile_coords]))
+    )
+
+
+async def get_property_ids_in_area_cached(
     map_polygon_boundary: Polygon,
     coords: Sequence[LatLon],
     channel: Literal["RENT", "BUY"],
     cache: ModelCache[list[rightmove.models.MapProperty]],
-) -> list[rightmove.models.MapProperty]:
-    """Fetch Rightmove properties within a polygon, using a tile cache to avoid redundant requests.
+) -> AsyncIterator[list[rightmove.models.MapProperty]]:
+    """Async generator yielding per-tile property lists as each tile is resolved.
 
-    ``map_polygon_boundary`` is tiled and each tile is looked up in ``cache``
-    before falling back to the Rightmove API. Results are deduplicated and
-    filtered to only those contained within the search polygon derived from
+    Cache hits are yielded immediately; misses are fetched concurrently via the
+    Rightmove API and yielded as they complete.  Properties in each yielded list
+    are filtered to those contained within the search polygon derived from
     ``coords``.
 
     Args:
@@ -85,9 +109,8 @@ def get_property_ids_in_area_cached(
         channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
         cache: Persistent tile-level cache for Rightmove responses.
 
-    Returns:
-        A deduplicated list of properties whose locations fall inside the
-        polygon described by ``coords``.
+    Yields:
+        A list of properties located inside the search polygon for each tile.
     """
     search_polygon = Polygon([(c.lon, c.lat) for c in coords])
     if not search_polygon.is_valid:
@@ -101,116 +124,89 @@ def get_property_ids_in_area_cached(
         if search_polygon.intersects(tile_poly):
             selected_tiles.append((tile_id, tile_coords))
 
-    all_properties = []
     tiles_to_fetch = []
-
     for tile_id, tile_coords in selected_tiles:
         key = json.dumps(
             {"tile_id": tile_id, "channel": channel, "tile_size": TILE_SIZE}
         )
         try:
             cached_props = cache.get(key)
-            all_properties.extend(cached_props)
+            yield [
+                p
+                for p in cached_props
+                if search_polygon.contains(
+                    Point(p.location.longitude, p.location.latitude)
+                )
+            ]
         except KeyError:
             tiles_to_fetch.append((key, tile_coords))
 
     if tiles_to_fetch:
-        logger.info(f"Fetching {len(tiles_to_fetch)} tiles from Rightmove.")
-
         semaphore = asyncio.Semaphore(_RIGHTMOVE_CONCURRENCY)
 
-        async def _fetch_all() -> list[list[rightmove.models.MapProperty]]:
-            return list(
-                await asyncio.gather(
-                    *[
-                        get_property_ids_in_area(
-                            tc, channel=channel, semaphore=semaphore
-                        )
-                        for _, tc in tiles_to_fetch
-                    ]
-                )
+        async def _fetch_one(
+            key: str, tile_coords: list[LatLon]
+        ) -> list[rightmove.models.MapProperty]:
+            props = await get_property_ids_in_area(
+                tile_coords, channel=channel, semaphore=semaphore
             )
+            cache.update([(key, props)])
+            return [
+                p
+                for p in props
+                if search_polygon.contains(
+                    Point(p.location.longitude, p.location.latitude)
+                )
+            ]
 
-        results = asyncio.run(_fetch_all())
-
-        cache_updates = []
-        for (key, _), props in zip(tiles_to_fetch, results, strict=True):
-            cache_updates.append((key, props))
-            all_properties.extend(props)
-
-        cache.update(cache_updates)
-
-    # Deduplicate by ID
-    unique_properties: list[rightmove.models.MapProperty] = []
-    seen_ids = set()
-    for p in all_properties:
-        if p.id not in seen_ids:
-            unique_properties.append(p)
-            seen_ids.add(p.id)
-
-    # Filter by original polygon
-    return [
-        p
-        for p in unique_properties
-        if search_polygon.contains(Point(p.location.longitude, p.location.latitude))
-    ]
+        for coro in asyncio.as_completed(
+            [_fetch_one(k, tc) for k, tc in tiles_to_fetch]
+        ):
+            yield await coro
 
 
 async def get_properties_journey_duration_cached(
     to_froms: Sequence[tuple[float, float, float, float]],
     cache: ModelCache[int | None],
     tfl_api_key: str,
-) -> list[int | None]:
-    """Fetch TfL journey durations for a list of origin/destination pairs, using a cache.
+) -> AsyncIterator[tuple[int, int | None]]:
+    """Async generator yielding ``(index, duration)`` pairs as results are resolved.
 
-    Cache hits are returned immediately; misses are fetched concurrently from the
-    TfL API and then stored.
+    Cache hits are yielded first in index order; misses are fetched concurrently
+    and yielded as they complete.
 
     Args:
         to_froms: A list of ``(from_lon, from_lat, to_lon, to_lat)`` tuples.
         cache: Persistent cache mapping journey keys to durations in minutes.
         tfl_api_key: TfL API application key.
 
-    Returns:
-        A list of journey durations (minutes) aligned with ``to_froms``.
-        ``None`` indicates a failed or unavailable journey.
+    Yields:
+        ``(index, duration)`` pairs aligned with ``to_froms``. Duration is
+        ``None`` if the journey is unavailable.
     """
-    durations: list[int | None] = []
-    to_fetch = []
-    fetch_indices = []
+    to_fetch: list[tuple[int, float, float, float, float]] = []
     for i, (lon, lat, query_lon, query_lat) in enumerate(to_froms):
         key = json.dumps({"from": (lon, lat), "to": (query_lon, query_lat)})
         try:
-            duration = cache.get(key)
-            durations.append(duration)
-            logger.info(
-                "Journey duration from (%s, %s) to (%s, %s) fetched from cache.",
-                lon,
-                lat,
-                query_lon,
-                query_lat,
-            )
+            yield i, cache.get(key)
         except KeyError:
-            to_fetch.append((lon, lat, query_lon, query_lat))
-            fetch_indices.append(i)
-            durations.append(None)  # Placeholder
+            to_fetch.append((i, lon, lat, query_lon, query_lat))
 
     if to_fetch:
         client = tfl.api.Tfl(app_key=tfl_api_key)
-        tasks = [
-            fetch_journey_results(client, lon, lat, query_lon, query_lat)
-            for lon, lat, query_lon, query_lat in to_fetch
-        ]
-        results = await asyncio.gather(*tasks)
-        cache_updates = []
-        for idx, duration in zip(fetch_indices, results, strict=True):
-            durations[idx] = duration
-            lon, lat, query_lon, query_lat = to_froms[idx]
-            key = json.dumps({"from": (lon, lat), "to": (query_lon, query_lat)})
-            cache_updates.append((key, duration))
-        cache.update(cache_updates)
 
-    return durations
+        async def _fetch_one(
+            i: int, lon: float, lat: float, query_lon: float, query_lat: float
+        ) -> tuple[int, int | None]:
+            duration = await fetch_journey_results(
+                client, lon, lat, query_lon, query_lat
+            )
+            key = json.dumps({"from": (lon, lat), "to": (query_lon, query_lat)})
+            cache.update([(key, duration)])
+            return i, duration
+
+        for coro in asyncio.as_completed([_fetch_one(*row) for row in to_fetch]):
+            yield await coro
 
 
 async def get_commute_durations(
@@ -237,8 +233,10 @@ async def get_commute_durations(
         for prop in properties
         for query in queries
     ]
-    flat_durations = await get_properties_journey_duration_cached(
+    results: list[int | None] = [None] * len(flat_to_froms)
+    async for idx, duration in get_properties_journey_duration_cached(
         flat_to_froms, cache, tfl_api_key
-    )
+    ):
+        results[idx] = duration
     n = len(queries)
-    return [flat_durations[i * n : (i + 1) * n] for i in range(len(properties))]
+    return [results[i * n : (i + 1) * n] for i in range(len(properties))]
