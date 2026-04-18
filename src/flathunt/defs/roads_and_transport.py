@@ -19,7 +19,7 @@ def find_nearest_node(x1, y1, x2, y2):
     return distances.argmin(axis=0).item()
 
 
-@dg.asset
+@dg.asset(automation_condition=dg.AutomationCondition.eager())
 def roads_and_transport(
     config: Config,
     roads: nx.Graph,

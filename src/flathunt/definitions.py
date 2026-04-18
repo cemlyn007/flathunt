@@ -1,6 +1,7 @@
 from dagster import (
     AssetSelection,
     AutomationConditionSensorDefinition,
+    DefaultSensorStatus,
     Definitions,
     config_from_files,
     define_asset_job,
@@ -48,6 +49,7 @@ defs = Definitions(
         AutomationConditionSensorDefinition(
             name="flathunt_automation_sensor",
             target=AssetSelection.all(),
+            default_status=DefaultSensorStatus.RUNNING,
         ),
     ],
 )

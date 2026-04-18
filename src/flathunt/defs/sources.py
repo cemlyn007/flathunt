@@ -15,7 +15,7 @@ tfl_network_topology: dg.AssetSpec = dg.AssetSpec(key="tfl_network_topology")
 _TFL_CHECK_INTERVAL = 6 * 3600  # seconds
 
 
-@dg.sensor(minimum_interval_seconds=900)
+@dg.sensor(minimum_interval_seconds=900, default_status=dg.DefaultSensorStatus.RUNNING)
 def monitor_map_file_and_tfl_lines(
     context: dg.SensorEvaluationContext,
 ) -> dg.SensorResult:
