@@ -92,6 +92,35 @@ class StopPoint(TflModel):
     individual_stop_id: str | None = None
 
 
+class RouteSection(TflModel):
+    type: str | None = pydantic.Field(default=None, alias="$type")
+    name: str | None = None
+    direction: str | None = None
+    origination_name: str | None = None
+    destination_name: str | None = None
+    originator: str | None = None
+    destination: str | None = None
+    route_code: str | None = None
+    line_string: str | None = None
+    valid_to: str | None = None
+    valid_from: str | None = None
+
+
+class Disruption(TflModel):
+    type: str = pydantic.Field(alias="$type")
+    category: str | None = None
+    category_description: str | None = None
+    description: str | None = None
+    additional_info: str | None = None
+    created: str | None = None
+    last_update: str | None = None
+    affected_routes: list[RouteSection] = pydantic.Field(default_factory=list)
+    affected_stops: list[StopPoint] = pydantic.Field(default_factory=list)
+    is_blocking: bool | None = None
+    is_whole_line: bool | None = None
+    closure_text: str | None = None
+
+
 class RouteOption(TflModel):
     type: str = pydantic.Field(alias="$type")
     name: str
@@ -250,6 +279,9 @@ class LineServiceTypeInfo(TflModel):
 
 class ValidityPeriod(TflModel):
     type: str = pydantic.Field(alias="$type")
+    from_date: str | None = None
+    to_date: str | None = None
+    is_now: bool | None = None
 
 
 class LineStatus(TflModel):
@@ -259,6 +291,9 @@ class LineStatus(TflModel):
     status_severity_description: str
     created: pydantic.AwareDatetime
     validity_periods: list[ValidityPeriod]
+    line_id: str | None = None
+    reason: str | None = None
+    disruption: Disruption | None = None
 
     @pydantic.field_validator("created", mode="before")
     @classmethod
