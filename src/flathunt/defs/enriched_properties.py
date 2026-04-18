@@ -233,7 +233,7 @@ class Config(dg.Config):
     cache_data_dir: str = "cache"
 
 
-@dg.asset
+@dg.asset(automation_condition=dg.AutomationCondition.eager())
 def enriched_properties(
     config: Config,
     matched_property_ids: list[MatchedProperty],

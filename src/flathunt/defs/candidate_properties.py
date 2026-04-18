@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -8,12 +9,14 @@ from shapely.geometry.polygon import Polygon
 from shapely.ops import unary_union
 
 import rightmove.models
-from flathunt.geometry import poly_bng_to_wgs84
 from flathunt.cache import ModelCache
 from flathunt.filters import (
     fetch_properties_within_optimal_regions,
     filter_properties_by_budget_and_features,
 )
+from flathunt.geometry import poly_bng_to_wgs84
+
+_DAILY_CRON = os.environ.get("FLATHUNT__DAILY_CRON", "0 22 * * *")
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ class Config(dg.Config):
     cache_data_dir: str = "cache"
 
 
-@dg.asset
+@dg.asset(automation_condition=dg.AutomationCondition.on_cron(_DAILY_CRON))
 def candidate_properties(
     config: Config,
     isochrone_intersection: list[Polygon],
