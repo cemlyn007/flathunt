@@ -3,6 +3,7 @@ import json
 import logging
 import math
 from collections.abc import AsyncIterator, Callable, Sequence
+from itertools import starmap
 from typing import Literal
 
 from shapely import Point, Polygon
@@ -137,15 +138,13 @@ async def get_property_ids_in_area_cached(
 
     tiles_to_fetch = []
     for tile_id, tile_coords in selected_tiles:
-        key = json.dumps(
-            {
-                "tile_id": tile_id,
-                "channel": channel,
-                "tile_size": TILE_SIZE,
-                "min_price": min_price,
-                "max_price": max_price,
-            }
-        )
+        key = json.dumps({
+            "tile_id": tile_id,
+            "channel": channel,
+            "tile_size": TILE_SIZE,
+            "min_price": min_price,
+            "max_price": max_price,
+        })
         try:
             cached_props = cache.get(key)
             yield [
@@ -183,9 +182,7 @@ async def get_property_ids_in_area_cached(
                 and (predicate is None or predicate(p))
             ]
 
-        for coro in asyncio.as_completed(
-            [_fetch_one(k, tc) for k, tc in tiles_to_fetch]
-        ):
+        for coro in asyncio.as_completed(list(starmap(_fetch_one, tiles_to_fetch))):
             yield await coro
 
 
@@ -229,7 +226,7 @@ async def get_properties_journey_duration_cached(
             cache.update([(key, duration)])
             return i, duration
 
-        for coro in asyncio.as_completed([_fetch_one(*row) for row in to_fetch]):
+        for coro in asyncio.as_completed(list(starmap(_fetch_one, to_fetch))):
             yield await coro
 
 

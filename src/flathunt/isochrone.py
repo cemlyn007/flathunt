@@ -140,9 +140,9 @@ def lookup(
         for node_id, data in graph.nodes(data=True)
         if "station_name" not in data
     ]
-    points = np.array(
-        [(graph.nodes[node]["x"], graph.nodes[node]["y"]) for node in road_nodes]
-    )
+    points = np.array([
+        (graph.nodes[node]["x"], graph.nodes[node]["y"]) for node in road_nodes
+    ])
     closest_node_index = find_nearest_node(x, y, points[:, 0], points[:, 1])
     locked_query = road_nodes[closest_node_index]
     subgraphs = isochrones(graph, locked_query, max_duration)
@@ -177,15 +177,13 @@ def bounds_to_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
         A Shapely Polygon representing the bounding rectangle.
     """
     min_x, min_y, max_x, max_y = bounds
-    return Polygon(
-        [
-            (min_x, min_y),
-            (min_x, max_y),
-            (max_x, max_y),
-            (max_x, min_y),
-            (min_x, min_y),
-        ]
-    )
+    return Polygon([
+        (min_x, min_y),
+        (min_x, max_y),
+        (max_x, max_y),
+        (max_x, min_y),
+        (min_x, min_y),
+    ])
 
 
 def get_intersection(
@@ -315,12 +313,12 @@ def find_min_simplify_tolerance(
 
     # Binary search for minimum tolerance
     low = 0.0
-    _simplified = exterior.simplify(high)
-    if not isinstance(_simplified, LinearRing):
+    simplified = exterior.simplify(high)
+    if not isinstance(simplified, LinearRing):
         raise TypeError(
-            f"Expected LinearRing after simplification, got {type(_simplified).__name__}"
+            f"Expected LinearRing after simplification, got {type(simplified).__name__}"
         )
-    best_exterior = _simplified
+    best_exterior = simplified
     best_tolerance = high
 
     for _ in range(max_iter):

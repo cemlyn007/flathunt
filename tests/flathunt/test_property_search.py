@@ -128,7 +128,7 @@ def test_get_commute_durations_reshapes_flat_to_2d():
     # Flat order: prop0->q0, prop0->q1, prop1->q0, prop1->q1
     flat_durations = [10, 20, 30, 40]
 
-    async def mock_gen(*args, **kwargs):
+    async def mock_gen(*args, **kwargs):  # noqa: RUF029
         for i, d in enumerate(flat_durations):
             yield i, d
 
@@ -149,7 +149,7 @@ def test_get_commute_durations_single_property_single_query():
     prop = make_property(id=1, longitude=-0.1, latitude=51.5)
     queries = [CommuteDest(-0.2, 51.6, 30)]
 
-    async def mock_gen(*args, **kwargs):
+    async def mock_gen(*args, **kwargs):  # noqa: RUF029
         yield 0, 15
 
     with patch(
@@ -166,7 +166,7 @@ def test_get_commute_durations_single_property_single_query():
 
 
 def test_get_commute_durations_empty_properties():
-    async def mock_gen(*args, **kwargs):
+    async def mock_gen(*args, **kwargs):  # noqa: RUF029
         return
         yield  # make it an async generator
 
@@ -192,7 +192,7 @@ def test_get_commute_durations_passes_correct_to_froms():
 
     captured = []
 
-    async def mock_gen(to_froms, cache, tfl_api_key):
+    async def mock_gen(to_froms, cache, tfl_api_key):  # noqa: RUF029
         captured.extend(to_froms)
         yield 0, 10
 

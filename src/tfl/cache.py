@@ -85,5 +85,4 @@ class Cache:
                 for key, journeys in self._journeys.items()
             },
         )
-        with Path(self._filepath).open("w") as file:
-            file.write(content)
+        Path(self._filepath).write_text(content)

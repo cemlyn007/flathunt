@@ -51,7 +51,7 @@ def isochrone_intersection(
         return []
 
     graph = roads_and_transport.copy()
-    if config.station_cost_offset != 0.0:
+    if config.station_cost_offset != 0:
         for n_fr, n_to in graph.edges():
             if (
                 "station_name" in graph.nodes[n_fr]

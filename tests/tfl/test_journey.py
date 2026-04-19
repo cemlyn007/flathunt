@@ -1,6 +1,6 @@
 import datetime
 import os
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
@@ -109,7 +109,7 @@ _PROBLEMATIC_MODES = [
 
 
 async def test_get_journey_results_raises_tfl_api_error_for_http_500():
-    """HTTP 500 from TfL raises TflApiError and is not retried.
+    """HTTP 500 from TfL is retried and raises TflApiError after all attempts.
 
     Reproduces the error propagation for the stop pair 940GZZLUMHL → 940GZZLUWRR:
 
@@ -118,12 +118,9 @@ async def test_get_journey_results_raises_tfl_api_error_for_http_500():
        re-raises it as ``TflApiError`` (because exceptionType is not
        "EntityNotFoundException").
     3. The ``@retry`` decorator calls ``_is_retryable_error(TflApiError)``
-       which returns ``False`` — so no retry occurs; the client is called
-       exactly once.
-    4. ``TflApiError`` propagates out of ``get_journey_results``; the
-       ``transport`` asset's ``process_query_queue`` only catches
-       ``JourneyNotFoundError``, so the uncaught ``TflApiError`` crashes the
-       entire asset.
+       which returns ``True`` for 5xx — so all 10 attempts are made.
+    4. After all retries are exhausted, ``TflApiError`` propagates out of
+       ``get_journey_results``.
     """
     request = httpx.Request(
         "GET",
@@ -138,7 +135,10 @@ async def test_get_journey_results_raises_tfl_api_error_for_http_500():
     mock_client = AsyncMock(spec=httpx.AsyncClient)
     mock_client.get.return_value = mock_response
 
-    with pytest.raises(TflApiError) as exc_info:
+    with (
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        pytest.raises(TflApiError) as exc_info,
+    ):
         await get_journey_results(
             client=mock_client,
             from_location="940GZZLUMHL",
@@ -151,8 +151,8 @@ async def test_get_journey_results_raises_tfl_api_error_for_http_500():
 
     assert exc_info.value.http_status_code == 500
     assert exc_info.value.exception_type == "HttpRequestException"
-    # TflApiError is non-retryable: the underlying HTTP client was called once.
-    assert mock_client.get.call_count == 1
+    # 5xx TflApiError is retryable: all 10 attempts are made before giving up.
+    assert mock_client.get.call_count == 10
 
 
 # ---------------------------------------------------------------------------

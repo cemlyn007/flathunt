@@ -19,7 +19,7 @@ def test_returns_original_when_under_limit():
     ring = make_ring(10)
     result, tolerance = find_min_simplify_tolerance(ring, max_coords=1000)
     assert result is ring
-    assert tolerance == 0.0
+    assert tolerance == 0
 
 
 def test_returns_linear_ring_type():

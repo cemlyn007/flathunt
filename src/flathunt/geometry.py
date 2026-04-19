@@ -1,3 +1,5 @@
+from itertools import starmap
+
 import geopandas as gpd
 import numpy as np
 from shapely import Point, Polygon
@@ -49,7 +51,7 @@ def poly_bng_to_wgs84_coords(poly: Polygon) -> list[LatLon]:
     """
     xs, ys = poly.exterior.coords.xy
     points_wgs84 = gpd.GeoSeries(
-        [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs=BNG
+        list(starmap(Point, zip(xs, ys, strict=True))), crs=BNG
     ).to_crs(WGS84)
     return [LatLon(lat=p.y, lon=p.x) for p in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
 
