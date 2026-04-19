@@ -1,9 +1,12 @@
 import base64
+import logging
 import os
 from typing import Literal, Optional
 
 import httpx
 import pydantic
+
+logger = logging.getLogger(__name__)
 
 
 _SQFT_TO_SQM = 0.09290304
@@ -28,7 +31,7 @@ class FloorPlanSizeExtractor:
     Args:
         token: GitHub personal access token. Defaults to the ``GITHUB_TOKEN``
             environment variable.
-        model: The model to use. Defaults to ``"gpt-4o"``.
+        model: The model to use. Defaults to ``"gpt-4o-mini"``.
     """
 
     _API_URL = "https://models.inference.ai.azure.com/chat/completions"
@@ -49,7 +52,7 @@ class FloorPlanSizeExtractor:
     def __init__(
         self,
         token: Optional[str] = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-4o-mini",
     ) -> None:
         self._token = token or os.environ["GITHUB_TOKEN"]
         self._model = model
@@ -101,10 +104,16 @@ class FloorPlanSizeExtractor:
             response.raise_for_status()
 
         text = response.json()["choices"][0]["message"]["content"].strip()
-        if text == "NOT_FOUND":
+        if "NOT_FOUND" in text:
             return None
 
         lines = [
-            line.split(":", 1)[-1].strip() for line in text.splitlines() if line.strip()
+            line.split(":", 1)[-1].strip()
+            for line in text.splitlines()
+            if line.strip() and not line.strip().startswith("```")
         ]
-        return FloorPlanSize(value=float(lines[0]), units=lines[1])
+        try:
+            return FloorPlanSize(value=float(lines[0]), units=lines[1])
+        except (ValueError, IndexError, pydantic.ValidationError):
+            logger.error("Failed to parse floor plan size from LLM output: %r", text)
+            raise

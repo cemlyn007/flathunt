@@ -80,6 +80,7 @@ async def _get_floor_plan_sqm(
         if details is None or not details.floorplans:
             logger.warning("Property %d has no floor plan URLs in page model.", prop_id)
         else:
+            # TODO: attempt extraction on all floor plan images, not just the first
             floor_plan_url = details.floorplans[0].url
             async with httpx.AsyncClient() as client:
                 response = await client.get(floor_plan_url, timeout=30.0)
@@ -233,7 +234,7 @@ class Config(dg.Config):
     cache_data_dir: str = "cache"
 
 
-@dg.asset(automation_condition=dg.AutomationCondition.eager())
+@dg.asset
 def enriched_properties(
     context: dg.AssetExecutionContext,
     config: Config,

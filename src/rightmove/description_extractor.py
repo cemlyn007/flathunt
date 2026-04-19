@@ -34,7 +34,7 @@ class PropertyDescriptionExtractor:
     Args:
         token: GitHub personal access token. Defaults to the ``GITHUB_TOKEN``
             environment variable.
-        model: The model to use. Defaults to ``"gpt-4o"``.
+        model: The model to use. Defaults to ``"gpt-4o-mini"``.
     """
 
     _API_URL = "https://models.inference.ai.azure.com/chat/completions"
@@ -55,7 +55,7 @@ class PropertyDescriptionExtractor:
     def __init__(
         self,
         token: Optional[str] = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-4o-mini",
     ) -> None:
         self._token = token or os.environ["GITHUB_TOKEN"]
         self._model = model

@@ -27,7 +27,7 @@ class Config(dg.Config):
     cache_data_dir: str = "cache"
 
 
-@dg.asset(automation_condition=dg.AutomationCondition.eager())
+@dg.asset
 def matched_property_ids(
     context: dg.AssetExecutionContext,
     config: Config,

@@ -23,7 +23,7 @@ class Config(dg.Config):
     station_cost_offset: float = 0.0
 
 
-@dg.asset(automation_condition=dg.AutomationCondition.eager())
+@dg.asset
 def isochrone_intersection(
     config: Config,
     roads_and_transport: nx.Graph,

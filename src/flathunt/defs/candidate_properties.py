@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -18,8 +17,6 @@ from flathunt.filters import (
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
 from flathunt.property_search import count_tiles
 
-_DAILY_CRON = os.environ.get("FLATHUNT__DAILY_CRON", "0 22 * * *")
-
 logger = logging.getLogger(__name__)
 
 
@@ -34,7 +31,7 @@ class Config(dg.Config):
     cache_data_dir: str = "cache"
 
 
-@dg.asset(automation_condition=dg.AutomationCondition.on_cron(_DAILY_CRON))
+@dg.asset
 def candidate_properties(
     context: dg.AssetExecutionContext,
     config: Config,

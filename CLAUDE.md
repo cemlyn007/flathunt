@@ -87,6 +87,14 @@ Required (typically in `.env`):
 Optional:
 - `FLATHUNT_ROADS_FILE_PATH` — Path to OSM shapefile (default: `greater-london-251126-free/gis_osm_roads_free_1.shp`)
 - `FLATHUNT__DAILY_CRON` — Dagster schedule (default: `"0 22 * * *"`)
+
+Optional (email notifications — all required if any are set):
+- `FLATHUNT__SMTP_HOST` — SMTP server hostname (e.g. `smtp.gmail.com`)
+- `FLATHUNT__SMTP_PORT` — SMTP port (default: `587`)
+- `FLATHUNT__SMTP_USERNAME` — SMTP login username
+- `FLATHUNT__SMTP_PASSWORD` — SMTP login password / app password
+- `FLATHUNT__SMTP_FROM` — From address for notification emails
+- `FLATHUNT__SMTP_TO` — Recipient address for notification emails
 - `FLATHUNT__STREAMLIT_HOST` / `FLATHUNT__STREAMLIT_PORT`
 - `PYTHON_GIL=0` — Disable GIL for Streamlit (Python 3.14t)
 
