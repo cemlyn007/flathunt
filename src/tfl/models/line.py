@@ -1,7 +1,5 @@
 """Pydantic models for TfL Line API responses."""
 
-from typing import Optional
-
 import pydantic
 
 from tfl.models.base import TflModel
@@ -12,12 +10,12 @@ class LineDisruption(TflModel):
     """Disruption information for a line."""
 
     type: str = pydantic.Field(alias="$type")
-    category: Optional[str] = None
-    category_description: Optional[str] = None
-    description: Optional[str] = None
+    category: str | None = None
+    category_description: str | None = None
+    description: str | None = None
     affected_routes: list = pydantic.Field(default_factory=list)
     affected_stops: list = pydantic.Field(default_factory=list)
-    closure_text: Optional[str] = None
+    closure_text: str | None = None
 
 
 class LineCrowding(TflModel):
@@ -34,7 +32,7 @@ class LineServiceType(TflModel):
 
     type: str = pydantic.Field(alias="$type")
     name: str
-    uri: Optional[str] = None
+    uri: str | None = None
 
 
 class MatchedRoute(TflModel):
@@ -43,43 +41,43 @@ class MatchedRoute(TflModel):
     This represents a route section with direction and terminus information.
     """
 
-    type: Optional[str] = pydantic.Field(default=None, alias="$type")
-    name: Optional[str] = None
-    direction: Optional[str] = None
-    origination_name: Optional[str] = None
-    destination_name: Optional[str] = None
-    originator: Optional[str] = None
-    destination: Optional[str] = None
-    service_type: Optional[str] = None
-    valid_to: Optional[str] = None
-    valid_from: Optional[str] = None
+    type: str | None = pydantic.Field(default=None, alias="$type")
+    name: str | None = None
+    direction: str | None = None
+    origination_name: str | None = None
+    destination_name: str | None = None
+    originator: str | None = None
+    destination: str | None = None
+    service_type: str | None = None
+    valid_to: str | None = None
+    valid_from: str | None = None
 
 
 class LineRouteSection(TflModel):
     """Route section information for a line."""
 
-    type: Optional[str] = pydantic.Field(default=None, alias="$type")
-    name: Optional[str] = None
-    direction: Optional[str] = None
-    origination_name: Optional[str] = None
-    destination_name: Optional[str] = None
-    originator: Optional[str] = None
-    destination: Optional[str] = None
-    service_type: Optional[str] = None
-    valid_to: Optional[str] = None
-    valid_from: Optional[str] = None
+    type: str | None = pydantic.Field(default=None, alias="$type")
+    name: str | None = None
+    direction: str | None = None
+    origination_name: str | None = None
+    destination_name: str | None = None
+    originator: str | None = None
+    destination: str | None = None
+    service_type: str | None = None
+    valid_to: str | None = None
+    valid_from: str | None = None
 
 
 class LineStatusDisruption(TflModel):
     """Disruption details within a line status."""
 
     type: str = pydantic.Field(alias="$type")
-    category: Optional[str] = None
-    category_description: Optional[str] = None
-    description: Optional[str] = None
-    additional_info: Optional[str] = None
-    created: Optional[str] = None
-    last_update: Optional[str] = None
+    category: str | None = None
+    category_description: str | None = None
+    description: str | None = None
+    additional_info: str | None = None
+    created: str | None = None
+    last_update: str | None = None
 
 
 class LineStatusValidityPeriod(TflModel):
@@ -98,13 +96,13 @@ class LineStatus(TflModel):
     id: int
     status_severity: int
     status_severity_description: str
-    reason: Optional[str] = None
-    created: Optional[str] = None
-    modified: Optional[str] = None
+    reason: str | None = None
+    created: str | None = None
+    modified: str | None = None
     validity_periods: list[LineStatusValidityPeriod] = pydantic.Field(
         default_factory=list
     )
-    disruption: Optional[LineStatusDisruption] = None
+    disruption: LineStatusDisruption | None = None
 
 
 class Line(TflModel):
@@ -122,7 +120,7 @@ class Line(TflModel):
         default_factory=list
     )
     service_types: list[LineServiceType] = pydantic.Field(default_factory=list)
-    crowding: Optional[LineCrowding] = None
+    crowding: LineCrowding | None = None
 
 
 # Type adapter for parsing an array of Line directly

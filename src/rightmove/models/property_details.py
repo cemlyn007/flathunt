@@ -1,5 +1,3 @@
-from typing import Optional
-
 import pydantic
 import pydantic.alias_generators
 
@@ -9,19 +7,19 @@ from rightmove.models.base import CamelCaseModel
 class LivingCosts(CamelCaseModel):
     council_tax_exempt: bool
     council_tax_included: bool
-    annual_ground_rent: Optional[float] = None
-    ground_rent_review_period_in_years: Optional[int] = None
-    ground_rent_percentage_increase: Optional[float] = None
-    annual_service_charge: Optional[float] = None
-    council_tax_band: Optional[str] = None
-    domestic_rates: Optional[float] = None
+    annual_ground_rent: float | None = None
+    ground_rent_review_period_in_years: int | None = None
+    ground_rent_percentage_increase: float | None = None
+    annual_service_charge: float | None = None
+    council_tax_band: str | None = None
+    domestic_rates: float | None = None
 
 
 class Floorplan(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="ignore")
 
     url: str
-    caption: Optional[str] = None
+    caption: str | None = None
 
 
 class Tenure(pydantic.BaseModel):
@@ -31,8 +29,8 @@ class Tenure(pydantic.BaseModel):
         extra="ignore",
     )
 
-    tenure_type: Optional[str] = None
-    years_remaining_on_lease: Optional[int] = None
+    tenure_type: str | None = None
+    years_remaining_on_lease: int | None = None
 
     @pydantic.field_validator("years_remaining_on_lease", mode="before")
     @classmethod
@@ -43,7 +41,7 @@ class Tenure(pydantic.BaseModel):
 class PropertyText(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(extra="ignore")
 
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class PropertyDetails(pydantic.BaseModel):
@@ -56,17 +54,17 @@ class PropertyDetails(pydantic.BaseModel):
     id: str
     living_costs: LivingCosts
     floorplans: list[Floorplan] = []
-    tenure: Optional[Tenure] = None
-    text: Optional[PropertyText] = None
+    tenure: Tenure | None = None
+    text: PropertyText | None = None
 
     @property
-    def tenure_type(self) -> Optional[str]:
+    def tenure_type(self) -> str | None:
         return self.tenure.tenure_type if self.tenure else None
 
     @property
-    def years_remaining_on_lease(self) -> Optional[int]:
+    def years_remaining_on_lease(self) -> int | None:
         return self.tenure.years_remaining_on_lease if self.tenure else None
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         return self.text.description if self.text else None

@@ -5,8 +5,8 @@ from shapely import Point, Polygon
 
 import rightmove.models
 import rightmove.price
-from flathunt.coords import CommuteDest
 from flathunt.cache import ModelCache
+from flathunt.coords import CommuteDest
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
 from flathunt.property_search import get_property_ids_in_area_cached
 from flathunt.search_utils import check_property_size

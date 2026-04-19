@@ -1,11 +1,11 @@
 import asyncio
-from unittest.mock import AsyncMock, create_autospec, patch
+from unittest.mock import create_autospec, patch
 
 import pytest
 
 import rightmove.models
-from flathunt.coords import CommuteDest
 from flathunt.cache import ModelCache
+from flathunt.coords import CommuteDest
 from flathunt.filters import (
     filter_by_commute,
     filter_properties_by_budget_and_features,
@@ -122,9 +122,13 @@ def test_get_commute_durations_reshapes_flat_to_2d():
     # Flat order: prop0->q0, prop0->q1, prop1->q0, prop1->q1
     flat_durations = [10, 20, 30, 40]
 
+    async def mock_gen(*args, **kwargs):
+        for i, d in enumerate(flat_durations):
+            yield i, d
+
     with patch(
         "flathunt.property_search.get_properties_journey_duration_cached",
-        new=AsyncMock(return_value=flat_durations),
+        new=mock_gen,
     ):
         result = asyncio.run(
             get_commute_durations(
@@ -138,11 +142,13 @@ def test_get_commute_durations_reshapes_flat_to_2d():
 def test_get_commute_durations_single_property_single_query():
     prop = make_property(id=1, longitude=-0.1, latitude=51.5)
     queries = [CommuteDest(-0.2, 51.6, 30)]
-    flat_durations = [15]
+
+    async def mock_gen(*args, **kwargs):
+        yield 0, 15
 
     with patch(
         "flathunt.property_search.get_properties_journey_duration_cached",
-        new=AsyncMock(return_value=flat_durations),
+        new=mock_gen,
     ):
         result = asyncio.run(
             get_commute_durations(
@@ -154,9 +160,13 @@ def test_get_commute_durations_single_property_single_query():
 
 
 def test_get_commute_durations_empty_properties():
+    async def mock_gen(*args, **kwargs):
+        return
+        yield  # make it an async generator
+
     with patch(
         "flathunt.property_search.get_properties_journey_duration_cached",
-        new=AsyncMock(return_value=[]),
+        new=mock_gen,
     ):
         result = asyncio.run(
             get_commute_durations(
@@ -176,13 +186,13 @@ def test_get_commute_durations_passes_correct_to_froms():
 
     captured = []
 
-    async def mock_fetch(to_froms, cache, tfl_api_key):
+    async def mock_gen(to_froms, cache, tfl_api_key):
         captured.extend(to_froms)
-        return [10]
+        yield 0, 10
 
     with patch(
         "flathunt.property_search.get_properties_journey_duration_cached",
-        new=mock_fetch,
+        new=mock_gen,
     ):
         asyncio.run(
             get_commute_durations(

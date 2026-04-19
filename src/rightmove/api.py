@@ -3,7 +3,7 @@ import enum
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import httpx
 import polyline as _polyline
@@ -91,7 +91,7 @@ class SearchQuery(pydantic.BaseModel):
     min_bedrooms: int = 1
     max_bedrooms: int = 10
     min_price: int = 0
-    max_price: Optional[int] = None
+    max_price: int | None = None
     min_bathrooms: int = 1
     max_bathrooms: int = 5
     number_of_properties_per_page: int = pydantic.Field(gt=0, le=95, default=95)
@@ -122,7 +122,7 @@ class SearchQuery(pydantic.BaseModel):
         )
     )
     is_fetching: bool
-    max_days_since_added: Optional[int] = None
+    max_days_since_added: int | None = None
     channel: Literal["RENT", "BUY"] = "RENT"
     area_size_unit: Literal["sqm"] = "sqm"
     currency_code: Literal["GBP"] = "GBP"
@@ -136,7 +136,7 @@ def polyline_identifier(polyline: list[tuple[float, float]]) -> str:
 
 
 class Rightmove:
-    def __init__(self, retrying: Optional[AsyncRetrying] = None) -> None:
+    def __init__(self, retrying: AsyncRetrying | None = None) -> None:
         self._raw_api = _RawRightmove()
         if retrying is not None:
             self._raw_api.lookup = retrying.wraps(self._raw_api.lookup)  # type: ignore
@@ -146,7 +146,7 @@ class Rightmove:
     async def lookup(
         self,
         query: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> models.LookupMatches:
         """Get the location IDs related to a search query.
 
@@ -231,7 +231,7 @@ class _RawRightmove:
         "Accept": "*/*",
     }
 
-    async def lookup(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
+    async def lookup(self, query: str, limit: int | None = None) -> dict[str, Any]:
         """Get the location IDs related to a search query.
 
         Args:
@@ -241,7 +241,9 @@ class _RawRightmove:
         Returns:
             dict[str, Any]: Matches
         """
-        async with httpx.AsyncClient(base_url=f"https://{self.LOS_HOST}") as client:
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.LOS_HOST}", timeout=30.0
+        ) as client:
             response = await client.get(
                 "/typeahead",
                 params={
@@ -259,7 +261,9 @@ class _RawRightmove:
         query: SearchQuery,
     ) -> dict[str, Any]:
         params = self._get_listing_params(query)
-        async with httpx.AsyncClient(base_url=f"https://{self.BASE_HOST}") as client:
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.BASE_HOST}", timeout=30.0
+        ) as client:
             response = await client.get(
                 "/api/property-search/listing/search",
                 params=params,
@@ -296,7 +300,9 @@ class _RawRightmove:
             return full_response
 
     async def property_details(self, property_url: str) -> str:
-        async with httpx.AsyncClient(base_url=f"https://{self.BASE_HOST}") as client:
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.BASE_HOST}", timeout=60.0
+        ) as client:
             response = await client.get(property_url, headers=self._HEADERS)
             response.raise_for_status()
             return response.text
@@ -306,7 +312,9 @@ class _RawRightmove:
         query: SearchQuery,
     ) -> dict[str, Any]:
         params = self._get_map_params(query)
-        async with httpx.AsyncClient(base_url=f"https://{self.BASE_HOST}") as client:
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.BASE_HOST}", timeout=30.0
+        ) as client:
             response = await client.get(
                 "/api/property-search/map/search",
                 params=params,

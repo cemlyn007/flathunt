@@ -1,7 +1,7 @@
 import base64
 import logging
 import os
-from typing import Literal, Optional
+from typing import Literal
 
 import httpx
 import pydantic
@@ -51,7 +51,7 @@ class FloorPlanSizeExtractor:
 
     def __init__(
         self,
-        token: Optional[str] = None,
+        token: str | None = None,
         model: str = "gpt-4o-mini",
     ) -> None:
         self._token = token or os.environ["GITHUB_TOKEN"]
@@ -61,7 +61,7 @@ class FloorPlanSizeExtractor:
         self,
         image_data: bytes,
         media_type: str = "image/jpeg",
-    ) -> Optional[FloorPlanSize]:
+    ) -> FloorPlanSize | None:
         """Extract the floor plan size printed in the image.
 
         Args:

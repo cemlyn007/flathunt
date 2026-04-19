@@ -1,7 +1,6 @@
 import json
 import os
 import re
-from typing import Optional
 
 import httpx
 import pydantic
@@ -17,11 +16,11 @@ def _strip_html(text: str) -> str:
 class ExtractedPropertyInfo(pydantic.BaseModel):
     """Fields extracted from a property description by an LLM."""
 
-    tenure_type: Optional[str] = None
-    years_remaining_on_lease: Optional[int] = None
-    annual_service_charge: Optional[float] = None
-    annual_ground_rent: Optional[float] = None
-    council_tax_band: Optional[str] = None
+    tenure_type: str | None = None
+    years_remaining_on_lease: int | None = None
+    annual_service_charge: float | None = None
+    annual_ground_rent: float | None = None
+    council_tax_band: str | None = None
 
 
 class PropertyDescriptionExtractor:
@@ -54,7 +53,7 @@ class PropertyDescriptionExtractor:
 
     def __init__(
         self,
-        token: Optional[str] = None,
+        token: str | None = None,
         model: str = "gpt-4o-mini",
     ) -> None:
         self._token = token or os.environ["GITHUB_TOKEN"]

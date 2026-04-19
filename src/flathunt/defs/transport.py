@@ -1,12 +1,12 @@
 import asyncio
 import datetime
 import itertools
+import logging
 import os
-from datetime import timezone
+from collections import Counter
 
 import dagster as dg
 import networkx as nx
-import numpy as np
 import tqdm
 import tqdm.asyncio
 from pydantic import Field
@@ -17,6 +17,8 @@ import tfl.exceptions
 import tfl.models
 from flathunt.defs.sources import tfl_network_topology
 from flathunt.geometry import wgs84_to_bng
+
+logger = logging.getLogger(__name__)
 
 
 class Config(dg.Config):
@@ -34,10 +36,6 @@ class Config(dg.Config):
     )
 
 
-def euclidean(x1, y1, x2, y2):
-    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-
-
 @dg.asset(
     deps=[tfl_network_topology],
     automation_condition=dg.AutomationCondition.eager(),
@@ -52,7 +50,7 @@ async def transport(config: Config) -> nx.Graph:
         line_id_stop_points[line.id] = await tf_client.get_stop_points_by_line(line.id)
 
     arrival_datetime = tfl.api.get_next_datetime(
-        datetime.time(9, 0, 0, tzinfo=timezone.utc)
+        datetime.time(9, 0, 0, tzinfo=datetime.UTC)
     )
     queries = []
     for line_id, stop_points in line_id_stop_points.items():
@@ -99,7 +97,7 @@ async def transport(config: Config) -> nx.Graph:
     transport_graph = nx.Graph()
     missing_pairs = []
 
-    for line_id in line_id_stop_points.keys():
+    for line_id in line_id_stop_points:
         for stop_point in line_id_stop_points[line_id]:
             if stop_point.lon is None or stop_point.lat is None:
                 continue
@@ -153,13 +151,10 @@ async def transport(config: Config) -> nx.Graph:
                 ),
             )
 
-    print(f"Missing pairs: {len(missing_pairs)}")
+    logger.info("Missing pairs: %d", len(missing_pairs))
     if missing_pairs:
-        # Show a sample of missing pairs by line
-        from collections import Counter
-
         line_counts = Counter(line_id for line_id, _, _ in missing_pairs)
-        print("Missing pairs by line:")
+        logger.info("Missing pairs by line:")
         for line_id, count in line_counts.most_common():
-            print(f"  {line_id}: {count}")
+            logger.info("  %s: %d", line_id, count)
     return transport_graph

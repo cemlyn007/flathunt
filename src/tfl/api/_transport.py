@@ -45,18 +45,19 @@ def get_ratelimited_client() -> httpx.AsyncClient:
         transport=AsyncRateLimitedTransport.create(
             _SemaphoreRateLimiter(Rate.create(magnitude=(25 - 1), duration=3))
         ),
+        timeout=httpx.Timeout(30.0),
     )
 
 
 def _is_retryable_error(exception: BaseException) -> bool:
     """Check if exception is an HTTP 5xx server error or 429 rate limit error."""
     if isinstance(
-        exception, (httpx.TimeoutException, httpx.NetworkError, httpx.ProtocolError)
+        exception, httpx.TimeoutException | httpx.NetworkError | httpx.ProtocolError
     ):
         return True
-    elif isinstance(exception, exceptions.TflApiError):
-        return False
-    elif not isinstance(exception, httpx.HTTPStatusError):
+    elif isinstance(exception, exceptions.TflApiError) or not isinstance(
+        exception, httpx.HTTPStatusError
+    ):
         return False
     status_code = exception.response.status_code
     return status_code >= 500 or status_code == 429

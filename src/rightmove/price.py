@@ -1,9 +1,7 @@
-from typing import Optional
-
 from rightmove import models
 
 
-def normalize(price: models.Price) -> Optional[float]:
+def normalize(price: models.Price) -> float | None:
     if price is None:
         return None
     # else...

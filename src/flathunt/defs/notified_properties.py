@@ -3,7 +3,7 @@ import logging
 import os
 import smtplib
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from pathlib import Path
 
@@ -57,7 +57,7 @@ def _load_notified_ids(path: Path) -> set[int]:
 
 
 def _save_notified_ids(path: Path, ids: list[int]) -> None:
-    now = int(datetime.now(tz=timezone.utc).timestamp())
+    now = int(datetime.now(tz=UTC).timestamp())
     with _open_db(path) as conn:
         conn.executemany(
             "INSERT OR IGNORE INTO notified (property_id, notified_at) VALUES (?, ?)",
@@ -159,7 +159,7 @@ def _property_card(prop: FinalProperty, index: int) -> str:
 
 def _build_html_email(new_properties: list[FinalProperty]) -> str:
     n = len(new_properties)
-    now = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    now = datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
     plural = "y" if n == 1 else "ies"
 
     cards = "\n".join(_property_card(p, i) for i, p in enumerate(new_properties))

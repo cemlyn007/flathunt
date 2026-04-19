@@ -12,12 +12,11 @@ import tfl.api
 import tfl.models
 from flathunt.coords import LatLon
 from flathunt.isochrone import find_min_simplify_tolerance
+from rightmove.floor_plan import _SQFT_TO_SQM
 
 logger = logging.getLogger(__name__)
 
-TARGET_DATETIME = tfl.api.get_next_datetime(
-    datetime.time(9, 0, 0, tzinfo=datetime.timezone.utc)
-)
+TARGET_DATETIME = tfl.api.get_next_datetime(datetime.time(9, 0, 0, tzinfo=datetime.UTC))
 MAX_RIGHTMOVE_POLYLINE_POINTS = 1000
 MAX_RIGHTMOVE_SEARCH_PROPERTIES = 499
 
@@ -56,13 +55,13 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
                 raise ValueError(
                     f"Expected MultiPolygon to have 'geoms' attribute, got {type(intersection)}"
                 )
-            parts.extend(getattr(intersection, "geoms"))
+            parts.extend(intersection.geoms)
         elif intersection.geom_type == "GeometryCollection":
             if not hasattr(intersection, "geoms"):
                 raise ValueError(
                     f"Expected MultiPolygon to have 'geoms' attribute, got {type(intersection)}"
                 )
-            for geom in getattr(intersection, "geoms"):
+            for geom in intersection.geoms:
                 if geom.geom_type == "Polygon":
                     parts.append(geom)
                 elif geom.geom_type == "MultiPolygon":
@@ -257,7 +256,7 @@ def check_property_size(
             square_ft = int(
                 property.display_size.removesuffix(" sq. ft.").replace(",", "")
             )
-            square_meters = int(square_ft * 0.092903)
+            square_meters = int(square_ft * _SQFT_TO_SQM)
             if square_meters < min_square_meters:
                 return False
         elif property.display_size.endswith(" sqm"):

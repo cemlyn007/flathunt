@@ -10,8 +10,8 @@ from shapely.geometry import box
 
 import rightmove.models
 import tfl.api
-from flathunt.coords import CommuteDest, LatLon
 from flathunt.cache import ModelCache
+from flathunt.coords import CommuteDest, LatLon
 from flathunt.search_utils import (
     fetch_journey_results,
     get_property_ids_in_area,

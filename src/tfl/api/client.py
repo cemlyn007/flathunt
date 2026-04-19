@@ -1,6 +1,5 @@
 import datetime
 from collections.abc import Iterable
-from typing import Optional
 
 from tfl import models
 from tfl.api._transport import get_ratelimited_client
@@ -50,7 +49,7 @@ class Tfl:
         self,
         from_location: tuple[float, float] | str,
         to_location: tuple[float, float] | str,
-        arrival_datetime: Optional[datetime.datetime],
+        arrival_datetime: datetime.datetime | None,
         modes: Iterable[models.ModeId],
         use_multi_modal_call: bool,
     ) -> models.JourneyResults | models.DisambiguationResult:

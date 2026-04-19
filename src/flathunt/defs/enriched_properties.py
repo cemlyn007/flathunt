@@ -29,7 +29,9 @@ _DETAILS_CONCURRENCY = 3
 
 
 def _is_rate_limit_error(exc: BaseException) -> bool:
-    return isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in (429, 503)
+    return isinstance(exc, httpx.TimeoutException | httpx.NetworkError)
 
 
 def _parse_display_size(display_size: str | None) -> float | None:

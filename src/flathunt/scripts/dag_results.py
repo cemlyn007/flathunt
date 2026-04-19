@@ -59,7 +59,7 @@ def _build_rows(
 ) -> list[dict]:
     rows = []
     for fp in properties:
-        commutes = {label: d for label, d in zip(query_labels, fp.commute_durations)}
+        commutes = dict(zip(query_labels, fp.commute_durations, strict=True))
         commute_values = [d for d in fp.commute_durations if d is not None]
         max_commute = max(commute_values) if commute_values else None
 
@@ -67,7 +67,7 @@ def _build_rows(
         if fp.price is not None:
             if channel == "RENT":
                 monthly = rightmove.price.normalize(fp.price)
-                price_value = monthly if isinstance(monthly, (int, float)) else None
+                price_value = monthly if isinstance(monthly, int | float) else None
             else:
                 price_value = fp.price.amount
 

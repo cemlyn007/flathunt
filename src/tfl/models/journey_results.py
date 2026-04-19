@@ -1,5 +1,5 @@
 import datetime
-import enum
+from enum import StrEnum
 
 import pydantic
 
@@ -151,7 +151,7 @@ class Path(TflModel):
     elevation: list
 
 
-class ModeId(str, enum.Enum):
+class ModeId(StrEnum):
     BUS = "bus"
     CABLE_CAR = "cable-car"
     COACH = "coach"
@@ -217,7 +217,7 @@ class Leg(TflModel):
         if isinstance(v, str):
             dt = datetime.datetime.fromisoformat(v)
             if dt.tzinfo is None:
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
             return dt
         return v
 
@@ -237,7 +237,7 @@ class Journey(TflModel):
         if isinstance(v, str):
             dt = datetime.datetime.fromisoformat(v)
             if dt.tzinfo is None:
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
             return dt
         return v
 
@@ -254,7 +254,7 @@ class SearchCriteria(TflModel):
         if isinstance(v, str):
             dt = datetime.datetime.fromisoformat(v)
             if dt.tzinfo is None:
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
             return dt
         return v
 
@@ -301,7 +301,7 @@ class LineStatus(TflModel):
         if isinstance(v, str):
             dt = datetime.datetime.fromisoformat(v)
             if dt.tzinfo is None:
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
             return dt
         return v
 
@@ -325,7 +325,7 @@ class Line(TflModel):
         if isinstance(v, str):
             dt = datetime.datetime.fromisoformat(v)
             if dt.tzinfo is None:
-                return dt.replace(tzinfo=datetime.timezone.utc)
+                return dt.replace(tzinfo=datetime.UTC)
             return dt
         return v
 

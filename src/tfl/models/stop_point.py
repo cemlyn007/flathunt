@@ -1,6 +1,6 @@
 """Pydantic models for TfL StopPoint API responses."""
 
-from typing import Literal, Optional
+from typing import Literal
 
 import pydantic
 
@@ -20,16 +20,16 @@ class AdditionalProperties(TflModel):
 class LineGroup(TflModel):
     """Line group information for a stop point."""
 
-    type: Optional[str] = pydantic.Field(default=None, alias="$type")
-    naptan_id_reference: Optional[str] = None
-    station_atco_code: Optional[str] = None
+    type: str | None = pydantic.Field(default=None, alias="$type")
+    naptan_id_reference: str | None = None
+    station_atco_code: str | None = None
     line_identifier: list[str] = pydantic.Field(default_factory=list)
 
 
 class LineModeGroup(TflModel):
     """Line mode group information."""
 
-    type: Optional[str] = pydantic.Field(default=None, alias="$type")
+    type: str | None = pydantic.Field(default=None, alias="$type")
     mode_name: str
     line_identifier: list[str] = pydantic.Field(default_factory=list)
 
@@ -37,22 +37,22 @@ class LineModeGroup(TflModel):
 class StopPointLine(TflModel):
     """Line information for a stop point."""
 
-    type: Optional[str] = pydantic.Field(default=None, alias="$type")
-    line_type: Optional[str] = pydantic.Field(default=None, alias="type")
-    route_type: Optional[str] = None
-    status: Optional[Literal["Unknown"]] = None
+    type: str | None = pydantic.Field(default=None, alias="$type")
+    line_type: str | None = pydantic.Field(default=None, alias="type")
+    route_type: str | None = None
+    status: Literal["Unknown"] | None = None
     id: str
     name: str
     uri: str
-    full_name: Optional[str] = None
-    mode_name: Optional[str] = None
+    full_name: str | None = None
+    mode_name: str | None = None
     disruptions: list = pydantic.Field(default_factory=list)
-    created: Optional[str] = None
-    modified: Optional[str] = None
+    created: str | None = None
+    modified: str | None = None
     line_statuses: list = pydantic.Field(default_factory=list)
     route_sections: list = pydantic.Field(default_factory=list)
     service_types: list = pydantic.Field(default_factory=list)
-    crowding: Optional[dict] = None
+    crowding: dict | None = None
 
 
 class StopPointDetail(TflModel):
@@ -64,13 +64,13 @@ class StopPointDetail(TflModel):
 
     type: str = pydantic.Field(alias="$type")
     naptan_id: str
-    indicator: Optional[str] = None
-    stop_letter: Optional[str] = None
+    indicator: str | None = None
+    stop_letter: str | None = None
     modes: list[str] = pydantic.Field(default_factory=list)
-    ics_code: Optional[str] = None
-    stop_type: Optional[str] = None
-    station_naptan: Optional[str] = None
-    hub_naptan_code: Optional[str] = None
+    ics_code: str | None = None
+    stop_type: str | None = None
+    station_naptan: str | None = None
+    hub_naptan_code: str | None = None
     lines: list[StopPointLine] = pydantic.Field(default_factory=list)
     line_group: list[LineGroup] = pydantic.Field(default_factory=list)
     line_mode_groups: list[LineModeGroup] = pydantic.Field(default_factory=list)
@@ -81,14 +81,14 @@ class StopPointDetail(TflModel):
     additional_properties: list[AdditionalProperties] = pydantic.Field(
         default_factory=list
     )
-    lat: Optional[float] = None
-    lon: Optional[float] = None
+    lat: float | None = None
+    lon: float | None = None
     children: list["StopPointDetail"] = pydantic.Field(default_factory=list)
     children_urls: list[str] = pydantic.Field(default_factory=list)
-    url: Optional[str] = None
-    distance: Optional[float] = None
+    url: str | None = None
+    distance: float | None = None
 
-    def get_property(self, key: str) -> Optional[str]:
+    def get_property(self, key: str) -> str | None:
         """Get a specific additional property value by key.
 
         Args:
@@ -120,15 +120,15 @@ class StopPointSearchMatch(TflModel):
     """A single match from a stop point search."""
 
     type: str = pydantic.Field(alias="$type")
-    ics_id: Optional[str] = None
+    ics_id: str | None = None
     modes: list[str] = pydantic.Field(default_factory=list)
-    zone: Optional[str] = None
+    zone: str | None = None
     id: str
     name: str
     lat: float
     lon: float
-    url: Optional[str] = None
-    top_most_parent_id: Optional[str] = None
+    url: str | None = None
+    top_most_parent_id: str | None = None
 
 
 class StopPointSearchResponse(TflModel):
@@ -145,9 +145,9 @@ class StopPointsResponse(TflModel):
 
     type: str = pydantic.Field(alias="$type")
     stop_points: list[StopPointDetail] = pydantic.Field(default_factory=list)
-    page_size: Optional[int] = None
-    total: Optional[int] = None
-    page: Optional[int] = None
+    page_size: int | None = None
+    total: int | None = None
+    page: int | None = None
 
 
 # Type adapter for parsing an array of StopPointDetail directly

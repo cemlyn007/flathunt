@@ -2,9 +2,12 @@
 
 import argparse
 import json
+import logging
 import sqlite3
 import time
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _TTL = 86400  # must match ModelCache default
 
@@ -28,7 +31,7 @@ _CACHES = [
 
 def _migrate(src: Path, dst: Path) -> None:
     if not src.exists():
-        print(f"Skipping {src.name}: file not found.")
+        logger.info("Skipping %s: file not found.", src.name)
         return
 
     raw: dict[str, dict] = json.loads(src.read_text())
@@ -53,7 +56,12 @@ def _migrate(src: Path, dst: Path) -> None:
     conn.commit()
     conn.close()
 
-    print(f"Migrated {len(rows)} entries to {dst} ({skipped} expired entries skipped).")
+    logger.info(
+        "Migrated %d entries to %s (%d expired entries skipped).",
+        len(rows),
+        dst,
+        skipped,
+    )
 
 
 def main() -> None:

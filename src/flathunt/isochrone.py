@@ -13,7 +13,7 @@ import tqdm
 from shapely.geometry import Point
 from shapely.geometry.polygon import LinearRing, Polygon
 
-from flathunt.geometry import wgs84_to_bng
+from flathunt.geometry import euclidean, wgs84_to_bng
 
 NODE_BUFFER = 0
 EDGE_BUFFER = 25
@@ -84,21 +84,6 @@ def make_poly(graph: nx.Graph, edge_buff: float, node_buff: float):
     all_gs = list(n) + list(e)
     new_iso = gpd.GeoSeries(all_gs).union_all()
     return new_iso
-
-
-def euclidean(x1, y1, x2, y2):
-    """Compute the Euclidean distance between two points or arrays of points.
-
-    Args:
-        x1: X coordinate(s) of the first point(s).
-        y1: Y coordinate(s) of the first point(s).
-        x2: X coordinate(s) of the second point(s).
-        y2: Y coordinate(s) of the second point(s).
-
-    Returns:
-        Scalar or NumPy array of distances.
-    """
-    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def find_nearest_node(x1, y1, x2, y2):

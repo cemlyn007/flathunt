@@ -7,9 +7,9 @@ import dagster as dg
 from pydantic import Field
 
 import rightmove.models
+from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest
 from flathunt.defs.config import CommuteDestConfig
-from flathunt.cache import ModelCache
 from flathunt.filters import filter_by_commute
 from flathunt.models import MatchedProperty
 from flathunt.property_search import get_properties_journey_duration_cached

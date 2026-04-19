@@ -14,8 +14,8 @@ import streamlit as st
 from shapely import GeometryCollection, Point, Polygon
 
 import rightmove.models
-from flathunt.coords import CommuteDest
 from flathunt.cache import ModelCache
+from flathunt.coords import CommuteDest
 from flathunt.filters import (
     fetch_properties_within_optimal_regions,
     filter_by_commute,
@@ -431,7 +431,7 @@ def _convert_properties_to_dicts(
         property_data.append(
             {
                 "Name": property.display_address or "N/A",
-                "Price": f"£{price:,}" if isinstance(price, (int, float)) else price,
+                "Price": f"£{price:,}" if isinstance(price, int | float) else price,
                 "Size": property.display_size or "N/A",
                 "URL": rightmove.api.property_url(property.property_url),
                 "Minutes to Commute": max(commute_values) if commute_values else "N/A",
@@ -527,10 +527,7 @@ def _get_map(
         A Plotly Figure containing the choropleth map.
     """
     # Make map
-    if len(queries) == 1:
-        other_polys = []
-    else:
-        other_polys = isochrone_polys
+    other_polys = [] if len(queries) == 1 else isochrone_polys
     non_empty_polys = [poly for poly in polys if not poly.is_empty]
     st.write(f"Found {len(non_empty_polys)} intersection graphs.")
     all_polys_gdf, center_point_wgs84 = _get_geo_dataframe(

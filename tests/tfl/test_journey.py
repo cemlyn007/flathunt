@@ -47,7 +47,7 @@ def test_build_journey_parameters_departing_now():
 
 
 def test_build_journey_parameters_arriving_at():
-    arrival = datetime.datetime(2026, 4, 7, 9, 0, 0, tzinfo=datetime.timezone.utc)
+    arrival = datetime.datetime(2026, 4, 7, 9, 0, 0, tzinfo=datetime.UTC)
     params = build_journey_parameters(
         arrival_datetime=arrival,
         modes=[ModeId.TUBE, ModeId.WALKING],
@@ -125,9 +125,7 @@ async def test_get_journey_results_returns_journey_results(app_key: str):
 )
 async def test_get_journey_results_with_arrival_datetime(app_key: str):
     """Journey query with a specific arrival datetime returns JourneyResults."""
-    arrival = datetime.datetime.now(tz=datetime.timezone.utc) + datetime.timedelta(
-        hours=2
-    )
+    arrival = datetime.datetime.now(tz=datetime.UTC) + datetime.timedelta(hours=2)
     async with get_ratelimited_client() as client:
         result = await get_journey_results(
             client=client,

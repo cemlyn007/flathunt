@@ -1,4 +1,4 @@
-import enum
+from enum import StrEnum
 
 import httpx
 
@@ -6,7 +6,7 @@ from tfl import models
 from tfl.api._transport import get
 
 
-class Direction(str, enum.Enum):
+class Direction(StrEnum):
     INBOUND = "inbound"
     OUTBOUND = "outbound"
 

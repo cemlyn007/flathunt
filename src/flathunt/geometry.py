@@ -1,10 +1,26 @@
 import geopandas as gpd
+import numpy as np
 from shapely import Point, Polygon
 
 from flathunt.coords import LatLon
 
 WGS84 = "EPSG:4326"
 BNG = "EPSG:27700"
+
+
+def euclidean(x1, y1, x2, y2):  # type: ignore[no-untyped-def]
+    """Compute the Euclidean distance between two points or arrays of points.
+
+    Args:
+        x1: X coordinate(s) of the first point(s).
+        y1: Y coordinate(s) of the first point(s).
+        x2: X coordinate(s) of the second point(s).
+        y2: Y coordinate(s) of the second point(s).
+
+    Returns:
+        Scalar or NumPy array of distances.
+    """
+    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def wgs84_to_bng(lon: float, lat: float) -> tuple[float, float]:

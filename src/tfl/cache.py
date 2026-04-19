@@ -1,7 +1,7 @@
 import ast
 import json
 import os
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 from tfl import models
 
@@ -63,7 +63,7 @@ class Cache:
         self,
     ) -> dict[tuple[tuple[float, float], tuple[float, float]], list[models.Journey]]:
         if os.path.exists(self._filepath) and os.path.getsize(self._filepath) > 0:
-            with open(self._filepath, "r") as file:
+            with open(self._filepath) as file:
                 cache = json.load(file)
             cache = {
                 ast.literal_eval(key): [

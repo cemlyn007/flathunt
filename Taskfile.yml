@@ -4,6 +4,29 @@ version: '3'
 
 
 tasks:
+  test:
+    cmds:
+      - uv run pytest
+
+  lint:
+    cmds:
+      - uv run ruff check --fix
+
+  format:
+    cmds:
+      - uv run ruff format
+
+  type-check:
+    cmds:
+      - uvx ty check
+
+  ci:
+    cmds:
+      - task: lint
+      - task: format
+      - task: type-check
+      - task: test
+
   uv-sync:
     cmds:
       - uv venv --python 3.14t --allow-existing .venvt

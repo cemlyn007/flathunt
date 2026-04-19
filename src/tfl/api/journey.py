@@ -1,7 +1,7 @@
 import datetime
 import urllib.parse
 from collections.abc import Iterable
-from typing import Optional
+from typing import Any
 
 import httpx
 
@@ -13,7 +13,7 @@ async def get_journey_results(
     client: httpx.AsyncClient,
     from_location: tuple[float, float] | str,
     to_location: tuple[float, float] | str,
-    arrival_datetime: Optional[datetime.datetime],
+    arrival_datetime: datetime.datetime | None,
     modes: Iterable[models.ModeId],
     use_multi_modal_call: bool,
     app_key: str,
@@ -48,21 +48,21 @@ def build_journey_parameters(
     modes: Iterable[models.ModeId],
     use_multi_modal_call: bool,
     app_key: str,
-):
+) -> dict[str, Any]:
     parameters = {
         "app_key": app_key,
         "mode": ",".join(mode.value for mode in modes),
         "multiModalCall": use_multi_modal_call,
     }
     if arrival_datetime is None:
-        departure_datetime = datetime.datetime.now(tz=datetime.timezone.utc)
+        departure_datetime = datetime.datetime.now(tz=datetime.UTC)
         date = departure_datetime.strftime("%Y%m%d")
         time = departure_datetime.strftime("%H%M")
         parameters["date"] = date
         parameters["time"] = time
         parameters["timeIs"] = "departing"
     else:
-        arrival_datetime = arrival_datetime.astimezone(datetime.timezone.utc)
+        arrival_datetime = arrival_datetime.astimezone(datetime.UTC)
         date = arrival_datetime.strftime("%Y%m%d")
         time = arrival_datetime.strftime("%H%M")
         parameters["date"] = date

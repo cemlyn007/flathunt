@@ -1,16 +1,13 @@
-from typing import Optional
-
-
 class TflApiError(Exception):
     """Base exception for TfL API errors."""
 
     def __init__(
         self,
         message: str,
-        http_status_code: Optional[int] = None,
-        exception_type: Optional[str] = None,
-        timestamp_utc: Optional[str] = None,
-        relative_uri: Optional[str] = None,
+        http_status_code: int | None = None,
+        exception_type: str | None = None,
+        timestamp_utc: str | None = None,
+        relative_uri: str | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message

@@ -1,14 +1,13 @@
 import logging
 import sqlite3
 import time
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Generic, Iterable, TypeVar
+from typing import Any
 
 from pydantic import TypeAdapter
 
 logger = logging.getLogger(__name__)
-
-T = TypeVar("T")
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cache (
@@ -23,7 +22,7 @@ CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
 """
 
 
-class ModelCache(Generic[T]):
+class ModelCache[T]:
     def __init__(self, model_cls: Any, db_path: str | Path, ttl: int | None = 86400):
         """Initialise the cache, creating the SQLite database if it does not exist.
 

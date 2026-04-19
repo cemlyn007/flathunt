@@ -1,5 +1,3 @@
-from typing import Optional
-
 from pydantic import computed_field
 from pydantic_xml import BaseXmlModel, attr, element
 
@@ -9,7 +7,7 @@ class Header(BaseXmlModel, tag="Header"):
     display_title: str = element(tag="DisplayTitle")
     version: str = element(tag="Version")
     publish_date_time: str = element(tag="PublishDateTime")
-    canonical: Optional[str] = attr(name="canonical", default=None)
+    canonical: str | None = attr(name="canonical", default=None)
     author: str = element(tag="Author")
     owner: str = element(tag="Owner")
     refresh_rate: int = element(tag="RefreshRate")
@@ -150,12 +148,12 @@ class Station(BaseXmlModel, tag="station"):
     type: str = attr()
     name: str = element(tag="name")
     contact_details: ContactDetails = element(tag="contactDetails")
-    serving_lines: Optional[ServingLines] = element(tag="servingLines", default=None)
-    zones: Optional[Zones] = element(tag="zones", default=None)
-    facilities: Optional[Facilities] = element(tag="facilities", default=None)
-    entrances: Optional[Entrances] = element(tag="entrances", default=None)
-    opening_hours: Optional[OpeningHours] = element(tag="openingHours", default=None)
-    placemark: Optional[Placemark] = element(tag="Placemark", default=None)
+    serving_lines: ServingLines | None = element(tag="servingLines", default=None)
+    zones: Zones | None = element(tag="zones", default=None)
+    facilities: Facilities | None = element(tag="facilities", default=None)
+    entrances: Entrances | None = element(tag="entrances", default=None)
+    opening_hours: OpeningHours | None = element(tag="openingHours", default=None)
+    placemark: Placemark | None = element(tag="Placemark", default=None)
 
 
 class Stations(BaseXmlModel, tag="stations"):
@@ -180,6 +178,6 @@ class Root(BaseXmlModel, tag="Root"):
     open: int = element(tag="open")
     description: str = element(tag="description")
     header: Header = element(tag="Header")
-    attribution: Optional[Attribution] = element(tag="Attribution", default=None)
+    attribution: Attribution | None = element(tag="Attribution", default=None)
     styles: list[Style] = element(tag="Style", default=[])
     stations: Stations = element(tag="stations")

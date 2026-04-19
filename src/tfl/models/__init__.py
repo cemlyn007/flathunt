@@ -11,9 +11,7 @@ from tfl.models.journey_results import (
     JourneyResults,
     JourneyVector,
     Leg,
-    Line,
     LineServiceTypeInfo,
-    LineStatus,
     Mode,
     ModeId,
     Obstacle,
@@ -39,6 +37,9 @@ from tfl.models.line import (
     LineStatusValidityPeriod,
     MatchedRoute,
 )
+
+# Note: Line and LineStatus are intentionally re-exported from tfl.models.line,
+# which takes precedence over the identically-named types in journey_results.
 from tfl.models.stations_facitilities import (
     Attribution,
     BookingHallToPlatform,
