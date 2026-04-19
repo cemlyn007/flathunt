@@ -1,7 +1,7 @@
 import ast
 import json
-import os
 from collections.abc import Iterable, Iterator
+from pathlib import Path
 
 from tfl import models
 
@@ -14,8 +14,9 @@ class Cache:
         self._journeys = self._load()
 
     def _reset(self) -> None:
-        if os.path.exists(self._filepath):
-            os.remove(self._filepath)
+        path = Path(self._filepath)
+        if path.exists():
+            path.unlink()
 
     def __iter__(
         self,
@@ -62,8 +63,9 @@ class Cache:
     def _load(
         self,
     ) -> dict[tuple[tuple[float, float], tuple[float, float]], list[models.Journey]]:
-        if os.path.exists(self._filepath) and os.path.getsize(self._filepath) > 0:
-            with open(self._filepath) as file:
+        path = Path(self._filepath)
+        if path.exists() and path.stat().st_size > 0:
+            with path.open() as file:
                 cache = json.load(file)
             cache = {
                 ast.literal_eval(key): [
@@ -83,5 +85,5 @@ class Cache:
                 for key, journeys in self._journeys.items()
             },
         )
-        with open(self._filepath, "w") as file:
+        with Path(self._filepath).open("w") as file:
             file.write(content)

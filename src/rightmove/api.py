@@ -3,7 +3,7 @@ import enum
 import json
 import logging
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 import httpx
 import polyline as _polyline
@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 __all__ = [
     "SEARCH_LIST_MAX_RESULTS",
     "SEARCH_MAP_MAX_RESULTS",
-    "HTTPError",
-    "SortType",
-    "MustHave",
     "DontShow",
     "FurnishType",
+    "HTTPError",
+    "MustHave",
     "PropertyType",
-    "SearchQuery",
     "Rightmove",
+    "SearchQuery",
+    "SortType",
     "polyline_identifier",
     "property_url",
 ]
@@ -272,7 +272,7 @@ class _RawRightmove:
     LOS_LIMIT = 20
     "The maximum search results the lookup service will return."
 
-    _HEADERS = {
+    _HEADERS: ClassVar[dict[str, str]] = {
         "User-Agent": "IAmLookingToRent/0.0.0",
         "Accept": "*/*",
     }

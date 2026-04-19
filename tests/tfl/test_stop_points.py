@@ -7,7 +7,7 @@ from tfl.api.stop_points import get_stop_points_by_mode
 from tfl.models import ModeId, StopPointDetail
 
 # ---------------------------------------------------------------------------
-# Regression tests – real network calls
+# Regression tests - real network calls
 # ---------------------------------------------------------------------------
 
 

@@ -7,7 +7,7 @@ from tfl.api.timetable import Direction, get_timetable, get_timetable_between_st
 from tfl.models import TimetableResponse
 
 # ---------------------------------------------------------------------------
-# Regression tests – real network calls
+# Regression tests - real network calls
 # ---------------------------------------------------------------------------
 
 # Central line: Bond Street -> Marble Arch (adjacent stops, outbound)

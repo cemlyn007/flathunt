@@ -11,7 +11,7 @@ from tfl.api.lines import (
 from tfl.models import Line, ModeId, StopPointDetail
 
 # ---------------------------------------------------------------------------
-# Regression tests – real network calls
+# Regression tests - real network calls
 # ---------------------------------------------------------------------------
 
 _TUBE_LINE_ID = "central"

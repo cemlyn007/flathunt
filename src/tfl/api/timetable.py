@@ -33,5 +33,5 @@ async def get_timetable_between_stops(
     app_key: str,
 ) -> models.TimetableResponse:
     url = f"/Line/{line_id}/Timetable/{from_stop_point_id}/to/{to_stop_point_id}"
-    status_code, content = await get(client, url, {"app_key": app_key})
+    _status_code, content = await get(client, url, {"app_key": app_key})
     return models.TimetableResponse.model_validate_json(content, strict=True)

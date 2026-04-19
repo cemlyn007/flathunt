@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import time
+from pathlib import Path
 
 import dagster as dg
 
@@ -27,10 +28,10 @@ def monitor_map_file_and_tfl_lines(
         "FLATHUNT_ROADS_FILE_PATH",
         "greater-london-251126-free/gis_osm_roads_free_1.shp",
     )
-    stat = os.stat(file_path)
+    stat = Path(file_path).stat()
     roads_version = f"{stat.st_mtime_ns}-{stat.st_size}"
     if cursor.get("roads_version") != roads_version:
-        context.log.info(f"roads shapefile changed, new version: {roads_version}")
+        context.log.info("roads shapefile changed, new version: %s", roads_version)
         events.append(
             dg.AssetMaterialization(
                 asset_key=roads_shapefile.key,
@@ -61,7 +62,7 @@ def monitor_map_file_and_tfl_lines(
         cursor["tfl_last_checked"] = now
 
         if cursor.get("tfl_version") != tfl_version:
-            context.log.info(f"TfL topology changed, new version: {tfl_version}")
+            context.log.info("TfL topology changed, new version: %s", tfl_version)
             events.append(
                 dg.AssetMaterialization(
                     asset_key=tfl_network_topology.key,

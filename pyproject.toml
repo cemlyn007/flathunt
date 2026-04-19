@@ -69,7 +69,14 @@ select = [
     "UP",  # pyupgrade (Optional[X] → X | None, etc.)
     "B",   # flake8-bugbear
     "C4",  # flake8-comprehensions
-    "SIM", # flake8-simplify
+    "SIM",     # flake8-simplify
+    "PLC0415", # import-outside-toplevel
+    "RUF",     # ruff-specific rules
+    "PERF",    # perflint – performance anti-patterns
+    "FURB",    # refurb – modernise Python idioms
+    "PTH",     # flake8-use-pathlib
+    "T20",     # flake8-print – ban print()
+    "G",       # flake8-logging-format
 ]
 ignore = ["E501"]  # line length not enforced
 

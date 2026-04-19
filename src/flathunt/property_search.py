@@ -28,7 +28,7 @@ def get_tiles_covering_polygon(
 ) -> list[tuple[str, list[LatLon]]]:
     """Enumerate fixed-size WGS84 tiles that intersect a polygon.
 
-    The map is divided into a regular grid of ``TILE_SIZE`` × ``TILE_SIZE``
+    The map is divided into a regular grid of ``TILE_SIZE`` x ``TILE_SIZE``
     degree cells. Only cells that intersect ``polygon`` are returned.
 
     Args:

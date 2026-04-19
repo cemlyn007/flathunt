@@ -130,7 +130,7 @@ class _PropertyBase(CamelCaseModel):
     saved: bool
     online_viewings_available: bool
     lozenge_model: LozengeModel
-    keywords: list[str] = []
+    keywords: list[str] = pydantic.Field(default_factory=list)
     keyword_match_type: str | None = None
     hidden: bool = False
     has_brand_plus: bool | None = None
@@ -162,14 +162,14 @@ class ListingProperty(_PropertyBase):
     contact_url: str | None = None
     static_map_url: str | None = None
     first_visible_date: pydantic.AwareDatetime | None = None
-    tags: list[str] = []
+    tags: list[str] = pydantic.Field(default_factory=list)
     street_view: StreetView | None = None
     enquired_timestamp: pydantic.AwareDatetime | None = None
     update_date: pydantic.AwareDatetime | None = None
     enquiry_added_timestamp: pydantic.AwareDatetime | None = None
     enquiry_called_timestamp: pydantic.AwareDatetime | None = None
     reviews: Any | None = None
-    key_features: list[KeyFeature] = []
+    key_features: list[KeyFeature] = pydantic.Field(default_factory=list)
     enhanced_listing: bool | None = None
     formatted_branch_name: str | None = None
     added_or_reduced: str | None = None

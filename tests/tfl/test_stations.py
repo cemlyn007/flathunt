@@ -6,7 +6,7 @@ from tfl.api.stations import get_stations_facilities
 from tfl.models import Root
 
 # ---------------------------------------------------------------------------
-# Regression tests – real network calls
+# Regression tests - real network calls
 # ---------------------------------------------------------------------------
 
 

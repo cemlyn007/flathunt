@@ -73,7 +73,7 @@ def matched_property_ids(
     ]
     total = len(flat_to_froms)
     logger.info(
-        "Fetching TfL commute durations for %d propert(ies) × %d destination(s).",
+        "Fetching TfL commute durations for %d propert(ies) x %d destination(s).",
         len(candidate_properties),
         len(queries),
     )
