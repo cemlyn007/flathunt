@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import math
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncIterator, Callable, Sequence
 from typing import Literal
 
 from shapely import Point, Polygon
@@ -94,13 +94,18 @@ async def get_property_ids_in_area_cached(
     coords: Sequence[LatLon],
     channel: Literal["RENT", "BUY"],
     cache: ModelCache[list[rightmove.models.MapProperty]],
+    *,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    seen_ids: frozenset[int] = frozenset(),
+    predicate: Callable[[rightmove.models.MapProperty], bool] | None = None,
 ) -> AsyncIterator[list[rightmove.models.MapProperty]]:
     """Async generator yielding per-tile property lists as each tile is resolved.
 
     Cache hits are yielded immediately; misses are fetched concurrently via the
     Rightmove API and yielded as they complete.  Properties in each yielded list
     are filtered to those contained within the search polygon derived from
-    ``coords``.
+    ``coords``, and to those satisfying ``predicate`` (if provided).
 
     Args:
         map_polygon_boundary: WGS84 polygon defining the overall map boundary
@@ -108,6 +113,12 @@ async def get_property_ids_in_area_cached(
         coords: Exterior ring of the search area as ``LatLon`` values in WGS84.
         channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
         cache: Persistent tile-level cache for Rightmove responses.
+        min_price: Minimum price forwarded to the Rightmove API.
+        max_price: Maximum price forwarded to the Rightmove API.
+        seen_ids: Property IDs from previous runs used for early-exit on cache
+            misses.  Not included in the cache key.
+        predicate: Optional filter applied to each property after retrieval
+            (from cache or API).  Not included in the cache key.
 
     Yields:
         A list of properties located inside the search polygon for each tile.
@@ -127,7 +138,13 @@ async def get_property_ids_in_area_cached(
     tiles_to_fetch = []
     for tile_id, tile_coords in selected_tiles:
         key = json.dumps(
-            {"tile_id": tile_id, "channel": channel, "tile_size": TILE_SIZE}
+            {
+                "tile_id": tile_id,
+                "channel": channel,
+                "tile_size": TILE_SIZE,
+                "min_price": min_price,
+                "max_price": max_price,
+            }
         )
         try:
             cached_props = cache.get(key)
@@ -137,6 +154,7 @@ async def get_property_ids_in_area_cached(
                 if search_polygon.contains(
                     Point(p.location.longitude, p.location.latitude)
                 )
+                and (predicate is None or predicate(p))
             ]
         except KeyError:
             tiles_to_fetch.append((key, tile_coords))
@@ -148,7 +166,12 @@ async def get_property_ids_in_area_cached(
             key: str, tile_coords: list[LatLon]
         ) -> list[rightmove.models.MapProperty]:
             props = await get_property_ids_in_area(
-                tile_coords, channel=channel, semaphore=semaphore
+                tile_coords,
+                channel=channel,
+                semaphore=semaphore,
+                min_price=min_price,
+                max_price=max_price,
+                seen_ids=seen_ids,
             )
             cache.update([(key, props)])
             return [
@@ -157,6 +180,7 @@ async def get_property_ids_in_area_cached(
                 if search_polygon.contains(
                     Point(p.location.longitude, p.location.latitude)
                 )
+                and (predicate is None or predicate(p))
             ]
 
         for coro in asyncio.as_completed(

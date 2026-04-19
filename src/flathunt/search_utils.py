@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import logging
+from collections.abc import Callable
 from typing import Literal
 
 from shapely.geometry import box
@@ -18,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 TARGET_DATETIME = tfl.api.get_next_datetime(datetime.time(9, 0, 0, tzinfo=datetime.UTC))
 MAX_RIGHTMOVE_POLYLINE_POINTS = 1000
-MAX_RIGHTMOVE_SEARCH_PROPERTIES = 499
 
 
 def split_polygon(polygon: Polygon) -> list[Polygon]:
@@ -167,21 +167,41 @@ async def get_property_ids_in_area(
     depth: int = 0,
     *,
     semaphore: asyncio.Semaphore,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    seen_ids: frozenset[int] = frozenset(),
+    predicate: Callable[[rightmove.models.MapProperty], bool] | None = None,
 ) -> list[rightmove.models.MapProperty]:
     """Fetch all Rightmove properties within a WGS84 polygon, subdividing as needed.
 
+    Uses the listing search endpoint (sorted by most-recent) with incremental
+    early-exit: pagination stops as soon as a full page consists entirely of
+    property IDs already present in ``seen_ids``, minimising requests on
+    repeat runs.
+
     If the coordinate count exceeds ``MAX_RIGHTMOVE_POLYLINE_POINTS``, or if
-    the result count exceeds ``MAX_RIGHTMOVE_SEARCH_PROPERTIES``, the polygon
-    is split into quadrants and the search is retried recursively.
+    the total result count exceeds :data:`rightmove.api.SEARCH_LIST_MAX_RESULTS`
+    and no early exit occurred, the polygon is split into quadrants and the
+    search is retried recursively.
 
     Args:
         coords: Exterior ring of the search area as ``LatLon`` values in WGS84.
         channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
             Defaults to ``"RENT"``.
         depth: Current recursion depth (used for logging). Defaults to 0.
+        min_price: Minimum price passed to the Rightmove API (monthly PCM for
+            RENT, purchase price for BUY).  ``None`` means no lower bound.
+        max_price: Maximum price passed to the Rightmove API.  ``None`` means
+            no upper bound.
+        seen_ids: Property IDs observed in previous pipeline runs.  Used to
+            trigger early-exit when an all-seen page is encountered.
+        predicate: Optional callable applied to each fetched property.  Only
+            properties for which the predicate returns ``True`` are included
+            in the returned list.
 
     Returns:
-        A deduplicated list of properties within the search polygon.
+        A deduplicated list of properties within the search polygon that
+        satisfy ``predicate`` (if provided).
     """
     rightmove_client = rightmove.api.Rightmove()
     # Ensure coords limit
@@ -194,25 +214,43 @@ async def get_property_ids_in_area(
             results.extend(
                 property_location
                 for property_location in await get_property_ids_in_area(
-                    sub_coords, channel=channel, depth=depth + 1, semaphore=semaphore
+                    sub_coords,
+                    channel=channel,
+                    depth=depth + 1,
+                    semaphore=semaphore,
+                    min_price=min_price,
+                    max_price=max_price,
+                    seen_ids=seen_ids,
+                    predicate=predicate,
                 )
                 if not any(result.id == property_location.id for result in results)
             )
         return results
     else:
         async with semaphore:
-            search_results, count = await rightmove_client.map_search(
+            (
+                search_results,
+                count,
+                stopped_early,
+            ) = await rightmove_client.search_incremental(
                 rightmove.api.SearchQuery(
                     location_identifier=rightmove.api.polyline_identifier(
                         [(c.lat, c.lon) for c in coords]
                     ),
                     is_fetching=True,
                     channel=channel,
-                )
+                    sort_type=rightmove.api.SortType.MOST_RECENT,
+                    min_price=min_price or 0,
+                    max_price=max_price,
+                ),
+                seen_ids=seen_ids,
             )
-        if count > MAX_RIGHTMOVE_SEARCH_PROPERTIES:
+        if not stopped_early and count > rightmove.api.SEARCH_LIST_MAX_RESULTS:
             logger.info(
-                f"Count {count} > {MAX_RIGHTMOVE_SEARCH_PROPERTIES}, subdividing (depth {depth})."
+                "Count %d > %d, subdividing (depth %d).",
+                count,
+                rightmove.api.SEARCH_LIST_MAX_RESULTS,
+                depth,
             )
             exterior = LinearRing([(c.lon, c.lat) for c in coords])
             sub_exteriors = _subdivide_exterior(exterior)
@@ -226,11 +264,17 @@ async def get_property_ids_in_area(
                         channel=channel,
                         depth=depth + 1,
                         semaphore=semaphore,
+                        min_price=min_price,
+                        max_price=max_price,
+                        seen_ids=seen_ids,
+                        predicate=predicate,
                     )
                     if not any(result.id == property_location.id for result in results)
                 )
             return results
         else:
+            if predicate is not None:
+                return [p for p in search_results if predicate(p)]
             return search_results
 
 

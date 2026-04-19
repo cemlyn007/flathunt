@@ -173,7 +173,7 @@ class Rightmove:
             list[models.ListingProperty]: List of properties matching the search criteria
                 of up to a max length of 1000.
         """
-        search_results = await self._raw_api.listing_search(query=query)
+        search_results, _ = await self._raw_api.listing_search(query=query)
         return [
             models.ListingProperty.model_validate(property)
             for property in search_results["properties"]
@@ -199,6 +199,52 @@ class Rightmove:
             models.MapProperty.model_validate(feature["properties"])
             for feature in features
         ], int(location_results["resultCount"].replace(",", ""))
+
+    async def search_incremental(
+        self,
+        query: SearchQuery,
+        seen_ids: frozenset[int],
+    ) -> tuple[list[models.MapProperty], int, bool]:
+        """Paginated listing search with incremental early-exit.
+
+        Fetches listing results sorted by ``query.sort_type`` (use
+        :attr:`SortType.MOST_RECENT` to get newest listings first) and stops
+        pagination as soon as a full page consists entirely of IDs already
+        present in ``seen_ids``.  Results from pages fetched *before* the
+        stopping point are still returned.
+
+        Validates each result as :class:`~rightmove.models.ListingProperty` (the
+        correct type for this endpoint) then constructs a
+        :class:`~rightmove.models.MapProperty` from the shared base fields, so
+        that no downstream type changes are required.
+
+        Args:
+            query: Search parameters.  Set ``sort_type=SortType.MOST_RECENT``
+                so that new listings appear on the first pages.
+            seen_ids: Set of property IDs observed in previous runs.
+
+        Returns:
+            A ``(properties, total_count, stopped_early)`` tuple.
+            ``total_count`` is the total number of results reported by the API
+            (useful for deciding whether to subdivide a search polygon).
+            ``stopped_early`` is ``True`` when an all-seen page was encountered
+            before all results were fetched.
+        """
+        search_results, stopped_early = await self._raw_api.listing_search(
+            query=query, seen_ids=seen_ids
+        )
+        total_count = int(search_results["resultCount"].replace(",", ""))
+        map_fields = set(models.MapProperty.model_fields)
+        properties = [
+            models.MapProperty.model_construct(
+                **{k: getattr(listing, k) for k in map_fields}
+            )
+            for listing in (
+                models.ListingProperty.model_validate(prop)
+                for prop in search_results["properties"]
+            )
+        ]
+        return properties, total_count, stopped_early
 
     async def get_property_details(
         self,
@@ -259,7 +305,22 @@ class _RawRightmove:
     async def listing_search(
         self,
         query: SearchQuery,
-    ) -> dict[str, Any]:
+        seen_ids: frozenset[int] | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Paginate the listing search endpoint, optionally stopping early.
+
+        Args:
+            query: Search parameters.
+            seen_ids: If provided, pagination stops as soon as a full page
+                contains only IDs already in this set (all properties on the
+                page have been seen before).  The properties fetched *before*
+                the stopping page are still returned.
+
+        Returns:
+            A ``(response_dict, stopped_early)`` tuple.  ``stopped_early`` is
+            ``True`` when pagination was halted because a page was fully
+            covered by ``seen_ids``.
+        """
         params = self._get_listing_params(query)
         async with httpx.AsyncClient(
             base_url=f"https://{self.BASE_HOST}", timeout=30.0
@@ -271,7 +332,7 @@ class _RawRightmove:
             )
             response.raise_for_status()
             if not response.content or not response.text.strip():
-                return {"properties": [], "resultCount": "0"}
+                return {"properties": [], "resultCount": "0"}, False
             try:
                 result = response.json()
             except Exception:
@@ -284,6 +345,12 @@ class _RawRightmove:
                 raise
 
             full_response = copy.deepcopy(result)
+
+            if seen_ids is not None:
+                first_ids = {p["id"] for p in full_response["properties"]}
+                if first_ids and first_ids.issubset(seen_ids):
+                    return full_response, True
+
             while len(full_response["properties"]) < min(
                 int(result["resultCount"].replace(",", "")), SEARCH_LIST_MAX_RESULTS
             ):
@@ -296,8 +363,12 @@ class _RawRightmove:
                 )
                 response.raise_for_status()
                 result = response.json()
+                if seen_ids is not None:
+                    page_ids = {p["id"] for p in result["properties"]}
+                    if page_ids and page_ids.issubset(seen_ids):
+                        return full_response, True
                 full_response["properties"].extend(result["properties"])
-            return full_response
+            return full_response, False
 
     async def property_details(self, property_url: str) -> str:
         async with httpx.AsyncClient(
@@ -386,4 +457,9 @@ class _RawRightmove:
         return params
 
     def _get_map_params(self, query: SearchQuery) -> dict[str, Any]:
-        return self._get_common_params(query)
+        params = self._get_common_params(query)
+        if query.min_price:
+            params["minPrice"] = query.min_price
+        if query.max_price:
+            params["maxPrice"] = query.max_price
+        return params

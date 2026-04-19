@@ -1,16 +1,22 @@
 import asyncio
-from unittest.mock import create_autospec, patch
+from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
+from shapely.geometry import box as shapely_box
 
+import rightmove.api as rm_api
 import rightmove.models
 from flathunt.cache import ModelCache
-from flathunt.coords import CommuteDest
+from flathunt.coords import CommuteDest, LatLon
 from flathunt.filters import (
     filter_by_commute,
     filter_properties_by_budget_and_features,
 )
-from flathunt.property_search import get_commute_durations
+from flathunt.property_search import (
+    get_commute_durations,
+    get_property_ids_in_area_cached,
+)
+from flathunt.search_utils import get_property_ids_in_area
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -306,3 +312,116 @@ def test_filter_no_display_size_passes():
         [prop], 0, 99999, False, False, 50, "RENT"
     )
     assert result == [prop]
+
+
+# ---------------------------------------------------------------------------
+# get_property_ids_in_area — predicate and early-exit
+# ---------------------------------------------------------------------------
+
+
+def _make_coords():
+    """Return a minimal 5-point WGS84 tile polygon."""
+    return [
+        LatLon(lat=51.50, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.14),
+    ]
+
+
+async def test_get_property_ids_in_area_predicate_filters_results():
+    """Predicate should exclude properties that do not satisfy it."""
+    coords = _make_coords()
+    prop_pass = make_property(id=1, number_of_images=5)
+    prop_fail = make_property(id=2, number_of_images=1)
+
+    with patch(
+        "flathunt.search_utils.rightmove.api.Rightmove.search_incremental",
+        new=AsyncMock(return_value=([prop_pass, prop_fail], 2, False)),
+    ):
+        semaphore = asyncio.Semaphore(1)
+        result = await get_property_ids_in_area(
+            coords,
+            channel="RENT",
+            semaphore=semaphore,
+            predicate=lambda p: (p.number_of_images or 0) > 2,
+        )
+
+    assert result == [prop_pass]
+
+
+async def test_get_property_ids_in_area_no_predicate_returns_all():
+    coords = _make_coords()
+    props = [make_property(id=1), make_property(id=2)]
+
+    with patch(
+        "flathunt.search_utils.rightmove.api.Rightmove.search_incremental",
+        new=AsyncMock(return_value=(props, 2, False)),
+    ):
+        semaphore = asyncio.Semaphore(1)
+        result = await get_property_ids_in_area(
+            coords, channel="RENT", semaphore=semaphore
+        )
+
+    assert result == props
+
+
+async def test_get_property_ids_in_area_stopped_early_skips_subdivision():
+    """When stopped_early=True the subdivision threshold is not checked."""
+    coords = _make_coords()
+
+    # total_count > SEARCH_LIST_MAX_RESULTS but stopped_early → no subdivision
+    props = [make_property(id=i) for i in range(5)]
+
+    with patch(
+        "flathunt.search_utils.rightmove.api.Rightmove.search_incremental",
+        new=AsyncMock(return_value=(props, rm_api.SEARCH_LIST_MAX_RESULTS + 1, True)),
+    ):
+        semaphore = asyncio.Semaphore(1)
+        result = await get_property_ids_in_area(
+            coords, channel="RENT", semaphore=semaphore
+        )
+
+    assert result == props
+
+
+# ---------------------------------------------------------------------------
+# get_property_ids_in_area_cached — predicate applied to cache hits
+# ---------------------------------------------------------------------------
+
+
+async def test_get_property_ids_in_area_cached_predicate_on_cache_hit():
+    """Predicate must be applied to properties returned from the tile cache."""
+    prop_pass = make_property(
+        id=10, longitude=-0.13, latitude=51.51, number_of_images=5
+    )
+    prop_fail = make_property(
+        id=11, longitude=-0.13, latitude=51.51, number_of_images=1
+    )
+
+    bounding_poly = shapely_box(-0.14, 51.50, -0.12, 51.52)
+    tile_coords = [
+        LatLon(lat=51.50, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.14),
+    ]
+
+    # Stub the cache: always return both properties as a cache hit
+    cache = MagicMock(spec=ModelCache)
+    cache.get.return_value = [prop_pass, prop_fail]
+
+    results = []
+    async for batch in get_property_ids_in_area_cached(
+        bounding_poly,
+        tile_coords,
+        "RENT",
+        cache,
+        predicate=lambda p: (p.number_of_images or 0) > 2,
+    ):
+        results.extend(batch)
+
+    assert prop_pass in results
+    assert prop_fail not in results

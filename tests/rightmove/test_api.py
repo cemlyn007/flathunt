@@ -107,6 +107,75 @@ _LONDON_POLYGON: list[tuple[float, float]] = [
 
 
 @pytest.mark.regression
+async def test_listing_search_polyline_e2e() -> None:
+    """Verify that the listing search endpoint accepts a USERDEFINEDAREA polyline identifier."""
+    query = SearchQuery(
+        location_identifier=polyline_identifier(_LONDON_POLYGON),
+        number_of_properties_per_page=24,
+        sort_type=SortType.MOST_RECENT,
+        property_types=[
+            PropertyType.FLAT,
+            PropertyType.DETACHED,
+            PropertyType.SEMI_DETACHED,
+            PropertyType.TERRACED,
+        ],
+        dont_show=[DontShow.HOUSE_SHARE, DontShow.RETIREMENT, DontShow.STUDENT],
+        min_bedrooms=1,
+        max_bedrooms=10,
+        is_fetching=True,
+        channel="BUY",
+    )
+    rightmove = Rightmove()
+    properties = await rightmove.search(query)
+
+    assert len(properties) > 0, (
+        "Expected listing search to return results for a polyline area"
+    )
+    for prop in properties:
+        assert isinstance(prop, ListingProperty)
+        assert isinstance(prop.id, int)
+        assert isinstance(prop.location.latitude, float)
+        assert isinstance(prop.location.longitude, float)
+
+
+@pytest.mark.regression
+async def test_search_incremental_e2e() -> None:
+    """Verify search_incremental returns valid MapProperty objects from a polyline area."""
+
+    query = SearchQuery(
+        location_identifier=polyline_identifier(_LONDON_POLYGON),
+        number_of_properties_per_page=24,
+        sort_type=SortType.MOST_RECENT,
+        property_types=[
+            PropertyType.FLAT,
+            PropertyType.DETACHED,
+            PropertyType.SEMI_DETACHED,
+            PropertyType.TERRACED,
+        ],
+        dont_show=[DontShow.HOUSE_SHARE, DontShow.RETIREMENT, DontShow.STUDENT],
+        min_bedrooms=1,
+        max_bedrooms=10,
+        is_fetching=True,
+        channel="BUY",
+    )
+    rightmove_client = Rightmove()
+    properties, total_count, stopped_early = await rightmove_client.search_incremental(
+        query, seen_ids=frozenset()
+    )
+
+    assert isinstance(total_count, int) and total_count >= 0
+    assert isinstance(stopped_early, bool)
+    assert len(properties) > 0, "Expected at least one property in central London"
+    for prop in properties:
+        assert isinstance(prop, MapProperty)
+        assert isinstance(prop.id, int)
+        assert isinstance(prop.location.latitude, float)
+        assert isinstance(prop.location.longitude, float)
+        assert isinstance(prop.price.amount, int)
+        assert isinstance(prop.display_address, str)
+
+
+@pytest.mark.regression
 async def test_map_search_e2e() -> None:
     """End-to-end test that the map search endpoint returns valid property locations."""
     query = SearchQuery(
