@@ -101,8 +101,7 @@ def _extract_json_from_response(text: str) -> str:
         if len(lines) > 1:
             text = lines[1]
         # Remove closing ```
-        if text.endswith("```"):
-            text = text[:-3]
+        text = text.removesuffix("```")
     return text.strip()
 
 
@@ -571,9 +570,23 @@ def enriched_properties(
                     )
                     details = None
 
-            # Collect floor plan batch requests
+            # Collect floor plan batch requests (skip if cached)
             metadata_sqm = _parse_display_size(prop.display_size)
-            if metadata_sqm is None and details and details.floorplans:
+            floor_plan_cached = False
+            if metadata_sqm is None:
+                try:
+                    floor_plan_cache.peek(cache_key)
+                    floor_plan_cached = True
+                    logger.debug("Floor plan cache hit for property %d.", prop.id)
+                except KeyError:
+                    pass
+
+            if (
+                metadata_sqm is None
+                and not floor_plan_cached
+                and details
+                and details.floorplans
+            ):
                 for image_idx, floor_plan in enumerate(details.floorplans):
                     try:
                         async with httpx.AsyncClient() as http_client:
@@ -599,8 +612,16 @@ def enriched_properties(
                             prop.id,
                         )
 
-            # Collect description batch requests
-            if details and details.description:
+            # Collect description batch requests (skip if cached)
+            description_cached = False
+            try:
+                description_info_cache.peek(cache_key)
+                description_cached = True
+                logger.debug("Description cache hit for property %d.", prop.id)
+            except KeyError:
+                pass
+
+            if not description_cached and details and details.description:
                 custom_id = f"desc_{prop.id}"
                 request = description_extractor.build_batch_request(
                     custom_id, details.description
