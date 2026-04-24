@@ -9,6 +9,7 @@ from rightmove.anthropic_config import (
     MODEL,
     build_floor_plan_batch_request,
     build_output_config,
+    detect_image_format,
     get_client,
 )
 
@@ -97,14 +98,14 @@ class FloorPlanSizeExtractor:
         self,
         custom_id: str,
         image_data: bytes,
-        media_type: str = "image/jpeg",
+        media_type: str | None = None,
     ) -> Request:
         """Build a batch request for extraction (no API call).
 
         Args:
             custom_id: Unique ID for this request (e.g., "fp_12345_0")
             image_data: Raw bytes of the floor plan image
-            media_type: MIME type of the image (default: "image/jpeg")
+            media_type: MIME type of the image (auto-detected if not provided)
 
         Returns:
             A Request object for batch submission.
@@ -114,7 +115,7 @@ class FloorPlanSizeExtractor:
     async def extract(
         self,
         image_data: bytes,
-        media_type: str = "image/jpeg",
+        media_type: str | None = None,
     ) -> FloorPlanExtraction | None:
         """Extract floor plan sizes from the image using Claude.
 
@@ -125,12 +126,15 @@ class FloorPlanSizeExtractor:
 
         Args:
             image_data: Raw bytes of the floor plan image.
-            media_type: MIME type of the image (e.g. ``"image/jpeg"``).
+            media_type: MIME type of the image (auto-detected if not provided).
 
         Returns:
             A :class:`FloorPlanExtraction` with total and/or breakdown, or ``None``
             if no size annotation was found or image is ambiguous.
         """
+        if media_type is None:
+            media_type = detect_image_format(image_data)
+
         encoded = base64.b64encode(image_data).decode("ascii")
 
         response = self._client.messages.create(  # type: ignore

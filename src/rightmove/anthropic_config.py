@@ -16,6 +16,28 @@ logger = logging.getLogger(__name__)
 MODEL = "claude-opus-4-7"
 
 
+def detect_image_format(image_data: bytes) -> str:
+    """Detect image format from magic bytes.
+
+    Returns MIME type (e.g., "image/jpeg", "image/png", "image/gif", "image/webp").
+    Defaults to "image/jpeg" if format cannot be determined.
+    """
+    if len(image_data) < 4:
+        return "image/jpeg"
+
+    # Check magic bytes (file signatures)
+    if image_data[:3] == b"\xff\xd8\xff":  # JPEG
+        return "image/jpeg"
+    elif image_data[:8] == b"\x89PNG\r\n\x1a\n":  # PNG
+        return "image/png"
+    elif image_data[:4] == b"GIF8":  # GIF
+        return "image/gif"
+    elif image_data[:4] == b"RIFF" and image_data[8:12] == b"WEBP":  # WebP
+        return "image/webp"
+
+    return "image/jpeg"  # Default fallback
+
+
 def get_client() -> anthropic.Anthropic:
     """Get Anthropic API client.
 
@@ -61,20 +83,23 @@ def build_output_config(model: type[pydantic.BaseModel]) -> dict[str, Any]:
 def build_floor_plan_batch_request(
     custom_id: str,
     image_data: bytes,
-    media_type: str = "image/jpeg",
+    media_type: str | None = None,
 ) -> Request:
     """Build a batch request for floor plan size extraction.
 
     Args:
         custom_id: Unique ID for this request (e.g., "fp_12345_0")
         image_data: Raw bytes of the floor plan image
-        media_type: MIME type of the image (default: "image/jpeg")
+        media_type: MIME type of the image (auto-detected if not provided)
 
     Returns:
         A Request object suitable for batch submission.
     """
     # Import here to avoid circular imports
     from rightmove.floor_plan import FloorPlanExtraction  # noqa: PLC0415
+
+    if media_type is None:
+        media_type = detect_image_format(image_data)
 
     prompt = (
         "Analyze this floor plan image. Determine the floor area(s) shown:\n"
