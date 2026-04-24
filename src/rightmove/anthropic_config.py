@@ -11,7 +11,7 @@ from anthropic.types.messages.batch_create_params import Request
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-4-5-20241022"
+MODEL = "claude-haiku-4-5-20251001"
 
 
 def get_client() -> anthropic.Anthropic:
