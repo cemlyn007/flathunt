@@ -6,6 +6,7 @@ from anthropic.types.messages.batch_create_params import Request
 from rightmove.anthropic_config import (
     MODEL,
     build_description_batch_request,
+    build_output_config,
     get_client,
 )
 
@@ -27,8 +28,7 @@ def _extract_json_from_response(text: str) -> str:
         if len(lines) > 1:
             text = lines[1]
         # Remove closing ```
-        if text.endswith("```"):
-            text = text[:-3]
+        text = text.removesuffix("```")
     return text.strip()
 
 
@@ -88,10 +88,11 @@ class PropertyDescriptionExtractor:
         """
         clean_text = _strip_html(description)
 
-        response = self._client.messages.create(
+        response = self._client.messages.create(  # type: ignore
             model=MODEL,
             max_tokens=256,
-            messages=[  # type: ignore[arg-type]
+            output_config=build_output_config(ExtractedPropertyInfo),
+            messages=[  # type: ignore
                 {
                     "role": "user",
                     "content": f"{self._PROMPT}\n\nDescription:\n{clean_text}",
@@ -101,5 +102,7 @@ class PropertyDescriptionExtractor:
 
         content = response.content[0].text
         json_content = _extract_json_from_response(content)
-        extracted = pydantic.TypeAdapter(ExtractedPropertyInfo).validate_json(json_content)
+        extracted = pydantic.TypeAdapter(ExtractedPropertyInfo).validate_json(
+            json_content
+        )
         return extracted

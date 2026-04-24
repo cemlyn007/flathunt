@@ -4,14 +4,16 @@ import base64
 import logging
 import os
 import re
+from typing import Any
 
 import anthropic
+import pydantic
 from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
 from anthropic.types.messages.batch_create_params import Request
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-4-5"
+MODEL = "claude-opus-4-7"
 
 
 def get_client() -> anthropic.Anthropic:
@@ -26,6 +28,19 @@ def get_client() -> anthropic.Anthropic:
             "Please set it to your Anthropic API key."
         )
     return anthropic.Anthropic(api_key=api_key)
+
+
+def build_output_config(model: type[pydantic.BaseModel]) -> dict[str, Any]:
+    """Build structured output config for a Pydantic model.
+
+    Returns config compatible with Anthropic's GA structured output format.
+    """
+    return {
+        "format": {
+            "type": "json_schema",
+            "schema": model.model_json_schema(),
+        }
+    }
 
 
 def build_floor_plan_batch_request(
@@ -43,6 +58,8 @@ def build_floor_plan_batch_request(
     Returns:
         A Request object suitable for batch submission.
     """
+    # Import here to avoid circular imports
+    from rightmove.floor_plan import FloorPlanExtraction  # noqa: PLC0415
 
     prompt = (
         "Analyze this floor plan image. Determine the floor area(s) shown:\n"
@@ -66,10 +83,11 @@ def build_floor_plan_batch_request(
 
     return Request(
         custom_id=custom_id,
-        params=MessageCreateParamsNonStreaming(
+        params=MessageCreateParamsNonStreaming(  # type: ignore
             model=MODEL,
             max_tokens=1024,
-            messages=[  # type: ignore[arg-type]
+            output_config=build_output_config(FloorPlanExtraction),
+            messages=[  # type: ignore
                 {
                     "role": "user",
                     "content": [
@@ -105,6 +123,8 @@ def build_description_batch_request(
     Returns:
         A Request object suitable for batch submission.
     """
+    # Import here to avoid circular imports
+    from rightmove.description_extractor import ExtractedPropertyInfo  # noqa: PLC0415
 
     def _strip_html(text: str) -> str:
         """Remove HTML tags and normalise whitespace."""
@@ -128,10 +148,11 @@ def build_description_batch_request(
 
     return Request(
         custom_id=custom_id,
-        params=MessageCreateParamsNonStreaming(
+        params=MessageCreateParamsNonStreaming(  # type: ignore
             model=MODEL,
             max_tokens=256,
-            messages=[  # type: ignore[arg-type]
+            output_config=build_output_config(ExtractedPropertyInfo),
+            messages=[  # type: ignore
                 {
                     "role": "user",
                     "content": f"{prompt}\n\nDescription:\n{clean_text}",

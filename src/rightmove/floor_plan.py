@@ -8,6 +8,7 @@ from anthropic.types.messages.batch_create_params import Request
 from rightmove.anthropic_config import (
     MODEL,
     build_floor_plan_batch_request,
+    build_output_config,
     get_client,
 )
 
@@ -27,8 +28,7 @@ def _extract_json_from_response(text: str) -> str:
         if len(lines) > 1:
             text = lines[1]
         # Remove closing ```
-        if text.endswith("```"):
-            text = text[:-3]
+        text = text.removesuffix("```")
     return text.strip()
 
 
@@ -133,10 +133,11 @@ class FloorPlanSizeExtractor:
         """
         encoded = base64.b64encode(image_data).decode("ascii")
 
-        response = self._client.messages.create(
+        response = self._client.messages.create(  # type: ignore
             model=MODEL,
             max_tokens=1024,
-            messages=[  # type: ignore[arg-type]
+            output_config=build_output_config(FloorPlanExtraction),
+            messages=[  # type: ignore
                 {
                     "role": "user",
                     "content": [
