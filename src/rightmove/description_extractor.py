@@ -17,6 +17,21 @@ def _strip_html(text: str) -> str:
     return text.strip()
 
 
+def _extract_json_from_response(text: str) -> str:
+    """Extract JSON from response, handling markdown code blocks."""
+    text = text.strip()
+    # Remove markdown code block markers (```json ... ```)
+    if text.startswith("```"):
+        # Remove opening ``` and optional language identifier
+        lines = text.split("\n", 1)
+        if len(lines) > 1:
+            text = lines[1]
+        # Remove closing ```
+        if text.endswith("```"):
+            text = text[:-3]
+    return text.strip()
+
+
 class ExtractedPropertyInfo(pydantic.BaseModel):
     """Fields extracted from a property description by an LLM."""
 
@@ -85,5 +100,6 @@ class PropertyDescriptionExtractor:
         )
 
         content = response.content[0].text
-        extracted = pydantic.TypeAdapter(ExtractedPropertyInfo).validate_json(content)
+        json_content = _extract_json_from_response(content)
+        extracted = pydantic.TypeAdapter(ExtractedPropertyInfo).validate_json(json_content)
         return extracted

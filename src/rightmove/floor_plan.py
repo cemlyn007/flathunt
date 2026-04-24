@@ -17,6 +17,21 @@ logger = logging.getLogger(__name__)
 _SQFT_TO_SQM = 0.09290304
 
 
+def _extract_json_from_response(text: str) -> str:
+    """Extract JSON from response, handling markdown code blocks."""
+    text = text.strip()
+    # Remove markdown code block markers (```json ... ```)
+    if text.startswith("```"):
+        # Remove opening ``` and optional language identifier
+        lines = text.split("\n", 1)
+        if len(lines) > 1:
+            text = lines[1]
+        # Remove closing ```
+        if text.endswith("```"):
+            text = text[:-3]
+    return text.strip()
+
+
 class FloorPlanSize(pydantic.BaseModel):
     value: float
     units: Literal["sq m", "sq ft"]
@@ -144,9 +159,10 @@ class FloorPlanSizeExtractor:
 
         try:
             content = response.content[0].text
+            json_content = _extract_json_from_response(content)
             extraction_dict = pydantic.TypeAdapter(
                 FloorPlanExtraction | None
-            ).validate_json(content)
+            ).validate_json(json_content)
             return extraction_dict
         except (ValueError, pydantic.ValidationError) as e:
             logger.error("Failed to parse floor plan extraction: %s", e)

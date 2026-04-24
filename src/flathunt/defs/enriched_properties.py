@@ -91,6 +91,21 @@ async def _poll_batch_completion(
         poll_count += 1
 
 
+def _extract_json_from_response(text: str) -> str:
+    """Extract JSON from response, handling markdown code blocks."""
+    text = text.strip()
+    # Remove markdown code block markers (```json ... ```)
+    if text.startswith("```"):
+        # Remove opening ``` and optional language identifier
+        lines = text.split("\n", 1)
+        if len(lines) > 1:
+            text = lines[1]
+        # Remove closing ```
+        if text.endswith("```"):
+            text = text[:-3]
+    return text.strip()
+
+
 def _process_batch_results(
     batch_id: str,
     floor_plan_cache: ModelCache[tuple[float | None, str | None]],
@@ -135,11 +150,13 @@ def _process_batch_results(
             try:
                 succeeded_result = result.result  # type: ignore[assignment]
                 message_content = succeeded_result.message.content[0].text
+                # Extract JSON from potentially markdown-wrapped response
+                json_content = _extract_json_from_response(message_content)
 
                 if extraction_type == "floor_plan":
                     extraction = pydantic.TypeAdapter(
                         FloorPlanExtraction | None
-                    ).validate_json(message_content)
+                    ).validate_json(json_content)
                     if extraction:
                         total_sqm = extraction.get_total_sqm()
                         breakdown_csv = extraction.get_breakdown_csv()
@@ -162,7 +179,7 @@ def _process_batch_results(
                 elif extraction_type == "description":
                     extraction = pydantic.TypeAdapter(
                         ExtractedPropertyInfo
-                    ).validate_json(message_content)
+                    ).validate_json(json_content)
                     description_updates[prop_id] = extraction
                     logger.info(
                         "Description for property %s: %s",
