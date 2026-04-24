@@ -34,11 +34,26 @@ def build_output_config(model: type[pydantic.BaseModel]) -> dict[str, Any]:
     """Build structured output config for a Pydantic model.
 
     Returns config compatible with Anthropic's GA structured output format.
+    GA requires additionalProperties: false on all object schemas.
     """
+    schema = model.model_json_schema()
+
+    def add_additional_properties_false(obj: Any) -> None:
+        """Recursively add additionalProperties: false to all objects."""
+        if isinstance(obj, dict):
+            if obj.get("type") == "object" and "additionalProperties" not in obj:
+                obj["additionalProperties"] = False
+            for value in obj.values():
+                add_additional_properties_false(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                add_additional_properties_false(item)
+
+    add_additional_properties_false(schema)
     return {
         "format": {
             "type": "json_schema",
-            "schema": model.model_json_schema(),
+            "schema": schema,
         }
     }
 
