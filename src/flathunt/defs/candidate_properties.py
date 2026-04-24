@@ -14,7 +14,12 @@ import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.filters import fetch_properties_within_optimal_regions
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
-from flathunt.property_search import count_tiles
+from flathunt.property_search import (
+    DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL,
+    DEFAULT_INACTIVE_PROPERTY_TILE_CACHE_TTL,
+    DEFAULT_PROPERTY_TILE_CACHE_RETENTION_TTL,
+    count_tiles,
+)
 from flathunt.search_utils import check_property_size
 
 logger = logging.getLogger(__name__)
@@ -55,6 +60,21 @@ class Config(dg.Config):
     has_images: bool = False
     min_square_meters: float = 0.0
     cache_data_dir: str = "cache"
+    active_property_tile_cache_ttl_hours: float = (
+        DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL / 3600
+    )
+    inactive_property_tile_cache_ttl_hours: float = (
+        DEFAULT_INACTIVE_PROPERTY_TILE_CACHE_TTL / 3600
+    )
+    property_tile_cache_retention_hours: float = (
+        DEFAULT_PROPERTY_TILE_CACHE_RETENTION_TTL / 3600
+    )
+
+
+def _hours_to_seconds(name: str, hours: float) -> int:
+    if hours <= 0:
+        raise ValueError(f"{name} must be > 0 hours, got {hours!r}.")
+    return int(hours * 3600)
 
 
 @dg.asset
@@ -97,8 +117,30 @@ def candidate_properties(
 
     cache_path = Path(config.cache_data_dir) / "property_locations_cache.db"
     logger.info("Opening property locations cache at %s.", cache_path)
+    active_tile_ttl = _hours_to_seconds(
+        "active_property_tile_cache_ttl_hours",
+        config.active_property_tile_cache_ttl_hours,
+    )
+    inactive_tile_ttl = _hours_to_seconds(
+        "inactive_property_tile_cache_ttl_hours",
+        config.inactive_property_tile_cache_ttl_hours,
+    )
+    retention_ttl = _hours_to_seconds(
+        "property_tile_cache_retention_hours",
+        config.property_tile_cache_retention_hours,
+    )
+    if active_tile_ttl > inactive_tile_ttl:
+        raise ValueError(
+            "active_property_tile_cache_ttl_hours must be <= "
+            "inactive_property_tile_cache_ttl_hours."
+        )
+    if inactive_tile_ttl > retention_ttl:
+        raise ValueError(
+            "property_tile_cache_retention_hours must be >= "
+            "inactive_property_tile_cache_ttl_hours."
+        )
     cache: ModelCache[list[rightmove.models.MapProperty]] = ModelCache(
-        list[rightmove.models.MapProperty], cache_path
+        list[rightmove.models.MapProperty], cache_path, ttl=retention_ttl
     )
 
     seen_ids_path = Path(config.cache_data_dir) / _SEEN_IDS_DB
@@ -136,6 +178,8 @@ def candidate_properties(
             max_price=int(config.max_budget),
             seen_ids=seen_ids,
             predicate=predicate,
+            active_tile_ttl=active_tile_ttl,
+            inactive_tile_ttl=inactive_tile_ttl,
         ):
             all_properties.extend(props)
             done += 1

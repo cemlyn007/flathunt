@@ -75,35 +75,31 @@ def _build_rows(
         if sqm is None and fp.extracted_sqm is not None:
             sqm = fp.extracted_sqm
 
-        rows.append(
-            {
-                "Address": fp.display_address,
-                "Price": price_value,
-                "Tenure": fp.tenure_type or fp.extracted_tenure_type or "N/A",
-                "Lease Remaining": fp.years_remaining_on_lease
-                if fp.years_remaining_on_lease is not None
-                else fp.extracted_years_remaining_on_lease,
-                "Beds": fp.bedrooms,
-                "Baths": fp.bathrooms,
-                "Size": sqm,
-                "Council Tax": fp.council_tax_band
-                or fp.extracted_council_tax_band
-                or "N/A",
-                "Ground Rent": fp.annual_ground_rent
-                if fp.annual_ground_rent is not None
-                else fp.extracted_annual_ground_rent,
-                "Service Charge": fp.annual_service_charge
-                if fp.annual_service_charge is not None
-                else fp.extracted_annual_service_charge,
-                "Max Commute": max_commute,
-                "URL": (
-                    rightmove.api.property_url(fp.property_url)
-                    if fp.property_url
-                    else None
-                ),
-                **commutes,
-            }
-        )
+        rows.append({
+            "Address": fp.display_address,
+            "Price": price_value,
+            "Tenure": fp.tenure_type or fp.extracted_tenure_type or "N/A",
+            "Lease Remaining": fp.years_remaining_on_lease
+            if fp.years_remaining_on_lease is not None
+            else fp.extracted_years_remaining_on_lease,
+            "Beds": fp.bedrooms,
+            "Baths": fp.bathrooms,
+            "Size": sqm,
+            "Council Tax": fp.council_tax_band
+            or fp.extracted_council_tax_band
+            or "N/A",
+            "Ground Rent": fp.annual_ground_rent
+            if fp.annual_ground_rent is not None
+            else fp.extracted_annual_ground_rent,
+            "Service Charge": fp.annual_service_charge
+            if fp.annual_service_charge is not None
+            else fp.extracted_annual_service_charge,
+            "Max Commute": max_commute,
+            "URL": (
+                rightmove.api.property_url(fp.property_url) if fp.property_url else None
+            ),
+            **commutes,
+        })
     return rows
 
 

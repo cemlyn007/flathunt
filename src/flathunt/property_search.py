@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import math
+import time
 from collections.abc import AsyncIterator, Callable, Sequence
 from itertools import starmap
 from typing import Literal
@@ -22,6 +23,21 @@ logger = logging.getLogger(__name__)
 
 TILE_SIZE = 0.02
 _RIGHTMOVE_CONCURRENCY = 3
+DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL = 12 * 60 * 60
+DEFAULT_INACTIVE_PROPERTY_TILE_CACHE_TTL = 24 * 60 * 60
+DEFAULT_PROPERTY_TILE_CACHE_RETENTION_TTL = 7 * 24 * 60 * 60
+DEFAULT_JOURNEY_CACHE_TTL = 7 * 24 * 60 * 60
+
+
+def _property_tile_is_fresh(
+    properties: Sequence[rightmove.models.MapProperty],
+    cached_at: float,
+    *,
+    active_tile_ttl: int,
+    inactive_tile_ttl: int,
+) -> bool:
+    ttl = active_tile_ttl if properties else inactive_tile_ttl
+    return (time.time() - cached_at) <= ttl
 
 
 def get_tiles_covering_polygon(
@@ -100,6 +116,8 @@ async def get_property_ids_in_area_cached(
     max_price: int | None = None,
     seen_ids: frozenset[int] = frozenset(),
     predicate: Callable[[rightmove.models.MapProperty], bool] | None = None,
+    active_tile_ttl: int = DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL,
+    inactive_tile_ttl: int = DEFAULT_INACTIVE_PROPERTY_TILE_CACHE_TTL,
 ) -> AsyncIterator[list[rightmove.models.MapProperty]]:
     """Async generator yielding per-tile property lists as each tile is resolved.
 
@@ -120,6 +138,10 @@ async def get_property_ids_in_area_cached(
             misses.  Not included in the cache key.
         predicate: Optional filter applied to each property after retrieval
             (from cache or API).  Not included in the cache key.
+        active_tile_ttl: Freshness window in seconds for tiles whose cached
+            result set is non-empty.
+        inactive_tile_ttl: Freshness window in seconds for tiles whose cached
+            result set is empty.
 
     Yields:
         A list of properties located inside the search polygon for each tile.
@@ -146,15 +168,23 @@ async def get_property_ids_in_area_cached(
             "max_price": max_price,
         })
         try:
-            cached_props = cache.get(key)
-            yield [
-                p
-                for p in cached_props
-                if search_polygon.contains(
-                    Point(p.location.longitude, p.location.latitude)
-                )
-                and (predicate is None or predicate(p))
-            ]
+            cached_props, cached_at = cache.peek(key)
+            if _property_tile_is_fresh(
+                cached_props,
+                cached_at,
+                active_tile_ttl=active_tile_ttl,
+                inactive_tile_ttl=inactive_tile_ttl,
+            ):
+                yield [
+                    p
+                    for p in cached_props
+                    if search_polygon.contains(
+                        Point(p.location.longitude, p.location.latitude)
+                    )
+                    and (predicate is None or predicate(p))
+                ]
+                continue
+            tiles_to_fetch.append((key, tile_coords))
         except KeyError:
             tiles_to_fetch.append((key, tile_coords))
 
@@ -172,7 +202,7 @@ async def get_property_ids_in_area_cached(
                 max_price=max_price,
                 seen_ids=seen_ids,
             )
-            cache.update([(key, props)])
+            cache.upsert([(key, props)])
             return [
                 p
                 for p in props
@@ -223,7 +253,8 @@ async def get_properties_journey_duration_cached(
                 client, lon, lat, query_lon, query_lat
             )
             key = json.dumps({"from": (lon, lat), "to": (query_lon, query_lat)})
-            cache.update([(key, duration)])
+            if duration is not None:
+                cache.update([(key, duration)])
             return i, duration
 
         for coro in asyncio.as_completed(list(starmap(_fetch_one, to_fetch))):

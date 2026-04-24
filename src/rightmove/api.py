@@ -236,9 +236,9 @@ class Rightmove:
         total_count = int(search_results["resultCount"].replace(",", ""))
         map_fields = set(models.MapProperty.model_fields)
         properties = [
-            models.MapProperty.model_construct(
-                **{k: getattr(listing, k) for k in map_fields}
-            )
+            models.MapProperty.model_construct(**{
+                k: getattr(listing, k) for k in map_fields
+            })
             for listing in (
                 models.ListingProperty.model_validate(prop)
                 for prop in search_results["properties"]
@@ -434,14 +434,12 @@ class _RawRightmove:
 
     def _get_listing_params(self, query: SearchQuery) -> dict[str, Any]:
         params = self._get_common_params(query)
-        params.update(
-            {
-                "includeLetAgreed": query.include_let_agreed,
-                "areaSizeUnit": query.area_size_unit,
-                "currencyCode": query.currency_code,
-                "isFetching": query.is_fetching,
-            }
-        )
+        params.update({
+            "includeLetAgreed": query.include_let_agreed,
+            "areaSizeUnit": query.area_size_unit,
+            "currencyCode": query.currency_code,
+            "isFetching": query.is_fetching,
+        })
         if query.min_price:
             params["minPrice"] = query.min_price
         if query.max_price:

@@ -20,6 +20,7 @@ class FinalProperty(pydantic.BaseModel):
     bathrooms: int | None = None
     display_size: str | None = None
     extracted_sqm: float | None = None
+    extracted_sqm_breakdown: str | None = None
     property_url: str | None = None
     commute_durations: list[int | None] = []
     # From PropertyDetails.living_costs

@@ -45,14 +45,12 @@ def roads_and_transport(
             non_transport_key,
             length=length,
             duration=duration,
-            geometry=LineString(
-                [
-                    (x, y),
-                    (
-                        roads.nodes[non_transport_key]["x"],
-                        roads.nodes[non_transport_key]["y"],
-                    ),
-                ]
-            ),
+            geometry=LineString([
+                (x, y),
+                (
+                    roads.nodes[non_transport_key]["x"],
+                    roads.nodes[non_transport_key]["y"],
+                ),
+            ]),
         )
     return graph

@@ -12,11 +12,12 @@ from flathunt.coords import CommuteDest
 from flathunt.defs.config import CommuteDestConfig
 from flathunt.filters import filter_by_commute
 from flathunt.models import MatchedProperty
-from flathunt.property_search import get_properties_journey_duration_cached
+from flathunt.property_search import (
+    DEFAULT_JOURNEY_CACHE_TTL,
+    get_properties_journey_duration_cached,
+)
 
 logger = logging.getLogger(__name__)
-
-_JOURNEY_CACHE_TTL = 100 * 24 * 3600  # 100 days, matching the Streamlit app
 
 
 class Config(dg.Config):
@@ -36,7 +37,7 @@ def matched_property_ids(
     """Filter candidate properties by real TfL commute times and return matching IDs with durations.
 
     Journey durations from each property to every configured destination are
-    fetched via the TfL Journey Planner API (cached in SQLite for 100 days).
+    fetched via the TfL Journey Planner API (cached in SQLite for 7 days).
     Only properties where *every* commute is within the corresponding
     ``max_duration`` are included in the output.
 
@@ -63,7 +64,7 @@ def matched_property_ids(
     cache_path = Path(config.cache_data_dir) / "journey_cache.db"
     logger.info("Opening journey cache at %s.", cache_path)
     journey_cache: ModelCache[int | None] = ModelCache(
-        int | None, cache_path, ttl=_JOURNEY_CACHE_TTL
+        int | None, cache_path, ttl=DEFAULT_JOURNEY_CACHE_TTL
     )
 
     flat_to_froms = [

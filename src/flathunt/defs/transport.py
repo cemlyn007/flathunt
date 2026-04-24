@@ -49,8 +49,8 @@ async def transport(config: Config) -> nx.Graph:
             continue
         line_id_stop_points[line.id] = await tf_client.get_stop_points_by_line(line.id)
 
-    arrival_datetime = tfl.api.get_next_datetime(
-        datetime.time(9, 0, 0, tzinfo=datetime.UTC)
+    arrival_datetimes = tfl.api.get_next_weekday_datetimes(
+        datetime.time(9, 0, 0, tzinfo=datetime.UTC), 5
     )
     queries = []
     for line_id, stop_points in line_id_stop_points.items():
@@ -58,19 +58,29 @@ async def transport(config: Config) -> nx.Graph:
             queries.append((line_id, stop_point, other_stop_point))
 
     async def process_query_queue(line_id, stop_point, other_stop_point):
+        min_duration = None
         try:
-            journey_results = await tf_client.get_journey_results(
-                from_location=stop_point.id,
-                to_location=other_stop_point.id,
-                arrival_datetime=arrival_datetime,
-                modes=config.allowed_modes,
-                use_multi_modal_call=False,
-            )
+            for arrival_datetime in arrival_datetimes:
+                try:
+                    journey_results = await tf_client.get_journey_results(
+                        from_location=stop_point.id,
+                        to_location=other_stop_point.id,
+                        arrival_datetime=arrival_datetime,
+                        modes=config.allowed_modes,
+                        use_multi_modal_call=False,
+                    )
+                except tfl.exceptions.JourneyNotFoundError:
+                    continue
+                if not isinstance(journey_results, tfl.models.JourneyResults):
+                    continue
+                day_min_duration = min(jr.duration for jr in journey_results.journeys)
+                min_duration = (
+                    day_min_duration
+                    if min_duration is None
+                    else min(min_duration, day_min_duration)
+                )
         except tfl.exceptions.JourneyNotFoundError:
             return line_id, stop_point.id, other_stop_point.id, None
-        if not isinstance(journey_results, tfl.models.JourneyResults):
-            return line_id, stop_point.id, other_stop_point.id, None
-        min_duration = min(jr.duration for jr in journey_results.journeys)
         return line_id, stop_point.id, other_stop_point.id, min_duration
 
     all_station_durations: dict[str, dict[str, dict[str, float]]] = {}
@@ -143,12 +153,10 @@ async def transport(config: Config) -> nx.Graph:
                 (x1, y1),
                 (x2, y2),
                 duration=duration,
-                geometry=LineString(
-                    [
-                        (x1, y1),
-                        (x2, y2),
-                    ]
-                ),
+                geometry=LineString([
+                    (x1, y1),
+                    (x2, y2),
+                ]),
             )
 
     logger.info("Missing pairs: %d", len(missing_pairs))

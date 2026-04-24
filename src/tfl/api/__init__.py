@@ -12,7 +12,7 @@ from tfl.api.lines import (
 from tfl.api.stations import get_stations_facilities
 from tfl.api.stop_points import get_stop_points_by_mode
 from tfl.api.timetable import Direction, get_timetable, get_timetable_between_stops
-from tfl.api.utils import get_next_datetime
+from tfl.api.utils import get_next_datetime, get_next_weekday_datetimes
 
 __all__ = [
     "Direction",
@@ -23,6 +23,7 @@ __all__ = [
     "get_journey_results",
     "get_lines_by_mode",
     "get_next_datetime",
+    "get_next_weekday_datetimes",
     "get_stations_facilities",
     "get_stop_points_by_line",
     "get_stop_points_by_mode",

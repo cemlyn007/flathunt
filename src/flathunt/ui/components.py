@@ -30,7 +30,11 @@ from flathunt.isochrone import (
     lookup,
     make_poly,
 )
-from flathunt.property_search import get_commute_durations
+from flathunt.property_search import (
+    DEFAULT_JOURNEY_CACHE_TTL,
+    DEFAULT_PROPERTY_TILE_CACHE_RETENTION_TTL,
+    get_commute_durations,
+)
 
 logger = logging.getLogger("flathunt")
 
@@ -59,6 +63,7 @@ def get_property_ids_in_area_cache() -> ModelCache[list[rightmove.models.MapProp
     return _get_road_and_transport_dependent_cache(
         list[rightmove.models.MapProperty],
         data_dir / "property_locations_cache.db",
+        ttl=DEFAULT_PROPERTY_TILE_CACHE_RETENTION_TTL,
     )
 
 
@@ -75,7 +80,7 @@ def get_journey_cache() -> ModelCache[int | None]:
     return _get_road_and_transport_dependent_cache(
         int | None,
         data_dir / "journey_cache.db",
-        ttl=100 * 24 * 60 * 60,
+        ttl=DEFAULT_JOURNEY_CACHE_TTL,
     )
 
 
@@ -274,14 +279,12 @@ def render_property_search_section() -> None:
 
     if st.button("Get property IDs in area", key="get_property_ids_button"):
         graph = load_graph(0)
-        bounding_polygon = bounds_to_polygon(
-            (
-                min(data["lon"] for data in graph.nodes.values()),
-                min(data["lat"] for data in graph.nodes.values()),
-                max(data["lon"] for data in graph.nodes.values()),
-                max(data["lat"] for data in graph.nodes.values()),
-            )
-        )
+        bounding_polygon = bounds_to_polygon((
+            min(data["lon"] for data in graph.nodes.values()),
+            min(data["lat"] for data in graph.nodes.values()),
+            max(data["lon"] for data in graph.nodes.values()),
+            max(data["lat"] for data in graph.nodes.values()),
+        ))
 
         async def _collect_properties():
             all_props = []
@@ -428,16 +431,14 @@ def _convert_properties_to_dicts(
             for i, d in enumerate(prop_durations)
         }
         commute_values = [d for d in prop_durations if d is not None]
-        property_data.append(
-            {
-                "Name": property.display_address or "N/A",
-                "Price": f"£{price:,}" if isinstance(price, int | float) else price,
-                "Size": property.display_size or "N/A",
-                "URL": rightmove.api.property_url(property.property_url),
-                "Minutes to Commute": max(commute_values) if commute_values else "N/A",
-                **commute_durations,
-            }
-        )
+        property_data.append({
+            "Name": property.display_address or "N/A",
+            "Price": f"£{price:,}" if isinstance(price, int | float) else price,
+            "Size": property.display_size or "N/A",
+            "URL": rightmove.api.property_url(property.property_url),
+            "Minutes to Commute": max(commute_values) if commute_values else "N/A",
+            **commute_durations,
+        })
     return property_data
 
 

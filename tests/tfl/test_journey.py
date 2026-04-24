@@ -89,6 +89,26 @@ def test_build_journey_parameters_multiple_modes():
     assert params["mode"] == "tube,dlr,elizabeth-line"
 
 
+def test_get_next_weekday_datetimes_advances_across_weekdays():
+    first_weekday = datetime.datetime(2026, 4, 24, 9, 0, tzinfo=datetime.UTC)
+
+    with patch("tfl.api.utils.get_next_datetime", return_value=first_weekday):
+        arrival_datetimes = tfl.api.get_next_weekday_datetimes(
+            datetime.time(9, 0, tzinfo=datetime.UTC), 3
+        )
+
+    assert arrival_datetimes == [
+        datetime.datetime(2026, 4, 24, 9, 0, tzinfo=datetime.UTC),
+        datetime.datetime(2026, 4, 27, 9, 0, tzinfo=datetime.UTC),
+        datetime.datetime(2026, 4, 28, 9, 0, tzinfo=datetime.UTC),
+    ]
+
+
+def test_get_next_weekday_datetimes_requires_positive_count():
+    with pytest.raises(ValueError, match="count must be at least 1"):
+        tfl.api.get_next_weekday_datetimes(datetime.time(9, 0, tzinfo=datetime.UTC), 0)
+
+
 # Exact TfL error body observed for 940GZZLUMHL → 940GZZLUWRR on 2026-04-19.
 _TFL_500_BODY = (
     b'{"$type":"Tfl.Api.Presentation.Entities.ApiError, Tfl.Api.Presentation.Entities",'

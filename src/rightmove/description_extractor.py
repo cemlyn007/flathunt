@@ -1,9 +1,13 @@
-import json
-import os
 import re
 
-import httpx
 import pydantic
+from anthropic.types.messages.batch_create_params import Request
+
+from rightmove.anthropic_config import (
+    MODEL,
+    build_description_batch_request,
+    get_client,
+)
 
 
 def _strip_html(text: str) -> str:
@@ -26,38 +30,36 @@ class ExtractedPropertyInfo(pydantic.BaseModel):
 class PropertyDescriptionExtractor:
     """Extracts structured property information from a listing description.
 
-    Uses the OpenAI-compatible GitHub Models chat completions endpoint to read
-    tenure type, remaining lease years, service charge, ground rent, and council
-    tax band from the free-text description of a property.
-
-    Args:
-        token: GitHub personal access token. Defaults to the ``GITHUB_TOKEN``
-            environment variable.
-        model: The model to use. Defaults to ``"gpt-4o-mini"``.
+    Uses Claude with structured output to read tenure type, remaining lease years,
+    service charge, ground rent, and council tax band from property descriptions.
     """
 
-    _API_URL = "https://models.inference.ai.azure.com/chat/completions"
-
     _PROMPT = (
-        "You will be given the text description of a residential property listing. "
-        "Extract the following fields if they are mentioned in the description and "
-        "return them as a JSON object with exactly these keys:\n"
-        '- tenure_type: string, one of "LEASEHOLD", "FREEHOLD", "SHARE_OF_FREEHOLD", or null\n'
-        "- years_remaining_on_lease: integer number of years remaining on the lease, or null\n"
-        "- annual_service_charge: yearly service charge amount in GBP as a number (no currency symbol), or null\n"
-        "- annual_ground_rent: annual ground rent amount in GBP as a number (no currency symbol), or null\n"
-        "- council_tax_band: single letter A through I, or null\n\n"
-        "If a field is not mentioned or cannot be determined, use null. "
-        "Respond with only the JSON object and nothing else."
+        "Extract property details from this residential property listing description. "
+        "Return a JSON object with these fields:\n"
+        "- tenure_type: one of 'LEASEHOLD', 'FREEHOLD', 'SHARE_OF_FREEHOLD', or null\n"
+        "- years_remaining_on_lease: integer years remaining, or null\n"
+        "- annual_service_charge: yearly amount in GBP (number only, no currency), or null\n"
+        "- annual_ground_rent: annual amount in GBP (number only, no currency), or null\n"
+        "- council_tax_band: single letter A-I, or null\n\n"
+        "If a field is not mentioned, use null. Extract only information explicitly "
+        "stated in the description."
     )
 
-    def __init__(
-        self,
-        token: str | None = None,
-        model: str = "gpt-4o-mini",
-    ) -> None:
-        self._token = token or os.environ["GITHUB_TOKEN"]
-        self._model = model
+    def __init__(self) -> None:
+        self._client = get_client()
+
+    def build_batch_request(self, custom_id: str, description: str) -> Request:
+        """Build a batch request for extraction (no API call).
+
+        Args:
+            custom_id: Unique ID for this request (e.g., "desc_12345")
+            description: The property listing description (may contain HTML)
+
+        Returns:
+            A Request object for batch submission.
+        """
+        return build_description_batch_request(custom_id, description)
 
     async def extract(self, description: str) -> ExtractedPropertyInfo:
         """Extract structured property info from a listing description.
@@ -71,28 +73,17 @@ class PropertyDescriptionExtractor:
         """
         clean_text = _strip_html(description)
 
-        payload = {
-            "model": self._model,
-            "messages": [
+        response = self._client.messages.create(
+            model=MODEL,
+            max_tokens=256,
+            messages=[  # type: ignore[arg-type]
                 {
                     "role": "user",
-                    "content": f"{self._PROMPT}\n\nProperty description:\n{clean_text}",
+                    "content": f"{self._PROMPT}\n\nDescription:\n{clean_text}",
                 }
             ],
-            "response_format": {"type": "json_object"},
-        }
+        )
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                self._API_URL,
-                json=payload,
-                headers={
-                    "Authorization": f"Bearer {self._token}",
-                    "Content-Type": "application/json",
-                },
-                timeout=60.0,
-            )
-            response.raise_for_status()
-
-        text = response.json()["choices"][0]["message"]["content"].strip()
-        return ExtractedPropertyInfo.model_validate(json.loads(text))
+        content = response.content[0].text
+        extracted = pydantic.TypeAdapter(ExtractedPropertyInfo).validate_json(content)
+        return extracted

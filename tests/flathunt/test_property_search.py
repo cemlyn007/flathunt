@@ -1,4 +1,7 @@
 import asyncio
+import time
+from collections.abc import AsyncIterator
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, create_autospec, patch
 
 import pytest
@@ -13,7 +16,10 @@ from flathunt.filters import (
     filter_properties_by_budget_and_features,
 )
 from flathunt.property_search import (
+    DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL,
+    DEFAULT_INACTIVE_PROPERTY_TILE_CACHE_TTL,
     get_commute_durations,
+    get_properties_journey_duration_cached,
     get_property_ids_in_area_cached,
 )
 from flathunt.search_utils import get_property_ids_in_area
@@ -411,7 +417,7 @@ async def test_get_property_ids_in_area_cached_predicate_on_cache_hit():
 
     # Stub the cache: always return both properties as a cache hit
     cache = MagicMock(spec=ModelCache)
-    cache.get.return_value = [prop_pass, prop_fail]
+    cache.peek.return_value = ([prop_pass, prop_fail], time.time())
 
     results = []
     async for batch in get_property_ids_in_area_cached(
@@ -425,3 +431,146 @@ async def test_get_property_ids_in_area_cached_predicate_on_cache_hit():
 
     assert prop_pass in results
     assert prop_fail not in results
+
+
+async def test_get_property_ids_in_area_cached_refetches_stale_non_empty_tile():
+    prop_stale = make_property(id=10, longitude=-0.13, latitude=51.51)
+    prop_fresh = make_property(id=12, longitude=-0.13, latitude=51.51)
+
+    bounding_poly = shapely_box(-0.14, 51.50, -0.12, 51.52)
+    tile_coords = [
+        LatLon(lat=51.50, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.14),
+    ]
+
+    cache = MagicMock(spec=ModelCache)
+    now = 1_000_000.0
+    cache.peek.return_value = (
+        [prop_stale],
+        now - DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL - 1,
+    )
+
+    with (
+        patch("flathunt.property_search.time.time", return_value=now),
+        patch(
+            "flathunt.property_search.get_tiles_covering_polygon",
+            return_value=[("tile", tile_coords)],
+        ),
+        patch(
+            "flathunt.property_search.get_property_ids_in_area",
+            new=AsyncMock(return_value=[prop_fresh]),
+        ) as get_property_ids_in_area,
+    ):
+        results = []
+        async for batch in get_property_ids_in_area_cached(
+            bounding_poly,
+            tile_coords,
+            "RENT",
+            cache,
+        ):
+            results.extend(batch)
+
+    assert results == [prop_fresh]
+    get_property_ids_in_area.assert_awaited_once()
+    cache.upsert.assert_called_once()
+
+
+async def test_get_property_ids_in_area_cached_keeps_empty_tile_for_longer():
+    bounding_poly = shapely_box(-0.14, 51.50, -0.12, 51.52)
+    tile_coords = [
+        LatLon(lat=51.50, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.14),
+        LatLon(lat=51.52, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.12),
+        LatLon(lat=51.50, lon=-0.14),
+    ]
+
+    cache = MagicMock(spec=ModelCache)
+    now = 1_000_000.0
+    cache.peek.return_value = (
+        [],
+        now - DEFAULT_ACTIVE_PROPERTY_TILE_CACHE_TTL - 1,
+    )
+
+    with (
+        patch("flathunt.property_search.time.time", return_value=now),
+        patch(
+            "flathunt.property_search.get_tiles_covering_polygon",
+            return_value=[("tile", tile_coords)],
+        ),
+        patch(
+            "flathunt.property_search.get_property_ids_in_area",
+            new=AsyncMock(return_value=[]),
+        ) as get_property_ids_in_area,
+    ):
+        results = []
+        async for batch in get_property_ids_in_area_cached(
+            bounding_poly,
+            tile_coords,
+            "RENT",
+            cache,
+            inactive_tile_ttl=DEFAULT_INACTIVE_PROPERTY_TILE_CACHE_TTL,
+        ):
+            results.extend(batch)
+
+    assert results == []
+    get_property_ids_in_area.assert_not_awaited()
+    cache.upsert.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# get_properties_journey_duration_cached
+# ---------------------------------------------------------------------------
+
+
+async def test_transient_none_journey_not_cached(tmp_path: Path) -> None:
+    """A None duration from a transient TfL error must not be permanently cached.
+
+    Regression test for the bug where cache.update([(key, None)]) was called
+    unconditionally. After a transient failure, the next run should re-query TfL
+    rather than serving the cached None.
+    """
+    cache: ModelCache[int | None] = ModelCache(
+        int | None, tmp_path / "journey.db", ttl=3600
+    )
+
+    lon, lat = -0.1, 51.5
+    q_lon, q_lat = -0.13, 51.52
+    to_froms = [(lon, lat, q_lon, q_lat)]
+
+    async def collect(
+        gen: AsyncIterator[tuple[int, int | None]],
+    ) -> dict[int, int | None]:
+        return {idx: dur async for idx, dur in gen}
+
+    # First call — TfL is unreachable; fetch_journey_results returns None
+    with patch(
+        "flathunt.property_search.fetch_journey_results",
+        new=AsyncMock(return_value=None),
+    ) as mock_fetch_1:
+        results_1 = await collect(
+            get_properties_journey_duration_cached(to_froms, cache, "api-key")
+        )
+
+    assert results_1 == {0: None}
+    assert mock_fetch_1.call_count == 1
+
+    # Second call — TfL recovers and returns a valid duration
+    with patch(
+        "flathunt.property_search.fetch_journey_results",
+        new=AsyncMock(return_value=20),
+    ) as mock_fetch_2:
+        results_2 = await collect(
+            get_properties_journey_duration_cached(to_froms, cache, "api-key")
+        )
+
+    # BUG (before fix): results_2 == {0: None}  — None was cached, TfL never re-queried
+    # PASS (after fix):  results_2 == {0: 20}   — None was not cached, TfL re-queried
+    assert results_2 == {0: 20}, (
+        f"Expected re-queried duration 20, got {results_2[0]!r}. "
+        "None from a transient TfL error was incorrectly cached permanently."
+    )
+    assert mock_fetch_2.call_count == 1, "TfL was not re-queried after transient None"

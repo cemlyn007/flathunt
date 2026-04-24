@@ -10,6 +10,7 @@ from shapely.geometry.polygon import LinearRing, Polygon
 import rightmove.api
 import rightmove.models
 import tfl.api
+import tfl.exceptions
 import tfl.models
 from flathunt.coords import LatLon
 from flathunt.isochrone import find_min_simplify_tolerance
@@ -17,7 +18,8 @@ from rightmove.floor_plan import _SQFT_TO_SQM
 
 logger = logging.getLogger(__name__)
 
-TARGET_DATETIME = tfl.api.get_next_datetime(datetime.time(9, 0, 0, tzinfo=datetime.UTC))
+COMMUTE_ARRIVAL_TIME = datetime.time(9, 0, 0, tzinfo=datetime.UTC)
+COMMUTE_LOOKAHEAD_WEEKDAYS = 1
 MAX_RIGHTMOVE_POLYLINE_POINTS = 1000
 
 
@@ -86,29 +88,46 @@ async def fetch_journey_results(
         could not be determined (disambiguation result or API error).
     """
     try:
-        journey_results = await client.get_journey_results(
-            from_location=(lat, lon),
-            to_location=(query_lat, query_lon),
-            arrival_datetime=TARGET_DATETIME,
-            modes=[
-                tfl.models.ModeId.TUBE,
-                tfl.models.ModeId.OVERGROUND,
-                tfl.models.ModeId.DLR,
-                tfl.models.ModeId.ELIZABETH_LINE,
-                tfl.models.ModeId.WALKING,
-            ],
-            use_multi_modal_call=False,
-        )
-        if isinstance(journey_results, tfl.models.DisambiguationResult):
-            logger.error(
-                "Disambiguation result for journey from (%s, %s) to (%s, %s)",
-                lon,
-                lat,
-                query_lon,
-                query_lat,
-            )
-            return None
-        min_time = min(journey.duration for journey in journey_results.journeys)
+        min_time: int | None = None
+        for arrival_datetime in tfl.api.get_next_weekday_datetimes(
+            COMMUTE_ARRIVAL_TIME, COMMUTE_LOOKAHEAD_WEEKDAYS
+        ):
+            try:
+                journey_results = await client.get_journey_results(
+                    from_location=(lat, lon),
+                    to_location=(query_lat, query_lon),
+                    arrival_datetime=arrival_datetime,
+                    modes=[
+                        tfl.models.ModeId.TUBE,
+                        tfl.models.ModeId.OVERGROUND,
+                        tfl.models.ModeId.DLR,
+                        tfl.models.ModeId.ELIZABETH_LINE,
+                        tfl.models.ModeId.WALKING,
+                    ],
+                    use_multi_modal_call=False,
+                )
+            except tfl.exceptions.JourneyNotFoundError:
+                logger.info(
+                    "No journey found at %s from (%s, %s) to (%s, %s); trying next weekday.",
+                    arrival_datetime.isoformat(),
+                    lon,
+                    lat,
+                    query_lon,
+                    query_lat,
+                )
+                continue
+
+            if isinstance(journey_results, tfl.models.DisambiguationResult):
+                logger.error(
+                    "Disambiguation result for journey from (%s, %s) to (%s, %s)",
+                    lon,
+                    lat,
+                    query_lon,
+                    query_lat,
+                )
+                return None
+            day_min_time = min(journey.duration for journey in journey_results.journeys)
+            min_time = day_min_time if min_time is None else min(min_time, day_min_time)
         return min_time
     except Exception:
         logger.exception(
@@ -234,9 +253,9 @@ async def get_property_ids_in_area(
                 stopped_early,
             ) = await rightmove_client.search_incremental(
                 rightmove.api.SearchQuery(
-                    location_identifier=rightmove.api.polyline_identifier(
-                        [(c.lat, c.lon) for c in coords]
-                    ),
+                    location_identifier=rightmove.api.polyline_identifier([
+                        (c.lat, c.lon) for c in coords
+                    ]),
                     is_fetching=True,
                     channel=channel,
                     sort_type=rightmove.api.SortType.MOST_RECENT,

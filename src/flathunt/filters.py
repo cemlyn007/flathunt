@@ -22,6 +22,8 @@ async def fetch_properties_within_optimal_regions(
     max_price: int | None = None,
     seen_ids: frozenset[int] = frozenset(),
     predicate: Callable[[rightmove.models.MapProperty], bool] | None = None,
+    active_tile_ttl: int = 12 * 60 * 60,
+    inactive_tile_ttl: int = 24 * 60 * 60,
 ) -> AsyncIterator[list[rightmove.models.MapProperty]]:
     """Async generator yielding per-tile property lists as each tile is resolved.
 
@@ -38,6 +40,10 @@ async def fetch_properties_within_optimal_regions(
         max_price: Maximum price forwarded to the Rightmove API.
         seen_ids: Property IDs from previous runs for incremental early-exit.
         predicate: Optional per-property filter applied after retrieval.
+        active_tile_ttl: Freshness window in seconds for non-empty tile cache
+            entries.
+        inactive_tile_ttl: Freshness window in seconds for empty tile cache
+            entries.
 
     Yields:
         A list of properties within each tile that also fall inside a search polygon.
@@ -56,6 +62,8 @@ async def fetch_properties_within_optimal_regions(
             max_price=max_price,
             seen_ids=seen_ids,
             predicate=predicate,
+            active_tile_ttl=active_tile_ttl,
+            inactive_tile_ttl=inactive_tile_ttl,
         ):
             yield [
                 p

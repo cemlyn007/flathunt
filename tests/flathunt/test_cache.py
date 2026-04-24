@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from flathunt.cache import ModelCache
@@ -30,3 +32,20 @@ def test_expired_entry_raises_key_error(tmp_path):
     cache.update([("a", 10)])
     with pytest.raises(KeyError):
         cache.get("a")
+
+
+def test_peek_returns_item_and_timestamp(cache):
+    before = time.time()
+    cache.update([("a", 42)])
+
+    value, timestamp = cache.peek("a")
+
+    assert value == 42
+    assert timestamp >= before
+
+
+def test_upsert_overwrites_existing_key(cache):
+    cache.update([("a", 1)])
+    cache.upsert([("a", 99)])
+
+    assert cache.get("a") == 99
