@@ -4,12 +4,11 @@ import os
 import dagster as dg
 import geopandas as gpd
 import networkx as nx
-import numpy as np
 import tqdm
 from shapely.geometry import LineString
 
 from flathunt.defs.sources import roads_shapefile
-from flathunt.geometry import wgs84_to_bng
+from flathunt.geometry import euclidean, wgs84_to_bng
 
 
 class Config(dg.Config):
@@ -20,13 +19,18 @@ class Config(dg.Config):
     meters_per_minute: float = 60
 
 
-def euclidean(x1, y1, x2, y2):
-    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-
-
 def create_roads_graph(
     roads_gdf: gpd.GeoDataFrame, meters_per_minute: float
 ) -> nx.Graph:
+    """Build a NetworkX graph from road geometries with time-based edge weights.
+
+    Args:
+        roads_gdf: GeoDataFrame of road geometries with LineString coordinates.
+        meters_per_minute: Conversion factor to compute traversal duration.
+
+    Returns:
+        A NetworkX Graph with nodes for road endpoints and edges with length and duration.
+    """
     graph = nx.Graph()
     for _, road in tqdm.tqdm(roads_gdf.iterrows(), total=len(roads_gdf)):
         for (lon1, lat1), (lon2, lat2) in itertools.pairwise(road.geometry.coords):
@@ -51,6 +55,7 @@ def create_roads_graph(
 @dg.asset(
     deps=[roads_shapefile],
     automation_condition=dg.AutomationCondition.eager(),
+    group_name="network_data",
 )
 def roads(context: dg.AssetExecutionContext, config: Config) -> nx.Graph:
     roads_gdf = gpd.read_file(config.file_path)

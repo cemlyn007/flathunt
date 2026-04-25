@@ -7,21 +7,12 @@ import sqlite3
 import time
 from pathlib import Path
 
+from flathunt.cache import CREATE_INDEX, CREATE_TABLE
+
 logger = logging.getLogger(__name__)
 
+# Constants
 _TTL = 86400  # must match ModelCache default
-
-_CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS cache (
-    key       TEXT PRIMARY KEY,
-    timestamp REAL NOT NULL,
-    item      TEXT NOT NULL
-)
-"""
-
-_CREATE_INDEX = """
-CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
-"""
 
 _CACHES = [
     "journey_cache",
@@ -30,6 +21,12 @@ _CACHES = [
 
 
 def _migrate(src: Path, dst: Path) -> None:
+    """Migrate a single JSON cache file to SQLite format.
+
+    Args:
+        src: Path to the source JSON cache file.
+        dst: Path to the destination SQLite cache file.
+    """
     if not src.exists():
         logger.info("Skipping %s: file not found.", src.name)
         return
@@ -47,8 +44,8 @@ def _migrate(src: Path, dst: Path) -> None:
         rows.append((key, timestamp, json.dumps(entry["item"])))
 
     conn = sqlite3.connect(str(dst))
-    conn.execute(_CREATE_TABLE)
-    conn.execute(_CREATE_INDEX)
+    conn.execute(CREATE_TABLE)
+    conn.execute(CREATE_INDEX)
     conn.executemany(
         "INSERT OR IGNORE INTO cache (key, timestamp, item) VALUES (?, ?, ?)",
         rows,
@@ -65,6 +62,7 @@ def _migrate(src: Path, dst: Path) -> None:
 
 
 def main() -> None:
+    """Parse arguments and migrate all cache files."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "data_dir",

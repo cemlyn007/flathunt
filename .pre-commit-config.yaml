@@ -28,3 +28,9 @@ repos:
         types: [python]
         files: ^tests/
         pass_filenames: false
+      - id: vulture-dead-code
+        name: vulture-dead-code
+        entry: bash -c 'uv run vulture src 2>&1 | grep -E "unused (function|class)" && exit 1 || exit 0'
+        language: system
+        types: [python]
+        pass_filenames: false

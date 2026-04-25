@@ -20,6 +20,10 @@ tasks:
     cmds:
       - uvx ty check
 
+  check-dead-code:
+    cmds:
+      - uv run vulture src 2>&1 | grep "unused \(function\|class\)" || echo "No unused functions or classes found"
+
   ci:
     cmds:
       - task: lint

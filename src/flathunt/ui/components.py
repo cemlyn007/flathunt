@@ -17,7 +17,6 @@ import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest
 from flathunt.filters import (
-    fetch_properties_within_optimal_regions,
     filter_by_commute,
     filter_properties_by_budget_and_features,
 )
@@ -33,6 +32,7 @@ from flathunt.isochrone import (
 from flathunt.property_search import (
     DEFAULT_JOURNEY_CACHE_TTL,
     DEFAULT_PROPERTY_TILE_CACHE_RETENTION_TTL,
+    fetch_properties_within_optimal_regions,
     get_commute_durations,
 )
 
@@ -48,6 +48,11 @@ if not st.session_state.get("initialized", False):
         os.environ["FLATHUNT__QUERIES"]
     )
     st.session_state["initialized"] = True
+
+
+# ==============================================================================
+# CACHE MANAGEMENT
+# ==============================================================================
 
 
 @st.cache_resource
@@ -106,6 +111,43 @@ def _get_road_and_transport_dependent_cache[T](
     return ModelCache(t, cache, ttl=ttl)
 
 
+# ==============================================================================
+# QUERY MANAGEMENT
+# ==============================================================================
+
+
+def add_or_update_query(
+    queries: list[CommuteDest],
+    longitude: float,
+    latitude: float,
+    max_duration: int,
+) -> list[CommuteDest]:
+    """Add a new query or update the max duration of an existing one with the same coordinates.
+
+    Args:
+        queries: The current list of ``CommuteDest`` values.
+        longitude: Longitude of the query destination.
+        latitude: Latitude of the query destination.
+        max_duration: Maximum acceptable commute duration in minutes.
+
+    Returns:
+        A new list with the query added or updated.
+    """
+    queries = queries.copy()
+    query = CommuteDest(lon=longitude, lat=latitude, max_duration=max_duration)
+    for i, existing in enumerate(queries):
+        if (existing.lon, existing.lat) == (longitude, latitude):
+            queries[i] = query
+            return queries
+    queries.append(query)
+    return queries
+
+
+# ==============================================================================
+# ISOCHRONE DATA PROCESSING
+# ==============================================================================
+
+
 @st.cache_data(persist="disk")
 def _process_isochrone_data(
     queries: Sequence[CommuteDest], offset: int
@@ -159,31 +201,9 @@ def _process_isochrone_data(
     return polys, isochrone_polys
 
 
-def add_or_update_query(
-    queries: list[CommuteDest],
-    longitude: float,
-    latitude: float,
-    max_duration: int,
-) -> list[CommuteDest]:
-    """Add a new query or update the max duration of an existing one with the same coordinates.
-
-    Args:
-        queries: The current list of ``CommuteDest`` values.
-        longitude: Longitude of the query destination.
-        latitude: Latitude of the query destination.
-        max_duration: Maximum acceptable commute duration in minutes.
-
-    Returns:
-        A new list with the query added or updated.
-    """
-    queries = queries.copy()
-    query = CommuteDest(lon=longitude, lat=latitude, max_duration=max_duration)
-    for i, existing in enumerate(queries):
-        if (existing.lon, existing.lat) == (longitude, latitude):
-            queries[i] = query
-            return queries
-    queries.append(query)
-    return queries
+# ==============================================================================
+# UI RENDERING SECTIONS
+# ==============================================================================
 
 
 def render_query_section() -> None:
@@ -378,6 +398,11 @@ def render_results_section() -> None:
         render_property_table(filtered)
 
 
+# ==============================================================================
+# PROPERTY DISPLAY AND FORMATTING
+# ==============================================================================
+
+
 def render_property_table(
     properties: Iterable[tuple[rightmove.models.MapProperty, Sequence[int | None]]],
 ) -> None:
@@ -440,6 +465,11 @@ def _convert_properties_to_dicts(
             **commute_durations,
         })
     return property_data
+
+
+# ==============================================================================
+# MAP AND VISUALIZATION HELPERS
+# ==============================================================================
 
 
 @st.cache_data(

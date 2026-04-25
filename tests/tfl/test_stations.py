@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from tfl.api.stations import get_stations_facilities
+from tfl.api.endpoints.stations import get_stations_facilities
 from tfl.models import Root
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,8 @@ from anthropic.types.messages.batch_create_params import Request
 import rightmove.api
 import rightmove.models
 from flathunt.cache import ModelCache
-from flathunt.models import FinalProperty, MatchedProperty
+from flathunt.defs.resources import CacheResource
+from flathunt.models import FinalProperty, MatchedProperty, parse_display_size_sqm
 from rightmove.anthropic_config import get_client
 from rightmove.description_extractor import (
     ExtractedPropertyInfo,
@@ -473,13 +474,13 @@ async def _process_property(
 
 class Config(dg.Config):
     min_square_meters: float = 0.0
-    cache_data_dir: str = "cache"
 
 
-@dg.asset
+@dg.asset(group_name="notification")
 def enriched_properties(
     context: dg.AssetExecutionContext,
     config: Config,
+    cache: CacheResource,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
 ) -> list[FinalProperty]:
@@ -498,7 +499,8 @@ def enriched_properties(
     Properties where the floor area cannot be determined are kept.
 
     Args:
-        config: Size threshold, GitHub token for the LLM, and cache directory.
+        config: Size threshold for filtering properties.
+        cache: CacheResource providing cache directory.
         matched_property_ids: Properties that passed the commute filter, with
             per-destination durations, as produced by ``matched_property_ids``.
         candidate_properties: Full property objects from ``candidate_properties``.
@@ -513,23 +515,21 @@ def enriched_properties(
     matched_set = {m.property_id for m in matched_property_ids}
     props_by_id = {p.id: p for p in candidate_properties if p.id in matched_set}
 
-    floor_plan_cache_path = Path(config.cache_data_dir) / "floor_plan_size_cache.db"
+    floor_plan_cache_path = Path(cache.data_dir) / "floor_plan_size_cache.db"
     floor_plan_cache: ModelCache[tuple[float | None, str | None]] = ModelCache(
         tuple[float | None, str | None],
         floor_plan_cache_path,
         ttl=_FLOOR_PLAN_CACHE_TTL,
     )
 
-    details_cache_path = Path(config.cache_data_dir) / "property_details_cache.db"
+    details_cache_path = Path(cache.data_dir) / "property_details_cache.db"
     details_cache: ModelCache[rightmove.models.PropertyDetails] = ModelCache(
         rightmove.models.PropertyDetails,
         details_cache_path,
         ttl=_PROPERTY_DETAILS_CACHE_TTL,
     )
 
-    description_info_cache_path = (
-        Path(config.cache_data_dir) / "description_info_cache.db"
-    )
+    description_info_cache_path = Path(cache.data_dir) / "description_info_cache.db"
     description_info_cache: ModelCache[ExtractedPropertyInfo] = ModelCache(
         ExtractedPropertyInfo,
         description_info_cache_path,
@@ -659,7 +659,6 @@ def enriched_properties(
             prop = props_by_id.get(matched.property_id)
             if prop is None:
                 continue
-
             tasks.append(
                 _process_property(
                     prop,
@@ -688,7 +687,7 @@ def enriched_properties(
     result = []
     for fp in final_properties:
         sqm = (
-            _parse_display_size(fp.display_size)
+            parse_display_size_sqm(fp.display_size)
             if fp.display_size
             else fp.extracted_sqm
         )

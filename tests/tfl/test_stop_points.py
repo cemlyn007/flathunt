@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from tfl.api._transport import get_ratelimited_client
-from tfl.api.stop_points import get_stop_points_by_mode
+from tfl.api._http import get_ratelimited_client
+from tfl.api.endpoints.stop_points import get_stop_points_by_mode
 from tfl.models import ModeId, StopPointDetail
 
 # ---------------------------------------------------------------------------
@@ -11,6 +11,7 @@ from tfl.models import ModeId, StopPointDetail
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.regression
 @pytest.mark.skipif(
     not os.environ.get("FLATHUNT__TFL_API_KEY"),
     reason="requires FLATHUNT__TFL_API_KEY in environment or .env file",

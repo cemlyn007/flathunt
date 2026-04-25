@@ -1,103 +1,37 @@
-from collections.abc import AsyncIterator, Callable, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from typing import Literal
-
-from shapely import Point, Polygon
 
 import rightmove.models
 import rightmove.price
-from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest
-from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
-from flathunt.property_search import get_property_ids_in_area_cached
-from flathunt.search_utils import check_property_size
+from flathunt.models import parse_display_size_sqm
+
+# ============================================================================
+# Simple filter functions - public APIs
+# ============================================================================
 
 
-async def fetch_properties_within_optimal_regions(
-    polys: list[Polygon],
-    channel: Literal["RENT", "BUY"],
-    bounding_polygon: Polygon,
-    cache: ModelCache[list[rightmove.models.MapProperty]],
-    *,
-    min_price: int | None = None,
-    max_price: int | None = None,
-    seen_ids: frozenset[int] = frozenset(),
-    predicate: Callable[[rightmove.models.MapProperty], bool] | None = None,
-    active_tile_ttl: int = 12 * 60 * 60,
-    inactive_tile_ttl: int = 24 * 60 * 60,
-) -> AsyncIterator[list[rightmove.models.MapProperty]]:
-    """Async generator yielding per-tile property lists as each tile is resolved.
+def check_property_size(
+    property: rightmove.models.MapProperty, min_square_meters: float
+) -> bool:
+    """Check whether a property meets a minimum floor-area requirement.
 
-    Fetches all Rightmove properties that fall inside the given BNG polygons,
-    yielding results tile by tile.  Use :func:`~flathunt.property_search.count_tiles`
-    on each polygon before iterating if you need a total for progress display.
+    Parses the ``display_size`` field, which may be expressed in square feet
+    or square metres. Properties with no size information are considered to
+    pass the check.
 
     Args:
-        polys: Isochrone intersection polygons in BNG (EPSG:27700).
-        channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
-        bounding_polygon: WGS84 polygon used to enumerate search tiles.
-        cache: Persistent cache for Rightmove map-search responses.
-        min_price: Minimum price forwarded to the Rightmove API.
-        max_price: Maximum price forwarded to the Rightmove API.
-        seen_ids: Property IDs from previous runs for incremental early-exit.
-        predicate: Optional per-property filter applied after retrieval.
-        active_tile_ttl: Freshness window in seconds for non-empty tile cache
-            entries.
-        inactive_tile_ttl: Freshness window in seconds for empty tile cache
-            entries.
-
-    Yields:
-        A list of properties within each tile that also fall inside a search polygon.
-    """
-    non_empty = [poly for poly in polys if not poly.is_empty]
-
-    for poly in non_empty:
-        coords = poly_bng_to_wgs84_coords(poly)
-        poly_wgs84 = poly_bng_to_wgs84(poly)
-        async for tile_props in get_property_ids_in_area_cached(
-            bounding_polygon,
-            coords,
-            channel,
-            cache,
-            min_price=min_price,
-            max_price=max_price,
-            seen_ids=seen_ids,
-            predicate=predicate,
-            active_tile_ttl=active_tile_ttl,
-            inactive_tile_ttl=inactive_tile_ttl,
-        ):
-            yield [
-                p
-                for p in tile_props
-                if poly_wgs84.contains(Point(p.location.longitude, p.location.latitude))
-            ]
-
-
-def filter_by_commute(
-    properties: Sequence[rightmove.models.MapProperty],
-    durations: Sequence[Sequence[int | None]],
-    queries: Sequence[CommuteDest],
-) -> list[tuple[rightmove.models.MapProperty, Sequence[int | None]]]:
-    """Retain only properties whose commute durations satisfy every query's maximum.
-
-    Args:
-        properties: Sequence of properties to filter.
-        durations: Per-property commute durations (minutes) for each query,
-            aligned with ``properties``. ``None`` indicates an unknown duration.
-        queries: Sequence of ``CommuteDest`` values defining each commute
-            destination and its time limit.
+        property: The Rightmove property to check.
+        min_square_meters: Minimum acceptable floor area in square metres.
 
     Returns:
-        A list of ``(property, durations)`` pairs where every duration is
-        non-``None`` and within the corresponding query's maximum.
+        ``True`` if the property's size is unknown or at least ``min_square_meters``,
+        ``False`` if it is known and below the threshold.
     """
-    return [
-        (prop, prop_durations)
-        for prop, prop_durations in zip(properties, durations, strict=True)
-        if all(
-            d is not None and d <= query.max_duration
-            for d, query in zip(prop_durations, queries, strict=True)
-        )
-    ]
+    sqm = parse_display_size_sqm(property.display_size)
+    if sqm is None:
+        return True
+    return sqm >= min_square_meters
 
 
 def filter_properties_by_budget_and_features(
@@ -137,4 +71,32 @@ def filter_properties_by_budget_and_features(
         )
         and ((p.number_of_images or 0) > 2 or not has_images)
         and ((p.number_of_floorplans or 0) > 0 or not has_floorplans)
+    ]
+
+
+def filter_by_commute(
+    properties: Sequence[rightmove.models.MapProperty],
+    durations: Sequence[Sequence[int | None]],
+    queries: Sequence[CommuteDest],
+) -> list[tuple[rightmove.models.MapProperty, Sequence[int | None]]]:
+    """Retain only properties whose commute durations satisfy every query's maximum.
+
+    Args:
+        properties: Sequence of properties to filter.
+        durations: Per-property commute durations (minutes) for each query,
+            aligned with ``properties``. ``None`` indicates an unknown duration.
+        queries: Sequence of ``CommuteDest`` values defining each commute
+            destination and its time limit.
+
+    Returns:
+        A list of ``(property, durations)`` pairs where every duration is
+        non-``None`` and within the corresponding query's maximum.
+    """
+    return [
+        (prop, prop_durations)
+        for prop, prop_durations in zip(properties, durations, strict=True)
+        if all(
+            d is not None and d <= query.max_duration
+            for d, query in zip(prop_durations, queries, strict=True)
+        )
     ]

@@ -1,6 +1,5 @@
 import html
 import logging
-import os
 import smtplib
 import sqlite3
 from datetime import UTC, datetime
@@ -8,33 +7,14 @@ from email.message import EmailMessage
 from pathlib import Path
 
 import dagster as dg
-from pydantic import Field
 
 import rightmove
-from flathunt.defs.enriched_properties import _parse_display_size
-from flathunt.models import FinalProperty
+from flathunt.defs.resources import CacheResource, SmtpResource
+from flathunt.models import FinalProperty, parse_display_size_sqm
 
 logger = logging.getLogger(__name__)
 
 _NOTIFIED_IDS_DB = "notified_properties.db"
-
-
-class Config(dg.Config):
-    cache_data_dir: str = "cache"
-    smtp_to_addresses: list[str] = Field(default_factory=list)
-    smtp_host: str = Field(default_factory=lambda: os.environ["FLATHUNT__SMTP_HOST"])
-    smtp_port: int = Field(
-        default_factory=lambda: int(os.environ.get("FLATHUNT__SMTP_PORT", "587"))
-    )
-    smtp_username: str = Field(
-        default_factory=lambda: os.environ["FLATHUNT__SMTP_USERNAME"]
-    )
-    smtp_password: str = Field(
-        default_factory=lambda: os.environ["FLATHUNT__SMTP_PASSWORD"]
-    )
-    smtp_from_address: str = Field(
-        default_factory=lambda: os.environ["FLATHUNT__SMTP_FROM"]
-    )
 
 
 def _open_db(path: Path) -> sqlite3.Connection:
@@ -67,7 +47,7 @@ def _save_notified_ids(path: Path, ids: list[int]) -> None:
 
 def _format_size(prop: FinalProperty) -> str:
     sqm = (
-        _parse_display_size(prop.display_size)
+        parse_display_size_sqm(prop.display_size)
         if prop.display_size
         else prop.extracted_sqm
     )
@@ -190,25 +170,26 @@ def _build_html_email(new_properties: list[FinalProperty]) -> str:
 </html>"""
 
 
-def _send_email(config: Config, subject: str, html_body: str) -> None:
-    to = ", ".join(config.smtp_to_addresses)
+def _send_email(smtp: SmtpResource, subject: str, html_body: str) -> None:
+    to = ", ".join(smtp.to_addresses)
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = config.smtp_from_address
+    msg["From"] = smtp.from_address
     msg["To"] = to
     msg.set_content("See the HTML version of this email for property details.")
     msg.add_alternative(html_body, subtype="html")
-    with smtplib.SMTP(config.smtp_host, config.smtp_port) as server:
+    with smtplib.SMTP(smtp.host, smtp.port) as server:
         server.ehlo()
         server.starttls()
-        server.login(config.smtp_username, config.smtp_password)
+        server.login(smtp.username, smtp.password)
         server.send_message(msg)
 
 
-@dg.asset
+@dg.asset(group_name="notification")
 def notified_properties(
     context: dg.AssetExecutionContext,
-    config: Config,
+    cache: CacheResource,
+    smtp: SmtpResource,
     enriched_properties: list[FinalProperty],
 ) -> None:
     """Send email notifications for newly seen enriched properties.
@@ -220,14 +201,15 @@ def notified_properties(
     automatically retried on the next pipeline run.
 
     Args:
-        config: SMTP credentials, recipient list, and cache directory path.
+        cache: Cache resource providing the cache directory path.
+        smtp: SMTP resource providing credentials and recipient list.
         enriched_properties: Fully enriched properties from the enriched_properties asset.
     """
-    if not config.smtp_to_addresses:
-        context.log.warning("smtp_to_addresses is empty — skipping email notification.")
+    if not smtp.to_addresses:
+        context.log.warning("smtp.to_addresses is empty — skipping email notification.")
         return
 
-    db_path = Path(config.cache_data_dir) / _NOTIFIED_IDS_DB
+    db_path = Path(cache.data_dir) / _NOTIFIED_IDS_DB
     already_notified = _load_notified_ids(db_path)
 
     new_properties = [p for p in enriched_properties if p.id not in already_notified]
@@ -247,8 +229,8 @@ def notified_properties(
     subject = f"Flathunt: {n} new propert{plural}"
     html_body = _build_html_email(new_properties)
 
-    _send_email(config, subject, html_body)
-    context.log.info("Email sent to %s.", ", ".join(config.smtp_to_addresses))
+    _send_email(smtp, subject, html_body)
+    context.log.info("Email sent to %s.", ", ".join(smtp.to_addresses))
 
     _save_notified_ids(db_path, [p.id for p in new_properties])
     context.log.info("Recorded %d new IDs in %s.", len(new_properties), db_path)

@@ -1,15 +1,13 @@
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 import dagster as dg
-from pydantic import Field
 
 import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest
-from flathunt.defs.config import CommuteDestConfig
+from flathunt.defs.resources import CacheResource, QueriesResource, TflResource
 from flathunt.filters import filter_by_commute
 from flathunt.models import MatchedProperty
 from flathunt.property_search import (
@@ -20,18 +18,19 @@ from flathunt.property_search import (
 logger = logging.getLogger(__name__)
 
 
-class Config(dg.Config):
-    queries: list[CommuteDestConfig]
-    tfl_api_key: str = Field(
-        default_factory=lambda: os.environ["FLATHUNT__TFL_API_KEY"]
-    )
-    cache_data_dir: str = "cache"
+def _build_commute_destinations(queries: QueriesResource) -> list[CommuteDest]:
+    return [
+        CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration)
+        for q in queries.queries
+    ]
 
 
-@dg.asset
+@dg.asset(group_name="property_search")
 def matched_property_ids(
     context: dg.AssetExecutionContext,
-    config: Config,
+    queries: QueriesResource,
+    tfl_resource: TflResource,
+    cache: CacheResource,
     candidate_properties: list[rightmove.models.MapProperty],
 ) -> list[MatchedProperty]:
     """Filter candidate properties by real TfL commute times and return matching IDs with durations.
@@ -43,8 +42,9 @@ def matched_property_ids(
 
     Args:
         context: Dagster asset execution context, used for progress logging.
-        config: Asset configuration: commute destinations with time limits,
-            TfL API key, and cache directory path.
+        queries: Commute destinations with time limits.
+        tfl_resource: TfL API resource providing the API key.
+        cache: Cache resource providing the cache directory path.
         candidate_properties: Properties pre-filtered by area and basic
             constraints, as produced by the ``candidate_properties`` asset.
 
@@ -56,45 +56,42 @@ def matched_property_ids(
         logger.info("No candidate properties to evaluate.")
         return []
 
-    queries = [
-        CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration)
-        for q in config.queries
-    ]
+    dests = _build_commute_destinations(queries)
 
-    cache_path = Path(config.cache_data_dir) / "journey_cache.db"
+    cache_path = Path(cache.data_dir) / "journey_cache.db"
     logger.info("Opening journey cache at %s.", cache_path)
     journey_cache: ModelCache[int | None] = ModelCache(
         int | None, cache_path, ttl=DEFAULT_JOURNEY_CACHE_TTL
     )
 
     flat_to_froms = [
-        (prop.location.longitude, prop.location.latitude, q.lon, q.lat)
+        (prop.location.longitude, prop.location.latitude, d.lon, d.lat)
         for prop in candidate_properties
-        for q in queries
+        for d in dests
     ]
     total = len(flat_to_froms)
     logger.info(
         "Fetching TfL commute durations for %d propert(ies) x %d destination(s).",
         len(candidate_properties),
-        len(queries),
+        len(dests),
     )
 
     async def _run_all() -> list[list[int | None]]:
         results: list[int | None] = [None] * total
         received = 0
         async for idx, duration in get_properties_journey_duration_cached(
-            flat_to_froms, journey_cache, config.tfl_api_key
+            flat_to_froms, journey_cache, tfl_resource.api_key
         ):
             results[idx] = duration
             received += 1
             if received % 10 == 0 or received == total:
                 context.log.info("Journey results received: %d / %d.", received, total)
-        n = len(queries)
+        n = len(dests)
         return [results[i * n : (i + 1) * n] for i in range(len(candidate_properties))]
 
     durations = asyncio.run(_run_all())
 
-    matched = filter_by_commute(candidate_properties, durations, queries)
+    matched = filter_by_commute(candidate_properties, durations, dests)
     result = [
         MatchedProperty(property_id=prop.id, commute_durations=list(durs))
         for prop, durs in matched

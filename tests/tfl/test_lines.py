@@ -2,8 +2,8 @@ import os
 
 import pytest
 
-from tfl.api._transport import get_ratelimited_client
-from tfl.api.lines import (
+from tfl.api._http import get_ratelimited_client
+from tfl.api.endpoints.lines import (
     get_all_lines_routes,
     get_lines_by_mode,
     get_stop_points_by_line,

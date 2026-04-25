@@ -9,7 +9,8 @@ from pydantic import TypeAdapter
 
 logger = logging.getLogger(__name__)
 
-_CREATE_TABLE = """
+# SQL schema constants
+CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cache (
     key       TEXT PRIMARY KEY,
     timestamp REAL NOT NULL,
@@ -17,12 +18,14 @@ CREATE TABLE IF NOT EXISTS cache (
 )
 """
 
-_CREATE_INDEX = """
+CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
 """
 
 
 class ModelCache[T]:
+    """Generic cache for Pydantic-compatible models using SQLite backend."""
+
     def __init__(self, model_cls: Any, db_path: str | Path, ttl: int | None = 86400):
         """Initialise the cache, creating the SQLite database if it does not exist.
 
@@ -38,8 +41,8 @@ class ModelCache[T]:
         if not db_path.parent.exists():
             db_path.parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
-        self._conn.execute(_CREATE_TABLE)
-        self._conn.execute(_CREATE_INDEX)
+        self._conn.execute(CREATE_TABLE)
+        self._conn.execute(CREATE_INDEX)
         self._conn.commit()
         self._purge_expired()
 
@@ -68,6 +71,7 @@ class ModelCache[T]:
         self._conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
         self._conn.commit()
 
+    # Public API
     def get(self, id: str) -> T:
         """Retrieve a cached item by key, raising if missing or expired.
 
@@ -134,4 +138,9 @@ class ModelCache[T]:
                 for key, item in iterables
             ],
         )
+        """Delete all entries whose TTL has elapsed."""
+        if self.ttl is None:
+            return
+        cutoff = time.time() - self.ttl
+        self._conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
         self._conn.commit()
