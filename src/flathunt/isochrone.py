@@ -11,29 +11,13 @@ import numpy as np
 from shapely.geometry import Point
 from shapely.geometry.polygon import LinearRing, Polygon
 
-from flathunt.geometry import euclidean, wgs84_to_bng
+from flathunt.geometry import find_nearest_node, wgs84_to_bng
 
 NODE_BUFFER = 0
 EDGE_BUFFER = 25
 
 
 # Simple utility functions
-def find_nearest_node(x1, y1, x2, y2):
-    """Return the index of the nearest point in an array to a query point.
-
-    Args:
-        x1: X coordinate of the query point.
-        y1: Y coordinate of the query point.
-        x2: NumPy array of X coordinates of candidate points.
-        y2: NumPy array of Y coordinates of candidate points.
-
-    Returns:
-        Integer index into ``x2``/``y2`` of the closest candidate.
-    """
-    distances = euclidean(x1, y1, x2, y2)
-    return distances.argmin(axis=0).item()
-
-
 def get_graph_bounds(graph: nx.Graph) -> tuple[float, float, float, float]:
     """Return the axis-aligned bounding box of all nodes in a graph.
 

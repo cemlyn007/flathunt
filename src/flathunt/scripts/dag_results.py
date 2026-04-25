@@ -10,8 +10,7 @@ import yaml
 
 import rightmove.api
 import rightmove.price
-from flathunt.defs.enriched_properties import _parse_display_size
-from flathunt.models import FinalProperty
+from flathunt.models import FinalProperty, parse_display_size_sqm
 
 _DAGSTER_STORAGE = Path(".dagster/storage")
 _RUN_CONFIG = Path("flathunt_run_config.yaml")
@@ -76,7 +75,7 @@ def _build_rows(
             else:
                 price_value = fp.price.amount
 
-        sqm = _parse_display_size(fp.display_size) if fp.display_size else None
+        sqm = parse_display_size_sqm(fp.display_size) if fp.display_size else None
         if sqm is None and fp.extracted_sqm is not None:
             sqm = fp.extracted_sqm
 

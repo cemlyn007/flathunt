@@ -12,6 +12,7 @@ import rightmove.models
 import tfl.api
 from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest, LatLon
+from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
 from flathunt.search_utils import (
     fetch_journey_results,
     get_property_ids_in_area,
@@ -284,3 +285,55 @@ async def get_commute_durations(
         results[idx] = duration
     n = len(queries)
     return [results[i * n : (i + 1) * n] for i in range(len(properties))]
+
+
+async def fetch_properties_within_optimal_regions(
+    polys: list[Polygon],
+    channel: Literal["RENT", "BUY"],
+    bounding_polygon: Polygon,
+    cache: ModelCache[list[rightmove.models.MapProperty]],
+    *,
+    min_price: int | None = None,
+    max_price: int | None = None,
+    seen_ids: frozenset[int] = frozenset(),
+    predicate: Callable[[rightmove.models.MapProperty], bool] | None = None,
+) -> AsyncIterator[list[rightmove.models.MapProperty]]:
+    """Async generator yielding per-tile property lists as each tile is resolved.
+
+    Fetches all Rightmove properties that fall inside the given BNG polygons,
+    yielding results tile by tile.  Use :func:`~flathunt.property_search.count_tiles`
+    on each polygon before iterating if you need a total for progress display.
+
+    Args:
+        polys: Isochrone intersection polygons in BNG (EPSG:27700).
+        channel: Rightmove listing channel, either ``"RENT"`` or ``"BUY"``.
+        bounding_polygon: WGS84 polygon used to enumerate search tiles.
+        cache: Persistent cache for Rightmove map-search responses.
+        min_price: Minimum price forwarded to the Rightmove API.
+        max_price: Maximum price forwarded to the Rightmove API.
+        seen_ids: Property IDs from previous runs for incremental early-exit.
+        predicate: Optional per-property filter applied after retrieval.
+
+    Yields:
+        A list of properties within each tile that also fall inside a search polygon.
+    """
+    non_empty = [poly for poly in polys if not poly.is_empty]
+
+    for poly in non_empty:
+        coords = poly_bng_to_wgs84_coords(poly)
+        poly_wgs84 = poly_bng_to_wgs84(poly)
+        async for tile_props in get_property_ids_in_area_cached(
+            bounding_polygon,
+            coords,
+            channel,
+            cache,
+            min_price=min_price,
+            max_price=max_price,
+            seen_ids=seen_ids,
+            predicate=predicate,
+        ):
+            yield [
+                p
+                for p in tile_props
+                if poly_wgs84.contains(Point(p.location.longitude, p.location.latitude))
+            ]

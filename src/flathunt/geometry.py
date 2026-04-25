@@ -29,6 +29,22 @@ def euclidean(x1, y1, x2, y2):  # type: ignore[no-untyped-def]
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
+def find_nearest_node(x1, y1, x2, y2):  # type: ignore[no-untyped-def]
+    """Return the index of the nearest point in an array to a query point.
+
+    Args:
+        x1: X coordinate of the query point.
+        y1: Y coordinate of the query point.
+        x2: NumPy array of X coordinates of candidate points.
+        y2: NumPy array of Y coordinates of candidate points.
+
+    Returns:
+        Integer index into ``x2``/``y2`` of the closest candidate.
+    """
+    distances = euclidean(x1, y1, x2, y2)
+    return int(distances.argmin(axis=0))
+
+
 # ============================================================================
 # Coordinate System Conversions
 # ============================================================================

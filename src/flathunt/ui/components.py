@@ -17,7 +17,6 @@ import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest
 from flathunt.filters import (
-    fetch_properties_within_optimal_regions,
     filter_by_commute,
     filter_properties_by_budget_and_features,
 )
@@ -30,7 +29,10 @@ from flathunt.isochrone import (
     lookup,
     make_poly,
 )
-from flathunt.property_search import get_commute_durations
+from flathunt.property_search import (
+    fetch_properties_within_optimal_regions,
+    get_commute_durations,
+)
 
 logger = logging.getLogger("flathunt")
 

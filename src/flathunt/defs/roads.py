@@ -4,12 +4,11 @@ import os
 import dagster as dg
 import geopandas as gpd
 import networkx as nx
-import numpy as np
 import tqdm
 from shapely.geometry import LineString
 
 from flathunt.defs.sources import roads_shapefile
-from flathunt.geometry import wgs84_to_bng
+from flathunt.geometry import euclidean, wgs84_to_bng
 
 
 class Config(dg.Config):
@@ -18,11 +17,6 @@ class Config(dg.Config):
         "greater-london-251126-free/gis_osm_roads_free_1.shp",
     )
     meters_per_minute: float = 60
-
-
-def euclidean(x1, y1, x2, y2):
-    """Compute Euclidean distance between two points."""
-    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def create_roads_graph(

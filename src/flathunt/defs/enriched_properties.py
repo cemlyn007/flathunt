@@ -11,7 +11,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 import rightmove.api
 import rightmove.models
 from flathunt.cache import ModelCache
-from flathunt.models import FinalProperty, MatchedProperty
+from flathunt.models import FinalProperty, MatchedProperty, parse_display_size_sqm
 from rightmove.description_extractor import (
     ExtractedPropertyInfo,
     PropertyDescriptionExtractor,
@@ -96,18 +96,6 @@ async def _get_floor_plan_sqm(
         )
 
     return sqm
-
-
-def _parse_display_size(display_size: str | None) -> float | None:
-    """Return the floor area in square metres, or None if not present or not parseable."""
-    if not display_size:
-        return None
-    if display_size.endswith(" sq. ft."):
-        sq_ft = int(display_size.removesuffix(" sq. ft.").replace(",", ""))
-        return sq_ft * 0.092903
-    if display_size.endswith(" sqm"):
-        return float(display_size.removesuffix(" sqm").replace(",", ""))
-    return None
 
 
 async def _get_description_info(
@@ -303,7 +291,7 @@ def enriched_properties(
             prop = props_by_id.get(matched.property_id)
             if prop is None:
                 continue
-            metadata_sqm = _parse_display_size(prop.display_size)
+            metadata_sqm = parse_display_size_sqm(prop.display_size)
             needs_extraction = metadata_sqm is None and prop.number_of_floorplans == 1
             tasks.append(
                 _process_property(
@@ -332,7 +320,7 @@ def enriched_properties(
     result = []
     for fp in final_properties:
         sqm = (
-            _parse_display_size(fp.display_size)
+            parse_display_size_sqm(fp.display_size)
             if fp.display_size
             else fp.extracted_sqm
         )

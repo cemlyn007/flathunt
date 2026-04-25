@@ -11,7 +11,7 @@ import dagster as dg
 from pydantic import Field
 
 import rightmove
-from flathunt.models import FinalProperty
+from flathunt.models import FinalProperty, parse_display_size_sqm
 
 logger = logging.getLogger(__name__)
 
@@ -34,18 +34,6 @@ class Config(dg.Config):
     smtp_from_address: str = Field(
         default_factory=lambda: os.environ["FLATHUNT__SMTP_FROM"]
     )
-
-
-def _parse_display_size(display_size: str | None) -> float | None:
-    """Return the floor area in square metres, or None if not present or not parseable."""
-    if not display_size:
-        return None
-    if display_size.endswith(" sq. ft."):
-        sq_ft = int(display_size.removesuffix(" sq. ft.").replace(",", ""))
-        return sq_ft * 0.092903
-    if display_size.endswith(" sqm"):
-        return float(display_size.removesuffix(" sqm").replace(",", ""))
-    return None
 
 
 def _open_db(path: Path) -> sqlite3.Connection:
@@ -78,7 +66,7 @@ def _save_notified_ids(path: Path, ids: list[int]) -> None:
 
 def _format_size(prop: FinalProperty) -> str:
     sqm = (
-        _parse_display_size(prop.display_size)
+        parse_display_size_sqm(prop.display_size)
         if prop.display_size
         else prop.extracted_sqm
     )

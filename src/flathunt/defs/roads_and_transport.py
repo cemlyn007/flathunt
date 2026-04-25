@@ -4,30 +4,11 @@ import numpy as np
 import tqdm
 from shapely.geometry import LineString
 
+from flathunt.geometry import euclidean, find_nearest_node
+
 
 class Config(dg.Config):
     meters_per_minute: float = 60
-
-
-def euclidean(x1, y1, x2, y2):
-    """Compute Euclidean distance between two points."""
-    return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-
-
-def find_nearest_node(x1, y1, x2, y2) -> int:
-    """Find the nearest node to a given (x, y) coordinate in a set of points.
-
-    Args:
-        x1: Target x coordinate.
-        y1: Target y coordinate.
-        x2: Array of candidate x coordinates.
-        y2: Array of candidate y coordinates.
-
-    Returns:
-        Index of the nearest node in the coordinate arrays.
-    """
-    distances = euclidean(x1, y1, x2, y2)
-    return int(distances.argmin(axis=0))
 
 
 def _connect_transport_to_roads(

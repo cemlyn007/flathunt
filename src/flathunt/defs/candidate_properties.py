@@ -12,10 +12,12 @@ from shapely.ops import unary_union
 
 import rightmove.models
 from flathunt.cache import ModelCache
-from flathunt.filters import fetch_properties_within_optimal_regions
+from flathunt.filters import check_property_size
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
-from flathunt.property_search import count_tiles
-from flathunt.search_utils import check_property_size
+from flathunt.property_search import (
+    count_tiles,
+    fetch_properties_within_optimal_regions,
+)
 
 logger = logging.getLogger(__name__)
 

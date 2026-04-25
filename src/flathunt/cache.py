@@ -10,7 +10,7 @@ from pydantic import TypeAdapter
 logger = logging.getLogger(__name__)
 
 # SQL schema constants
-_CREATE_TABLE = """
+CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cache (
     key       TEXT PRIMARY KEY,
     timestamp REAL NOT NULL,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS cache (
 )
 """
 
-_CREATE_INDEX = """
+CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
 """
 
@@ -38,8 +38,8 @@ class ModelCache[T]:
         self.ttl = ttl
         self._adapter: TypeAdapter[T] = TypeAdapter(model_cls)  # type: ignore[arg-type]
         self._conn = sqlite3.connect(str(db_path), check_same_thread=False)
-        self._conn.execute(_CREATE_TABLE)
-        self._conn.execute(_CREATE_INDEX)
+        self._conn.execute(CREATE_TABLE)
+        self._conn.execute(CREATE_INDEX)
         self._conn.commit()
         self._purge_expired()
 

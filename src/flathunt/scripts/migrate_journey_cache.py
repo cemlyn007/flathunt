@@ -7,6 +7,8 @@ import sqlite3
 import time
 from pathlib import Path
 
+from flathunt.cache import CREATE_INDEX, CREATE_TABLE
+
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -16,18 +18,6 @@ _CACHES = [
     "journey_cache",
     "property_locations_cache",
 ]
-
-_CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS cache (
-    key       TEXT PRIMARY KEY,
-    timestamp REAL NOT NULL,
-    item      TEXT NOT NULL
-)
-"""
-
-_CREATE_INDEX = """
-CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
-"""
 
 
 def _migrate(src: Path, dst: Path) -> None:
@@ -54,8 +44,8 @@ def _migrate(src: Path, dst: Path) -> None:
         rows.append((key, timestamp, json.dumps(entry["item"])))
 
     conn = sqlite3.connect(str(dst))
-    conn.execute(_CREATE_TABLE)
-    conn.execute(_CREATE_INDEX)
+    conn.execute(CREATE_TABLE)
+    conn.execute(CREATE_INDEX)
     conn.executemany(
         "INSERT OR IGNORE INTO cache (key, timestamp, item) VALUES (?, ?, ?)",
         rows,

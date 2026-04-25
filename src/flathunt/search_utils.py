@@ -13,7 +13,6 @@ import tfl.api
 import tfl.models
 from flathunt.coords import LatLon
 from flathunt.isochrone import find_min_simplify_tolerance
-from rightmove.floor_plan import _SQFT_TO_SQM
 
 logger = logging.getLogger(__name__)
 
@@ -24,40 +23,6 @@ MAX_RIGHTMOVE_POLYLINE_POINTS = 1000
 # ============================================================================
 # Utility Functions
 # ============================================================================
-
-
-def check_property_size(
-    property: rightmove.models.MapProperty, min_square_meters: float
-):
-    """Check whether a property meets a minimum floor-area requirement.
-
-    Parses the ``display_size`` field, which may be expressed in square feet
-    or square metres. Properties with no size information are considered to
-    pass the check.
-
-    Args:
-        property: The Rightmove property to check.
-        min_square_meters: Minimum acceptable floor area in square metres.
-
-    Returns:
-        ``True`` if the property's size is unknown or at least ``min_square_meters``,
-        ``False`` if it is known and below the threshold.
-    """
-    if property.display_size:
-        if property.display_size.endswith(" sq. ft."):
-            square_ft = int(
-                property.display_size.removesuffix(" sq. ft.").replace(",", "")
-            )
-            square_meters = int(square_ft * _SQFT_TO_SQM)
-            if square_meters < min_square_meters:
-                return False
-        elif property.display_size.endswith(" sqm"):
-            square_meters = int(
-                property.display_size.removesuffix(" sqm").replace(",", "")
-            )
-            if square_meters < min_square_meters:
-                return False
-    return True
 
 
 def split_polygon(polygon: Polygon) -> list[Polygon]:
