@@ -6,8 +6,8 @@ import httpx
 import pytest
 
 import tfl.api
-from tfl.api._transport import get_ratelimited_client
-from tfl.api.journey import (
+from tfl.api._http import get_ratelimited_client
+from tfl.api.endpoints.journey import (
     build_journey_parameters,
     build_journey_url,
     get_journey_results,

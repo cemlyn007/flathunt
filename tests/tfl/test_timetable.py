@@ -2,8 +2,12 @@ import os
 
 import pytest
 
-from tfl.api._transport import get_ratelimited_client
-from tfl.api.timetable import Direction, get_timetable, get_timetable_between_stops
+from tfl.api._http import get_ratelimited_client
+from tfl.api.endpoints.timetable import (
+    Direction,
+    get_timetable,
+    get_timetable_between_stops,
+)
 from tfl.models import TimetableResponse
 
 # ---------------------------------------------------------------------------

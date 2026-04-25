@@ -3,7 +3,7 @@ from enum import StrEnum
 import httpx
 
 from tfl import models
-from tfl.api._transport import get
+from tfl.api._http import get
 
 
 class Direction(StrEnum):

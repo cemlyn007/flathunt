@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from tfl import models
-from tfl.api._transport import get
+from tfl.api._http import get
 
 
 async def get_journey_results(

@@ -3,7 +3,7 @@ from collections.abc import Iterable
 import httpx
 
 from tfl import models
-from tfl.api._transport import get
+from tfl.api._http import get
 
 
 async def get_all_lines_routes(
