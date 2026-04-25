@@ -4,16 +4,20 @@ import base64
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, cast
 
 import anthropic
 import pydantic
-from anthropic.types.message_create_params import MessageCreateParamsNonStreaming
+from anthropic.types.message_create_params import (
+    MessageCreateParamsNonStreaming,
+    OutputConfigParam,
+)
+from anthropic.types.message_param import MessageParam
 from anthropic.types.messages.batch_create_params import Request
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-opus-4-7"
+MODEL = "claude-haiku-4-5"
 
 
 def detect_image_format(image_data: bytes) -> str:
@@ -110,10 +114,10 @@ def build_floor_plan_batch_request(
         "\n"
         "2. If there are ONLY individual floor/room sizes shown (e.g., floor 1: 45m², "
         "floor 2: 47m², floor 3: 33m²) with NO total: "
-        "Return a breakdown with each floor's usable internal area.\n"
+        "Return a breakdown with each floor's usable internal area and units.\n"
         "\n"
         "3. If the image shows no size information or is too ambiguous/complex: "
-        "Return null.\n"
+        "Return null for total, null for breakdown, and null for units.\n"
         "\n"
         "For usable area, exclude balconies, terraces, gardens, attics, and rooms "
         "with ceiling height below 1.5m. Prefer sq m if both units are present."
@@ -121,31 +125,36 @@ def build_floor_plan_batch_request(
 
     encoded = base64.b64encode(image_data).decode("ascii")
 
+    output_config = cast(OutputConfigParam, build_output_config(FloorPlanExtraction))
+    messages = cast(
+        list[MessageParam],
+        [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": media_type,
+                            "data": encoded,
+                        },
+                    },
+                ],
+            }
+        ],
+    )
     return Request(
         custom_id=custom_id,
-        params=MessageCreateParamsNonStreaming(  # type: ignore
+        params=MessageCreateParamsNonStreaming(
             model=MODEL,
             max_tokens=1024,
-            output_config=build_output_config(FloorPlanExtraction),
-            messages=[  # type: ignore
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": prompt,
-                        },
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": encoded,
-                            },
-                        },
-                    ],
-                }
-            ],
+            output_config=output_config,
+            messages=messages,
         ),
     )
 
@@ -186,17 +195,22 @@ def build_description_batch_request(
 
     clean_text = _strip_html(description)
 
+    output_config = cast(OutputConfigParam, build_output_config(ExtractedPropertyInfo))
+    messages = cast(
+        list[MessageParam],
+        [
+            {
+                "role": "user",
+                "content": f"{prompt}\n\nDescription:\n{clean_text}",
+            }
+        ],
+    )
     return Request(
         custom_id=custom_id,
-        params=MessageCreateParamsNonStreaming(  # type: ignore
+        params=MessageCreateParamsNonStreaming(
             model=MODEL,
             max_tokens=256,
-            output_config=build_output_config(ExtractedPropertyInfo),
-            messages=[  # type: ignore
-                {
-                    "role": "user",
-                    "content": f"{prompt}\n\nDescription:\n{clean_text}",
-                }
-            ],
+            output_config=output_config,
+            messages=messages,
         ),
     )

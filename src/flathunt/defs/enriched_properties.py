@@ -155,7 +155,8 @@ def _process_batch_results(  # type: ignore[no-untyped-def]
                     extraction = pydantic.TypeAdapter(
                         FloorPlanExtraction | None
                     ).validate_json(json_content)
-                    if extraction:
+                    # Treat all-None extraction (is_empty()) as equivalent to None
+                    if extraction and not extraction.is_empty():
                         total_sqm = extraction.get_total_sqm()
                         breakdown_csv = extraction.get_breakdown_csv()
                         floor_plan_updates[prop_id] = (total_sqm, breakdown_csv)

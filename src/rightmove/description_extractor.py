@@ -1,7 +1,11 @@
 import re
+from typing import cast
 
 import pydantic
+from anthropic.types.message_create_params import OutputConfigParam
+from anthropic.types.message_param import MessageParam
 from anthropic.types.messages.batch_create_params import Request
+from anthropic.types.text_block import TextBlock
 
 from rightmove.anthropic_config import (
     MODEL,
@@ -88,19 +92,27 @@ class PropertyDescriptionExtractor:
         """
         clean_text = _strip_html(description)
 
-        response = self._client.messages.create(  # type: ignore
-            model=MODEL,
-            max_tokens=256,
-            output_config=build_output_config(ExtractedPropertyInfo),
-            messages=[  # type: ignore
+        output_config = cast(
+            OutputConfigParam, build_output_config(ExtractedPropertyInfo)
+        )
+        messages = cast(
+            list[MessageParam],
+            [
                 {
                     "role": "user",
                     "content": f"{self._PROMPT}\n\nDescription:\n{clean_text}",
                 }
             ],
         )
+        response = self._client.messages.create(
+            model=MODEL,
+            max_tokens=256,
+            output_config=output_config,
+            messages=messages,
+        )
 
-        content = response.content[0].text
+        text_block = cast(TextBlock, response.content[0])
+        content = text_block.text
         json_content = _extract_json_from_response(content)
         extracted = pydantic.TypeAdapter(ExtractedPropertyInfo).validate_json(
             json_content

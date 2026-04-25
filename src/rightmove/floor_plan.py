@@ -1,9 +1,12 @@
 import base64
 import logging
-from typing import Literal
+from typing import Literal, cast
 
 import pydantic
+from anthropic.types.message_create_params import OutputConfigParam
+from anthropic.types.message_param import MessageParam
 from anthropic.types.messages.batch_create_params import Request
+from anthropic.types.text_block import TextBlock
 
 from rightmove.anthropic_config import (
     MODEL,
@@ -46,10 +49,20 @@ class FloorPlanSize(pydantic.BaseModel):
 class FloorPlanExtraction(pydantic.BaseModel):
     total: float | None = None
     breakdown: list[float] | None = None
-    units: Literal["sq m", "sq ft"]
+    units: Literal["sq m", "sq ft"] | None = None
+
+    def is_empty(self) -> bool:
+        """Return True if all extraction fields are None (no size data found)."""
+        return self.total is None and self.breakdown is None and self.units is None
 
     def get_total_sqm(self) -> float | None:
-        """Return total in square metres, or largest breakdown value if no total."""
+        """Return total in square metres, or largest breakdown value if no total.
+
+        Returns None if units field is missing (malformed extraction).
+        """
+        if self.units is None:
+            # Malformed extraction: has data but no units
+            return None
         if self.total is not None:
             return self.total if self.units == "sq m" else self.total * _SQFT_TO_SQM
         if self.breakdown:
@@ -137,11 +150,12 @@ class FloorPlanSizeExtractor:
 
         encoded = base64.b64encode(image_data).decode("ascii")
 
-        response = self._client.messages.create(  # type: ignore
-            model=MODEL,
-            max_tokens=1024,
-            output_config=build_output_config(FloorPlanExtraction),
-            messages=[  # type: ignore
+        output_config = cast(
+            OutputConfigParam, build_output_config(FloorPlanExtraction)
+        )
+        messages = cast(
+            list[MessageParam],
+            [
                 {
                     "role": "user",
                     "content": [
@@ -161,13 +175,23 @@ class FloorPlanSizeExtractor:
                 }
             ],
         )
+        response = self._client.messages.create(
+            model=MODEL,
+            max_tokens=1024,
+            output_config=output_config,
+            messages=messages,
+        )
 
         try:
-            content = response.content[0].text
+            text_block = cast(TextBlock, response.content[0])
+            content = text_block.text
             json_content = _extract_json_from_response(content)
             extraction_dict = pydantic.TypeAdapter(
                 FloorPlanExtraction | None
             ).validate_json(json_content)
+            # Return None if all fields are None (no data found)
+            if extraction_dict and extraction_dict.is_empty():
+                return None
             return extraction_dict
         except (ValueError, pydantic.ValidationError) as e:
             logger.error("Failed to parse floor plan extraction: %s", e)
