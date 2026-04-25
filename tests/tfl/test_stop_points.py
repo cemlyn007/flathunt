@@ -11,6 +11,7 @@ from tfl.models import ModeId, StopPointDetail
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.regression
 @pytest.mark.skipif(
     not os.environ.get("FLATHUNT__TFL_API_KEY"),
     reason="requires FLATHUNT__TFL_API_KEY in environment or .env file",
