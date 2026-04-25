@@ -1,13 +1,20 @@
+import contextlib
 import email
 import email.policy
 import email.utils
+import json
 import logging
 import re
-from datetime import UTC
+from datetime import UTC, datetime
 
 from bs4 import BeautifulSoup
 
-from zoopla.models import AlertType, ZooplaProperty, ZooplaPropertyAlert
+from zoopla.models import (
+    AlertType,
+    ZooplaListingDetail,
+    ZooplaProperty,
+    ZooplaPropertyAlert,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -164,3 +171,230 @@ def parse_zoopla_alert_email(raw_bytes: bytes) -> ZooplaPropertyAlert:
         alert_type=alert_type,
         properties=properties,
     )
+
+
+_ANALYTICS_TAXONOMY = re.compile(
+    r'\{"__typename":"ListingAnalyticsTaxonomy"[^<]+\}', re.DOTALL
+)
+_FLOOR_AREA_SQFT = re.compile(r"([\d,]+)\s*sq\.\s*ft")
+_RSC_PUSH = re.compile(r'^self\.__next_f\.push\(\[1,"(.+)"\]\s*\)\s*;?\s*$', re.DOTALL)
+_UPRN_COORDS = re.compile(r'"uprn":(?:null|"[^"]*"),"coordinates":\{')
+
+
+def parse_zoopla_listing_html(html: str, url: str) -> ZooplaListingDetail:
+    soup = BeautifulSoup(html, "html.parser")
+
+    listing_id = _extract_listing_id(url) or ""
+
+    taxonomy = _parse_taxonomy(soup)
+    listing_ld = _parse_real_estate_ld(soup)
+    property_type, address = _parse_h1(soup)
+    key_features = _parse_key_features(soup)
+    description = _parse_description(soup)
+    more_info = _parse_more_info(soup)
+    latitude, longitude = _parse_coordinates(soup)
+    image_urls = _parse_image_urls(soup, listing_ld)
+
+    price_gbp: int | None = None
+    raw_price = taxonomy.get("price_actual")
+    if raw_price:
+        with contextlib.suppress(ValueError):
+            price_gbp = int(raw_price)
+    if price_gbp is None:
+        offers = listing_ld.get("offers", {})
+        price_gbp = offers.get("price")
+
+    def _int_or_none(val: str | None) -> int | None:
+        try:
+            return int(val) if val else None
+        except ValueError:
+            return None
+
+    def _bool_or_none(val: str | None) -> bool | None:
+        if val is None:
+            return None
+        return val.lower() == "true"
+
+    floor_area_sqft: int | None = _int_or_none(taxonomy.get("size_sq_feet"))
+    if floor_area_sqft is None:
+        for prop in listing_ld.get("additionalProperty", []):
+            if prop.get("name") == "Floor size":
+                m = _FLOOR_AREA_SQFT.search(prop.get("value", ""))
+                if m:
+                    floor_area_sqft = int(m.group(1).replace(",", ""))
+
+    date_posted: datetime | None = None
+    date_str = listing_ld.get("datePosted")
+    if date_str:
+        with contextlib.suppress(ValueError):
+            date_posted = datetime.fromisoformat(date_str).replace(tzinfo=UTC)
+
+    return ZooplaListingDetail(
+        listing_id=listing_id or taxonomy.get("listing_id", ""),
+        url=url,
+        price_gbp=price_gbp,
+        price_qualifier=taxonomy.get("price_qualifier") or None,
+        address=address or taxonomy.get("display_address"),
+        property_type=property_type,
+        bedrooms=_int_or_none(taxonomy.get("num_beds")),
+        bathrooms=_int_or_none(taxonomy.get("num_baths")),
+        receptions=_int_or_none(taxonomy.get("num_recepts")),
+        floor_area_sqft=floor_area_sqft,
+        tenure=more_info.get("Tenure") or taxonomy.get("tenure"),
+        service_charge=more_info.get("Service charge"),
+        council_tax_band=more_info.get("Council tax band"),
+        ground_rent=more_info.get("Ground rent"),
+        ground_rent_review_date=more_info.get("Ground rent date of next review"),
+        chain_free=_bool_or_none(taxonomy.get("chain_free")),
+        listing_condition=taxonomy.get("listing_condition") or None,
+        description=description,
+        key_features=key_features,
+        agent_name=taxonomy.get("branch_name"),
+        agent_logo_url=taxonomy.get("branch_logo_url"),
+        image_urls=image_urls,
+        date_posted=date_posted,
+        latitude=latitude,
+        longitude=longitude,
+    )
+
+
+def _parse_taxonomy(soup: BeautifulSoup) -> dict:
+    for sc in soup.find_all("script"):
+        text = sc.string or ""
+        m = _ANALYTICS_TAXONOMY.search(text)
+        if m:
+            try:
+                return json.loads(m.group(0))
+            except json.JSONDecodeError:
+                logger.warning("Failed to parse ListingAnalyticsTaxonomy JSON")
+    return {}
+
+
+def _parse_real_estate_ld(soup: BeautifulSoup) -> dict:
+    for sc in soup.find_all("script", type="application/ld+json"):
+        try:
+            blob = json.loads(sc.string or "")
+        except json.JSONDecodeError:
+            continue
+        if blob.get("@type") == "RealEstateListing":
+            return blob
+    return {}
+
+
+def _parse_h1(soup: BeautifulSoup) -> tuple[str | None, str | None]:
+    h1 = soup.find("h1")
+    if not h1:
+        return None, None
+    address_el = h1.find("address")
+    address = address_el.get_text(strip=True) if address_el else None
+    if address_el:
+        address_el.extract()
+    property_type = h1.get_text(strip=True) or None
+    return property_type, address
+
+
+def _parse_key_features(soup: BeautifulSoup) -> list[str]:
+    section = soup.find("section", {"aria-labelledby": "about"})
+    if not section:
+        return []
+    features = []
+    for li in section.find_all("li"):
+        spans = li.find_all("span")
+        # last span holds the feature text; skip SVG-only items
+        text_spans = [s.get_text(strip=True) for s in spans if s.get_text(strip=True)]
+        if text_spans:
+            features.append(text_spans[-1])
+    return features
+
+
+def _parse_description(soup: BeautifulSoup) -> str | None:
+    el = soup.find(class_=re.compile(r"DetailedDescription_detailedDescriptionText"))
+    return el.get_text(separator="\n", strip=True) if el else None
+
+
+def _parse_more_info(soup: BeautifulSoup) -> dict[str, str]:
+    section = soup.find("section", {"aria-labelledby": "more-info"})
+    if not section:
+        return {}
+    result: dict[str, str] = {}
+    for li in section.find_all("li"):
+        label_el = li.find("p", class_=re.compile(r"NtsInfo_ntsInfoItemTitle"))
+        value_wrapper = li.find(
+            "div", class_=re.compile(r"NtsInfo_ntsInfoItemTextWrapper")
+        )
+        if not label_el or not value_wrapper:
+            continue
+        value_el = value_wrapper.find("p")
+        if value_el:
+            result[label_el.get_text(strip=True)] = value_el.get_text(strip=True)
+    return result
+
+
+_ZOOCDN_IMAGE = re.compile(r'https://lid\.zoocdn\.com/u/\d+/\d+/[^"\\]+')
+
+
+def _parse_image_urls(soup: BeautifulSoup, listing_ld: dict) -> list[str]:
+    seen: set[str] = set()
+    urls: list[str] = []
+
+    def _add(url: str) -> None:
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+
+    # Prefer the largest variant from the RSC payloads
+    rsc_urls: dict[str, tuple[int, int]] = {}
+    for sc in soup.find_all("script"):
+        text = (sc.string or "").strip()
+        m = _RSC_PUSH.match(text)
+        if not m:
+            continue
+        with contextlib.suppress(json.JSONDecodeError):
+            payload: str = json.loads(f'"{m.group(1)}"')
+            for match in _ZOOCDN_IMAGE.finditer(payload):
+                raw = match.group(0)
+                parts = raw.split("/")
+                try:
+                    w, h = int(parts[-3]), int(parts[-2])
+                except (ValueError, IndexError):
+                    _add(raw)
+                    continue
+                filename = parts[-1]
+                prev = rsc_urls.get(filename)
+                if prev is None or w * h > prev[0] * prev[1]:
+                    rsc_urls[filename] = (w, h)
+
+    for filename, (w, h) in rsc_urls.items():
+        _add(f"https://lid.zoocdn.com/u/{w}/{h}/{filename}")
+
+    # Fall back to the JSON-LD image if RSC found nothing
+    if not urls:
+        ld_img = listing_ld.get("image")
+        if ld_img:
+            _add(ld_img)
+
+    return urls
+
+
+def _parse_coordinates(soup: BeautifulSoup) -> tuple[float | None, float | None]:
+    for sc in soup.find_all("script"):
+        text = (sc.string or "").strip()
+        m = _RSC_PUSH.match(text)
+        if not m:
+            continue
+        try:
+            payload: str = json.loads(f'"{m.group(1)}"')
+        except json.JSONDecodeError:
+            continue
+        anchor = _UPRN_COORDS.search(payload)
+        if not anchor:
+            continue
+        coords_start = payload.index('"coordinates":', anchor.start()) + len(
+            '"coordinates":'
+        )
+        try:
+            coords, _ = json.JSONDecoder().raw_decode(payload, coords_start)
+            return float(coords["latitude"]), float(coords["longitude"])
+        except (json.JSONDecodeError, KeyError, ValueError):
+            continue
+    return None, None
