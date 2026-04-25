@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import itertools
 import logging
-import os
 from collections import Counter
 
 import dagster as dg
@@ -15,6 +14,7 @@ from shapely.geometry import LineString
 import tfl.api
 import tfl.exceptions
 import tfl.models
+from flathunt.defs.resources import TflResource
 from flathunt.defs.sources import tfl_network_topology
 from flathunt.geometry import wgs84_to_bng
 
@@ -22,9 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 class Config(dg.Config):
-    tfl_api_key: str = Field(
-        default_factory=lambda: os.environ["FLATHUNT__TFL_API_KEY"]
-    )
     allowed_modes: list[tfl.models.ModeId] = Field(
         default_factory=lambda: [
             tfl.models.ModeId.TUBE,
@@ -162,8 +159,9 @@ def _add_transport_edges(
 @dg.asset(
     deps=[tfl_network_topology],
     automation_condition=dg.AutomationCondition.eager(),
+    group_name="network_data",
 )
-async def transport(config: Config) -> nx.Graph:
+async def transport(config: Config, tfl_resource: TflResource) -> nx.Graph:
     """Build a public transit network graph from TfL data.
 
     Fetches current TfL line and stop point information, queries journey times
@@ -171,13 +169,14 @@ async def transport(config: Config) -> nx.Graph:
     with stations as nodes and transit connections as weighted edges.
 
     Args:
-        config: Asset configuration with TfL API key and allowed transit modes.
+        config: Asset configuration with allowed transit modes.
+        tfl_resource: TfL API resource providing the API key.
 
     Returns:
         A NetworkX Graph representing the TfL transit network with time-based
         edge weights and station metadata.
     """
-    tf_client = tfl.api.Tfl(app_key=config.tfl_api_key)
+    tf_client = tfl.api.Tfl(app_key=tfl_resource.api_key)
     lines = await tf_client.get_all_lines_routes()
     line_id_stop_points: dict[str, list[tfl.models.StopPointDetail]] = {}
     for line in tqdm.tqdm(lines):

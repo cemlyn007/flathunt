@@ -6,7 +6,7 @@ import dagster as dg
 import networkx as nx
 from shapely.geometry.polygon import Polygon
 
-from flathunt.defs.config import CommuteDestConfig
+from flathunt.defs.resources import QueriesResource
 from flathunt.isochrone import (
     EDGE_BUFFER,
     NODE_BUFFER,
@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class Config(dg.Config):
-    queries: list[CommuteDestConfig]
     station_cost_offset: float = 0.0
 
 
@@ -38,9 +37,10 @@ def _apply_station_cost_offset(graph: nx.Graph, station_cost_offset: float) -> n
     return graph_copy
 
 
-@dg.asset
+@dg.asset(group_name="property_search")
 def isochrone_intersection(
     config: Config,
+    queries: QueriesResource,
     roads_and_transport: nx.Graph,
 ) -> list[Polygon]:
     """Compute the isochrone intersection polygons for a set of commute destinations.
@@ -61,15 +61,15 @@ def isochrone_intersection(
         A list of non-empty BNG Polygons representing the intersection area.
         Returns an empty list when no intersection exists.
     """
-    if not config.queries:
+    if not queries.queries:
         logger.warning("No commute queries configured; returning empty intersection.")
         return []
 
     graph = _apply_station_cost_offset(roads_and_transport, config.station_cost_offset)
 
-    logger.info("Computing isochrones for %d queries.", len(config.queries))
+    logger.info("Computing isochrones for %d queries.", len(queries.queries))
     isochrone_subgraphs = [
-        lookup(graph, q.lon, q.lat, q.max_duration) for q in config.queries
+        lookup(graph, q.lon, q.lat, q.max_duration) for q in queries.queries
     ]
 
     logger.info("Computing intersection of isochrone subgraphs.")

@@ -61,7 +61,9 @@ def _connect_transport_to_roads(
     return graph
 
 
-@dg.asset(automation_condition=dg.AutomationCondition.eager())
+@dg.asset(
+    automation_condition=dg.AutomationCondition.eager(), group_name="network_data"
+)
 def roads_and_transport(
     config: Config,
     roads: nx.Graph,

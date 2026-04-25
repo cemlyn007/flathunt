@@ -55,6 +55,7 @@ def create_roads_graph(
 @dg.asset(
     deps=[roads_shapefile],
     automation_condition=dg.AutomationCondition.eager(),
+    group_name="network_data",
 )
 def roads(context: dg.AssetExecutionContext, config: Config) -> nx.Graph:
     roads_gdf = gpd.read_file(config.file_path)

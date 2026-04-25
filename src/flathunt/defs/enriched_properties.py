@@ -11,6 +11,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 import rightmove.api
 import rightmove.models
 from flathunt.cache import ModelCache
+from flathunt.defs.resources import CacheResource
 from flathunt.models import FinalProperty, MatchedProperty, parse_display_size_sqm
 from rightmove.description_extractor import (
     ExtractedPropertyInfo,
@@ -31,7 +32,6 @@ _DETAILS_CONCURRENCY = 3
 class Config(dg.Config):
     min_square_meters: float = 0.0
     github_token: str = Field(default_factory=lambda: os.environ["GITHUB_TOKEN"])
-    cache_data_dir: str = "cache"
 
 
 def _is_rate_limit_error(exc: BaseException) -> bool:
@@ -224,10 +224,11 @@ async def _process_property(
     )
 
 
-@dg.asset
+@dg.asset(group_name="notification")
 def enriched_properties(
     context: dg.AssetExecutionContext,
     config: Config,
+    cache: CacheResource,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
 ) -> list[FinalProperty]:
@@ -258,21 +259,19 @@ def enriched_properties(
     matched_set = {m.property_id for m in matched_property_ids}
     props_by_id = {p.id: p for p in candidate_properties if p.id in matched_set}
 
-    floor_plan_cache_path = Path(config.cache_data_dir) / "floor_plan_size_cache.db"
+    floor_plan_cache_path = Path(cache.data_dir) / "floor_plan_size_cache.db"
     floor_plan_cache: ModelCache[float | None] = ModelCache(
         float | None, floor_plan_cache_path, ttl=_FLOOR_PLAN_CACHE_TTL
     )
 
-    details_cache_path = Path(config.cache_data_dir) / "property_details_cache.db"
+    details_cache_path = Path(cache.data_dir) / "property_details_cache.db"
     details_cache: ModelCache[rightmove.models.PropertyDetails] = ModelCache(
         rightmove.models.PropertyDetails,
         details_cache_path,
         ttl=_PROPERTY_DETAILS_CACHE_TTL,
     )
 
-    description_info_cache_path = (
-        Path(config.cache_data_dir) / "description_info_cache.db"
-    )
+    description_info_cache_path = Path(cache.data_dir) / "description_info_cache.db"
     description_info_cache: ModelCache[ExtractedPropertyInfo] = ModelCache(
         ExtractedPropertyInfo,
         description_info_cache_path,

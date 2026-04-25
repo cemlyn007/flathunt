@@ -12,6 +12,7 @@ from shapely.ops import unary_union
 
 import rightmove.models
 from flathunt.cache import ModelCache
+from flathunt.defs.resources import CacheResource
 from flathunt.filters import check_property_size
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
 from flathunt.property_search import (
@@ -32,7 +33,6 @@ class Config(dg.Config):
     has_floorplans: bool = False
     has_images: bool = False
     min_square_meters: float = 0.0
-    cache_data_dir: str = "cache"
 
 
 def _open_seen_ids_db(path: Path) -> sqlite3.Connection:
@@ -59,10 +59,11 @@ def _save_seen_ids(path: Path, ids: Iterable[int]) -> None:
         )
 
 
-@dg.asset
+@dg.asset(group_name="property_search")
 def candidate_properties(
     context: dg.AssetExecutionContext,
     config: Config,
+    cache: CacheResource,
     isochrone_intersection: list[Polygon],
 ) -> list[rightmove.models.MapProperty]:
     """Fetch and filter Rightmove properties within the isochrone intersection area.
@@ -97,13 +98,13 @@ def candidate_properties(
     wgs84_polys = [poly_bng_to_wgs84(p) for p in non_empty]
     bounding_polygon = box(*unary_union(wgs84_polys).bounds)
 
-    cache_path = Path(config.cache_data_dir) / "property_locations_cache.db"
+    cache_path = Path(cache.data_dir) / "property_locations_cache.db"
     logger.info("Opening property locations cache at %s.", cache_path)
-    cache: ModelCache[list[rightmove.models.MapProperty]] = ModelCache(
+    property_cache: ModelCache[list[rightmove.models.MapProperty]] = ModelCache(
         list[rightmove.models.MapProperty], cache_path
     )
 
-    seen_ids_path = Path(config.cache_data_dir) / _SEEN_IDS_DB
+    seen_ids_path = Path(cache.data_dir) / _SEEN_IDS_DB
     seen_ids = _load_seen_ids(seen_ids_path)
     logger.info("Loaded %d previously seen property ID(s).", len(seen_ids))
 
@@ -133,7 +134,7 @@ def candidate_properties(
             non_empty,
             config.channel,
             bounding_polygon,
-            cache,
+            property_cache,
             min_price=int(config.min_budget),
             max_price=int(config.max_budget),
             seen_ids=seen_ids,
