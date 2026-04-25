@@ -28,3 +28,10 @@ class Line(TflModel):
     )
     service_types: list[LineServiceType] = pydantic.Field(default_factory=list)
     crowding: LineCrowding | None = None
+
+
+# Type adapter for parsing an array of Line directly
+LineList = pydantic.TypeAdapter(list[Line])
+
+# Type adapter for parsing the /Line/Route endpoint response
+LinesRoutesResponse = pydantic.TypeAdapter(list[Line])

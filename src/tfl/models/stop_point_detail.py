@@ -1,4 +1,4 @@
-"""Pydantic model for detailed stop point information."""
+"""Pydantic models for detailed stop point information."""
 
 import pydantic
 
@@ -68,3 +68,8 @@ class StopPointDetail(TflModel):
         return [
             prop for prop in self.additional_properties if prop.category == category
         ]
+
+
+# Type adapter for parsing an array of StopPointDetail directly
+# Use this to parse the response from /StopPoint/Mode/{mode}
+StopPointList = pydantic.TypeAdapter(list[StopPointDetail])

@@ -29,13 +29,12 @@ from tfl.models.journey_results import JourneyResults
 from tfl.models.journey_vector import JourneyVector
 from tfl.models.known_journey import KnownJourney
 from tfl.models.leg import Leg
-from tfl.models.line import LineList, LinesRoutesResponse
 from tfl.models.line_crowding import LineCrowding
 from tfl.models.line_disruption import LineDisruption
 from tfl.models.line_group import LineGroup
 from tfl.models.line_info import LineInfo
 from tfl.models.line_mode_group import LineModeGroup
-from tfl.models.line_model import Line
+from tfl.models.line_model import Line, LineList, LinesRoutesResponse
 from tfl.models.line_route_section import LineRouteSection
 from tfl.models.line_service_type import LineServiceType
 from tfl.models.line_service_type_info import LineServiceTypeInfo
@@ -67,8 +66,7 @@ from tfl.models.station import Station
 from tfl.models.station_interval import StationInterval
 from tfl.models.station_stop import StationStop
 from tfl.models.stations import Stations
-from tfl.models.stop_point import StopPointList
-from tfl.models.stop_point_detail import StopPointDetail
+from tfl.models.stop_point_detail import StopPointDetail, StopPointList
 from tfl.models.stop_point_journey import StopPoint
 from tfl.models.stop_point_line import StopPointLine
 from tfl.models.stop_point_search_match import StopPointSearchMatch
