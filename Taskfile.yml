@@ -41,7 +41,7 @@ tasks:
       - UV_PROJECT_ENVIRONMENT=.venv uv pip install -e .
   dagster:
     cmds:
-      - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run --python .venv/bin/python dagster dev
+      - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run --python .venv/bin/python dagster dev --host 0.0.0.0
   streamlit:
     dotenv: ['.env']
     cmds:

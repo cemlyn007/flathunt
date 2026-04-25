@@ -66,7 +66,11 @@ def monitor_roads_shapefile(
     events = []
 
     file_path = _get_roads_file_path()
-    roads_version = _compute_roads_version(file_path)
+    try:
+        roads_version = _compute_roads_version(file_path)
+    except FileNotFoundError:
+        context.log.warning("Roads shapefile not found at %s, skipping", file_path)
+        return dg.SensorResult(asset_events=[], cursor=json.dumps(cursor))
 
     if cursor.get("roads_version") != roads_version:
         context.log.info("roads shapefile changed, new version: %s", roads_version)
