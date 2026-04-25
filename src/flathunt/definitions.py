@@ -3,7 +3,7 @@ from collections.abc import Iterator
 
 import dagster as dg
 
-from flathunt.defs import all_assets, all_resources, all_sensors
+from flathunt.defs import all_assets, all_jobs, all_resources, all_sensors
 from flathunt.defs.roads import roads
 from flathunt.defs.roads_and_transport import roads_and_transport
 from flathunt.defs.transport import transport
@@ -37,7 +37,7 @@ def flathunt_on_graph_update(
 defs = dg.Definitions(
     assets=all_assets,
     resources=all_resources,
-    jobs=[flathunt_job],
+    jobs=[flathunt_job, *all_jobs],
     schedules=[flathunt_schedule],
     sensors=[
         *all_sensors,
