@@ -1,8 +1,0 @@
-from pydantic_xml import BaseXmlModel, attr, element
-
-from tfl.models.icon_style import IconStyle
-
-
-class Style(BaseXmlModel, tag="Style"):
-    id: str = attr()
-    icon_style: IconStyle = element(tag="IconStyle")
