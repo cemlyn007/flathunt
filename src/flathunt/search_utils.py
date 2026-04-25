@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable
 from typing import Literal
 
-from shapely.geometry import box
+from shapely.geometry import GeometryCollection, MultiPolygon, box
 from shapely.geometry.polygon import LinearRing, Polygon
 
 import rightmove.api
@@ -48,24 +48,28 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
         if intersection.is_empty:
             continue
 
-        if intersection.geom_type == "Polygon":
+        if isinstance(intersection, Polygon):
             parts.append(intersection)
-        elif intersection.geom_type == "MultiPolygon":
-            if not hasattr(intersection, "geoms"):
-                raise ValueError(
-                    f"Expected MultiPolygon to have 'geoms' attribute, got {type(intersection)}"
-                )
+        elif isinstance(intersection, MultiPolygon):
             parts.extend(intersection.geoms)
-        elif intersection.geom_type == "GeometryCollection":
-            if not hasattr(intersection, "geoms"):
-                raise ValueError(
-                    f"Expected MultiPolygon to have 'geoms' attribute, got {type(intersection)}"
-                )
+        elif isinstance(intersection, GeometryCollection):
             for geom in intersection.geoms:
-                if geom.geom_type == "Polygon":
+                if isinstance(geom, Polygon):
                     parts.append(geom)
-                elif geom.geom_type == "MultiPolygon":
+                elif isinstance(geom, MultiPolygon):
                     parts.extend(geom.geoms)
+                else:
+                    # Degenerate geometries (Point, LineString) not useful for subdivision
+                    logger.warning(
+                        "Skipping geometry type %s within collection from polygon intersection",
+                        type(geom).__name__,
+                    )
+        else:
+            # Degenerate intersections (Point, LineString) not useful for subdivision
+            logger.warning(
+                "Skipping geometry type %s from polygon intersection",
+                type(intersection).__name__,
+            )
     return parts
 
 
