@@ -105,7 +105,7 @@ def _extract_json_from_response(text: str) -> str:
     return text.strip()
 
 
-def _process_batch_results(
+def _process_batch_results(  # type: ignore[no-untyped-def]
     batch_id: str,
     floor_plan_cache: ModelCache[tuple[float | None, str | None]],
     description_cache: ModelCache[ExtractedPropertyInfo],
@@ -148,8 +148,7 @@ def _process_batch_results(
         if result_type == "succeeded":
             try:
                 succeeded_result = result.result  # type: ignore[assignment]
-                message_content = succeeded_result.message.content[0].text
-                # Extract JSON from potentially markdown-wrapped response
+                message_content = succeeded_result.message.content[0].text  # type: ignore
                 json_content = _extract_json_from_response(message_content)
 
                 if extraction_type == "floor_plan":
@@ -202,7 +201,7 @@ def _process_batch_results(
             logger.error(
                 "Batch request %s errored: %s",
                 custom_id,
-                errored_result.error.error.type,
+                errored_result.error.error.type,  # type: ignore
             )
             results_summary[extraction_type]["errored"].append(custom_id)
 
@@ -233,6 +232,8 @@ def _parse_display_size(display_size: str | None) -> float | None:
     if display_size.endswith(" sq. ft."):
         sq_ft = int(display_size.removesuffix(" sq. ft.").replace(",", ""))
         return sq_ft * 0.092903
+    if display_size.endswith(" sq. m."):
+        return float(display_size.removesuffix(" sq. m.").replace(",", ""))
     if display_size.endswith(" sqm"):
         return float(display_size.removesuffix(" sqm").replace(",", ""))
     return None
@@ -657,11 +658,12 @@ def enriched_properties(
             prop = props_by_id.get(matched.property_id)
             if prop is None:
                 continue
+
             tasks.append(
                 _process_property(
                     prop,
                     matched,
-                    False,  # needs_extraction=False, batch already handled it
+                    True,  # always attempt extraction; _get_floor_plan_sqm checks cache first
                     floor_plan_cache,
                     description_info_cache,
                     details_cache,
