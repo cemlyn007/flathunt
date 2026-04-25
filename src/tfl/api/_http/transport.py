@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import logging
 import types
 from typing import Any
@@ -73,10 +74,8 @@ def _get_wait_time(retry_state) -> float:
         if isinstance(exception, httpx.HTTPStatusError):
             retry_after = exception.response.headers.get("retry-after")
             if retry_after:
-                try:
+                with contextlib.suppress(ValueError):
                     return float(retry_after)
-                except ValueError:
-                    pass
     # Fall back to exponential backoff
     return wait_exponential(multiplier=1, min=1, max=10)(retry_state)
 
