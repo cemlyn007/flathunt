@@ -743,6 +743,7 @@ version = "0.19.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "beautifulsoup4" },
     { name = "dagster" },
     { name = "dagster-webserver" },
     { name = "geonetworkx" },
@@ -788,6 +789,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.25.0" },
+    { name = "beautifulsoup4", specifier = ">=4.12.0" },
     { name = "dagster", specifier = ">=1.12.3" },
     { name = "dagster-webserver", specifier = ">=1.12.3" },
     { name = "geonetworkx", specifier = ">=0.5.3" },

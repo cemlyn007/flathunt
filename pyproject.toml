@@ -26,6 +26,7 @@ dependencies = [
     "geonetworkx>=0.5.3",
     "osmnx>=2.0.7",
     "scikit-learn>=1.7.2",
+    "beautifulsoup4>=4.12.0",
     "dagster>=1.12.3",
     "dagster-webserver>=1.12.3",
     "pandas>=2.3.3",
@@ -56,7 +57,6 @@ dev = [
 
 [project.scripts]
 flathunter = "flathunt.scripts.flathunter:main"
-flathunt-dagster-dev = "flathunt.scripts.dagster_dev:main"
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
