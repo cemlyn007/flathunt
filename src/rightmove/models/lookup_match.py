@@ -1,9 +1,5 @@
 from rightmove.models.base import CamelCaseModel
-
-
-class Highlight(CamelCaseModel):
-    text: str
-    highlighted: bool
+from rightmove.models.highlight import Highlight
 
 
 class LookupMatch(CamelCaseModel):
@@ -16,7 +12,3 @@ class LookupMatch(CamelCaseModel):
     @property
     def location_identifier(self) -> str:
         return f"{self.type}^{self.id}"
-
-
-class LookupMatches(CamelCaseModel):
-    matches: list[LookupMatch]

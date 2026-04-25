@@ -1,47 +1,10 @@
 import pydantic
 import pydantic.alias_generators
 
-from rightmove.models.base import CamelCaseModel
-
-
-class LivingCosts(CamelCaseModel):
-    council_tax_exempt: bool
-    council_tax_included: bool
-    annual_ground_rent: float | None = None
-    ground_rent_review_period_in_years: int | None = None
-    ground_rent_percentage_increase: float | None = None
-    annual_service_charge: float | None = None
-    council_tax_band: str | None = None
-    domestic_rates: float | None = None
-
-
-class Floorplan(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra="ignore")
-
-    url: str
-    caption: str | None = None
-
-
-class Tenure(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(
-        alias_generator=pydantic.alias_generators.to_camel,
-        populate_by_name=True,
-        extra="ignore",
-    )
-
-    tenure_type: str | None = None
-    years_remaining_on_lease: int | None = None
-
-    @pydantic.field_validator("years_remaining_on_lease", mode="before")
-    @classmethod
-    def _reject_zero(cls, v: object) -> object:
-        return None if v == 0 else v
-
-
-class PropertyText(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(extra="ignore")
-
-    description: str | None = None
+from rightmove.models._detail_tenure import Tenure
+from rightmove.models.floorplan import Floorplan
+from rightmove.models.living_costs import LivingCosts
+from rightmove.models.property_text import PropertyText
 
 
 class PropertyDetails(pydantic.BaseModel):
