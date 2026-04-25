@@ -23,3 +23,10 @@ class SmtpResource(dg.ConfigurableResource):
     password: str = dg.EnvVar("FLATHUNT__SMTP_PASSWORD")
     from_address: str = dg.EnvVar("FLATHUNT__SMTP_FROM")
     to_addresses: list[str] = Field(default_factory=list)
+
+
+class ImapResource(dg.ConfigurableResource):
+    host: str = dg.EnvVar("FLATHUNT__IMAP_HOST")
+    port: int = 993
+    username: str = dg.EnvVar("FLATHUNT__IMAP_USERNAME")
+    password: str = dg.EnvVar("FLATHUNT__IMAP_PASSWORD")

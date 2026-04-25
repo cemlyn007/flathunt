@@ -5,7 +5,6 @@ import pytest
 
 from rightmove.floor_plan import (
     FloorPlanExtraction,
-    FloorPlanSize,
     FloorPlanSizeExtractor,
 )
 
@@ -21,24 +20,24 @@ _FIXTURES = pathlib.Path(__file__).parent / "fixtures"
         (
             "b07f2d1b8528840d56e98ea373b52eba.jpeg",
             "image/jpeg",
-            FloorPlanSize(value=93.0, units="sq m"),
+            FloorPlanExtraction(total=93.0, units="sq m"),
         ),
         (
             "8f99f96f54622f0cd8eeb15724086227.jpg",
             "image/jpeg",
-            FloorPlanSize(value=65.0, units="sq m"),
+            FloorPlanExtraction(total=65.0, units="sq m"),
         ),
         (
             "44554b8fd1d0d1296d0337d745133bff.jpg",
             "image/jpeg",
-            FloorPlanSize(value=43.0, units="sq m"),
+            FloorPlanExtraction(total=43.0, units="sq m"),
         ),
     ],
 )
 async def test_extract_floor_plan_size(
     filename: str,
     media_type: str,
-    expected: FloorPlanSize,
+    expected: FloorPlanExtraction,
 ) -> None:
     image_data = (_FIXTURES / filename).read_bytes()
     extractor = FloorPlanSizeExtractor()

@@ -36,16 +36,6 @@ def _extract_json_from_response(text: str) -> str:
     return text.strip()
 
 
-class FloorPlanSize(pydantic.BaseModel):
-    value: float
-    units: Literal["sq m", "sq ft"]
-
-    def to_sqm(self) -> float:
-        if self.units == "sq m":
-            return self.value
-        return self.value * _SQFT_TO_SQM
-
-
 class FloorPlanExtraction(pydantic.BaseModel):
     total: float | None = None
     breakdown: list[float] | None = None
