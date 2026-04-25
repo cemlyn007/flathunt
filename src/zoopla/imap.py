@@ -50,7 +50,7 @@ class ZooplaImapChecker:
 
     def fetch_unseen_alerts(self) -> list[ZooplaRawEmail]:
         conn = self._require_connection()
-        status, data = conn.uid("SEARCH", "UTF-8", 'UNSEEN FROM "zoopla.co.uk"')
+        status, data = conn.uid("SEARCH", "UNSEEN", 'FROM "propertyalerts"')
         if status != "OK":
             raise RuntimeError(f"IMAP SEARCH failed: {status}")
 
@@ -100,7 +100,7 @@ class ZooplaImapChecker:
 def _extract_uid(header_line: bytes) -> str:
     parts = header_line.split()
     for i, part in enumerate(parts):
-        if part.upper() == b"UID" and i + 1 < len(parts):
+        if part.lstrip(b"(").upper() == b"UID" and i + 1 < len(parts):
             return parts[i + 1].rstrip(b")").decode()
     return header_line.decode(errors="replace")
 
