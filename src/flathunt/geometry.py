@@ -4,8 +4,14 @@ from shapely import Point, Polygon
 
 from flathunt.coords import LatLon
 
+# Coordinate system constants
 WGS84 = "EPSG:4326"
 BNG = "EPSG:27700"
+
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
 
 
 def euclidean(x1, y1, x2, y2):  # type: ignore[no-untyped-def]
@@ -23,6 +29,11 @@ def euclidean(x1, y1, x2, y2):  # type: ignore[no-untyped-def]
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
+# ============================================================================
+# Coordinate System Conversions
+# ============================================================================
+
+
 def wgs84_to_bng(lon: float, lat: float) -> tuple[float, float]:
     """Convert a WGS84 longitude/latitude point to British National Grid eastings/northings.
 
@@ -38,20 +49,9 @@ def wgs84_to_bng(lon: float, lat: float) -> tuple[float, float]:
     return point_bng.x.item(), point_bng.y.item()
 
 
-def poly_bng_to_wgs84_coords(poly: Polygon) -> list[LatLon]:
-    """Convert the exterior ring of a BNG polygon to a list of WGS84 coordinates.
-
-    Args:
-        poly: A Shapely Polygon whose coordinates are in BNG (EPSG:27700).
-
-    Returns:
-        A list of ``LatLon`` coordinates in WGS84 (EPSG:4326).
-    """
-    xs, ys = poly.exterior.coords.xy
-    points_wgs84 = gpd.GeoSeries(
-        [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs=BNG
-    ).to_crs(WGS84)
-    return [LatLon(lat=p.y, lon=p.x) for p in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]
+# ============================================================================
+# Polygon Conversions
+# ============================================================================
 
 
 def poly_bng_to_wgs84(poly: Polygon) -> Polygon:
@@ -72,3 +72,19 @@ def poly_bng_to_wgs84(poly: Polygon) -> Polygon:
             f"Expected 1 geometry after reprojection, got {len(converted)}"
         )
     return converted.iloc[0]  # pyright: ignore[reportReturnType]
+
+
+def poly_bng_to_wgs84_coords(poly: Polygon) -> list[LatLon]:
+    """Convert the exterior ring of a BNG polygon to a list of WGS84 coordinates.
+
+    Args:
+        poly: A Shapely Polygon whose coordinates are in BNG (EPSG:27700).
+
+    Returns:
+        A list of ``LatLon`` coordinates in WGS84 (EPSG:4326).
+    """
+    xs, ys = poly.exterior.coords.xy
+    points_wgs84 = gpd.GeoSeries(
+        [Point(x, y) for x, y in zip(xs, ys, strict=True)], crs=BNG
+    ).to_crs(WGS84)
+    return [LatLon(lat=p.y, lon=p.x) for p in points_wgs84]  # pyright: ignore[reportAttributeAccessIssue]

@@ -21,12 +21,22 @@ class Config(dg.Config):
 
 
 def euclidean(x1, y1, x2, y2):
+    """Compute Euclidean distance between two points."""
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
 def create_roads_graph(
     roads_gdf: gpd.GeoDataFrame, meters_per_minute: float
 ) -> nx.Graph:
+    """Build a NetworkX graph from road geometries with time-based edge weights.
+
+    Args:
+        roads_gdf: GeoDataFrame of road geometries with LineString coordinates.
+        meters_per_minute: Conversion factor to compute traversal duration.
+
+    Returns:
+        A NetworkX Graph with nodes for road endpoints and edges with length and duration.
+    """
     graph = nx.Graph()
     for _, road in tqdm.tqdm(roads_gdf.iterrows(), total=len(roads_gdf)):
         for (lon1, lat1), (lon2, lat2) in itertools.pairwise(road.geometry.coords):

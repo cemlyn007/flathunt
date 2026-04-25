@@ -9,7 +9,13 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# Constants
 _TTL = 86400  # must match ModelCache default
+
+_CACHES = [
+    "journey_cache",
+    "property_locations_cache",
+]
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cache (
@@ -23,13 +29,14 @@ _CREATE_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
 """
 
-_CACHES = [
-    "journey_cache",
-    "property_locations_cache",
-]
-
 
 def _migrate(src: Path, dst: Path) -> None:
+    """Migrate a single JSON cache file to SQLite format.
+
+    Args:
+        src: Path to the source JSON cache file.
+        dst: Path to the destination SQLite cache file.
+    """
     if not src.exists():
         logger.info("Skipping %s: file not found.", src.name)
         return
@@ -65,6 +72,7 @@ def _migrate(src: Path, dst: Path) -> None:
 
 
 def main() -> None:
+    """Parse arguments and migrate all cache files."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "data_dir",

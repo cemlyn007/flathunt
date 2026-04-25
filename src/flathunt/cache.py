@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 logger = logging.getLogger(__name__)
 
+# SQL schema constants
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cache (
     key       TEXT PRIMARY KEY,
@@ -23,6 +24,8 @@ CREATE INDEX IF NOT EXISTS idx_cache_timestamp ON cache (timestamp)
 
 
 class ModelCache[T]:
+    """Generic cache for Pydantic-compatible models using SQLite backend."""
+
     def __init__(self, model_cls: Any, db_path: str | Path, ttl: int | None = 86400):
         """Initialise the cache, creating the SQLite database if it does not exist.
 
@@ -40,14 +43,7 @@ class ModelCache[T]:
         self._conn.commit()
         self._purge_expired()
 
-    def _purge_expired(self) -> None:
-        """Delete all entries whose TTL has elapsed."""
-        if self.ttl is None:
-            return
-        cutoff = time.time() - self.ttl
-        self._conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
-        self._conn.commit()
-
+    # Public API
     def get(self, id: str) -> T:
         """Retrieve a cached item by key, raising if missing or expired.
 
@@ -91,4 +87,13 @@ class ModelCache[T]:
                 for key, item in iterables
             ],
         )
+        self._conn.commit()
+
+    # Private methods
+    def _purge_expired(self) -> None:
+        """Delete all entries whose TTL has elapsed."""
+        if self.ttl is None:
+            return
+        cutoff = time.time() - self.ttl
+        self._conn.execute("DELETE FROM cache WHERE timestamp < ?", (cutoff,))
         self._conn.commit()

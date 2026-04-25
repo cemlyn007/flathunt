@@ -27,6 +27,13 @@ class Config(dg.Config):
     cache_data_dir: str = "cache"
 
 
+def _build_commute_destinations(queries: list[CommuteDestConfig]) -> list[CommuteDest]:
+    """Convert configuration queries to CommuteDest objects."""
+    return [
+        CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration) for q in queries
+    ]
+
+
 @dg.asset
 def matched_property_ids(
     context: dg.AssetExecutionContext,
@@ -55,10 +62,7 @@ def matched_property_ids(
         logger.info("No candidate properties to evaluate.")
         return []
 
-    queries = [
-        CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration)
-        for q in config.queries
-    ]
+    queries = _build_commute_destinations(config.queries)
 
     cache_path = Path(config.cache_data_dir) / "journey_cache.db"
     logger.info("Opening journey cache at %s.", cache_path)

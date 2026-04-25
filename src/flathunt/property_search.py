@@ -23,6 +23,11 @@ TILE_SIZE = 0.02
 _RIGHTMOVE_CONCURRENCY = 3
 
 
+# ============================================================================
+# Tile utilities: low-level geometry and tile enumeration
+# ============================================================================
+
+
 def get_tiles_covering_polygon(
     polygon: Polygon,
 ) -> list[tuple[str, list[LatLon]]]:
@@ -87,6 +92,11 @@ def count_tiles(
         for _, tile_coords in tiles
         if search_polygon.intersects(Polygon([(c.lon, c.lat) for c in tile_coords]))
     )
+
+
+# ============================================================================
+# Property search: cached queries for Rightmove property data
+# ============================================================================
 
 
 async def get_property_ids_in_area_cached(
@@ -189,6 +199,11 @@ async def get_property_ids_in_area_cached(
             yield await coro
 
 
+# ============================================================================
+# Commute search: cached queries for TfL journey duration data
+# ============================================================================
+
+
 async def get_properties_journey_duration_cached(
     to_froms: Sequence[tuple[float, float, float, float]],
     cache: ModelCache[int | None],
@@ -231,6 +246,11 @@ async def get_properties_journey_duration_cached(
 
         for coro in asyncio.as_completed([_fetch_one(*row) for row in to_fetch]):
             yield await coro
+
+
+# ============================================================================
+# High-level public APIs
+# ============================================================================
 
 
 async def get_commute_durations(

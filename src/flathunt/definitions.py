@@ -17,8 +17,10 @@ from flathunt.defs.sources import (
 )
 from flathunt.defs.transport import transport
 
+# Configuration
 _DAILY_CRON = os.environ.get("FLATHUNT__DAILY_CRON", "0 22 * * *")
 
+# Job Definitions
 flathunt_job = dg.define_asset_job(
     name="flathunt",
     selection=[
@@ -31,12 +33,14 @@ flathunt_job = dg.define_asset_job(
     config=dg.config_from_files(["flathunt_run_config.yaml"]),
 )
 
+# Schedule Definitions
 flathunt_schedule = dg.ScheduleDefinition(
     job=flathunt_job,
     cron_schedule=_DAILY_CRON,
 )
 
 
+# Sensor Definitions
 @dg.asset_sensor(
     asset_key=dg.AssetKey("roads_and_transport"),
     job=flathunt_job,
@@ -49,6 +53,7 @@ def flathunt_on_graph_update(
     yield dg.RunRequest(run_key=asset_event.run_id)
 
 
+# Public API: Dagster Definitions
 defs = dg.Definitions(
     assets=[
         roads_shapefile,

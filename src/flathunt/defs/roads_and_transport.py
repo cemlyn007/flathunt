@@ -10,24 +10,46 @@ class Config(dg.Config):
 
 
 def euclidean(x1, y1, x2, y2):
+    """Compute Euclidean distance between two points."""
     return np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 
-def find_nearest_node(x1, y1, x2, y2):
-    """Find the nearest node to a given (x, y) coordinate."""
+def find_nearest_node(x1, y1, x2, y2) -> int:
+    """Find the nearest node to a given (x, y) coordinate in a set of points.
+
+    Args:
+        x1: Target x coordinate.
+        y1: Target y coordinate.
+        x2: Array of candidate x coordinates.
+        y2: Array of candidate y coordinates.
+
+    Returns:
+        Index of the nearest node in the coordinate arrays.
+    """
     distances = euclidean(x1, y1, x2, y2)
-    return distances.argmin(axis=0).item()
+    return int(distances.argmin(axis=0))
 
 
-@dg.asset(automation_condition=dg.AutomationCondition.eager())
-def roads_and_transport(
-    config: Config,
+def _connect_transport_to_roads(
+    graph: nx.Graph,
     roads: nx.Graph,
     transport: nx.Graph,
+    meters_per_minute: float,
 ) -> nx.Graph:
-    graph = nx.compose_all([roads, transport])
+    """Connect transport nodes to the nearest road nodes.
+
+    Args:
+        graph: The combined graph to modify.
+        roads: The roads graph containing road nodes.
+        transport: The transport graph containing station nodes.
+        meters_per_minute: Conversion factor for computing edge durations.
+
+    Returns:
+        The modified graph with transport-to-roads connections.
+    """
     non_transport_nodes = list(roads.nodes)
     points = np.array([(data["x"], data["y"]) for _, data in roads.nodes(data=True)])
+
     for transport_node_key in tqdm.tqdm(transport.nodes):
         x = transport.nodes[transport_node_key]["x"]
         y = transport.nodes[transport_node_key]["y"]
@@ -39,7 +61,7 @@ def roads_and_transport(
             roads.nodes[non_transport_key]["x"],
             roads.nodes[non_transport_key]["y"],
         ).item()
-        duration = length / config.meters_per_minute
+        duration = length / meters_per_minute
         graph.add_edge(
             transport_node_key,
             non_transport_key,
@@ -55,4 +77,31 @@ def roads_and_transport(
                 ]
             ),
         )
+    return graph
+
+
+@dg.asset(automation_condition=dg.AutomationCondition.eager())
+def roads_and_transport(
+    config: Config,
+    roads: nx.Graph,
+    transport: nx.Graph,
+) -> nx.Graph:
+    """Merge road and transport graphs, connecting transport nodes to nearby road nodes.
+
+    Creates a unified transportation network by composing the road and transport
+    graphs, then adding edges from each transport (station) node to its nearest
+    road node to enable transfers between the two networks.
+
+    Args:
+        config: Asset configuration with meters_per_minute conversion factor.
+        roads: NetworkX graph of road network.
+        transport: NetworkX graph of public transit network.
+
+    Returns:
+        A merged NetworkX graph with both road and transport connectivity.
+    """
+    graph = nx.compose_all([roads, transport])
+    graph = _connect_transport_to_roads(
+        graph, roads, transport, config.meters_per_minute
+    )
     return graph

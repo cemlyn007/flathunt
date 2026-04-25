@@ -22,6 +22,17 @@ logger = logging.getLogger(__name__)
 _SEEN_IDS_DB = "seen_property_ids.db"
 
 
+class Config(dg.Config):
+    channel: Literal["RENT", "BUY"] = "BUY"
+    # For BUY: purchase price in £. For RENT: monthly rent in £.
+    min_budget: float = 100_000
+    max_budget: float = 2_000_000
+    has_floorplans: bool = False
+    has_images: bool = False
+    min_square_meters: float = 0.0
+    cache_data_dir: str = "cache"
+
+
 def _open_seen_ids_db(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
@@ -44,17 +55,6 @@ def _save_seen_ids(path: Path, ids: Iterable[int]) -> None:
             "INSERT OR IGNORE INTO seen_ids (property_id) VALUES (?)",
             [(pid,) for pid in ids],
         )
-
-
-class Config(dg.Config):
-    channel: Literal["RENT", "BUY"] = "BUY"
-    # For BUY: purchase price in £. For RENT: monthly rent in £.
-    min_budget: float = 100_000
-    max_budget: float = 2_000_000
-    has_floorplans: bool = False
-    has_images: bool = False
-    min_square_meters: float = 0.0
-    cache_data_dir: str = "cache"
 
 
 @dg.asset

@@ -18,6 +18,7 @@ _RUN_CONFIG = Path("flathunt_run_config.yaml")
 
 
 def _load_asset(name: str) -> Any:
+    """Load a pickled asset from Dagster storage."""
     path = _DAGSTER_STORAGE / name
     if not path.exists():
         return None
@@ -25,12 +26,14 @@ def _load_asset(name: str) -> Any:
 
 
 def _load_run_config() -> dict:
+    """Load the run configuration from YAML file."""
     if _RUN_CONFIG.exists():
         return yaml.safe_load(_RUN_CONFIG.read_text())
     return {}
 
 
 def _get_channel(run_config: dict) -> str:
+    """Extract the channel (BUY or RENT) from run config."""
     return (
         run_config.get("ops", {})
         .get("candidate_properties", {})
@@ -40,6 +43,7 @@ def _get_channel(run_config: dict) -> str:
 
 
 def _get_query_labels(run_config: dict) -> list[str]:
+    """Extract and format commute query labels from run config."""
     queries = (
         run_config.get("ops", {})
         .get("matched_property_ids", {})
@@ -57,6 +61,7 @@ def _build_rows(
     channel: str,
     query_labels: list[str],
 ) -> list[dict]:
+    """Convert FinalProperty objects to display rows for the dataframe."""
     rows = []
     for fp in properties:
         commutes = dict(zip(query_labels, fp.commute_durations, strict=True))
@@ -107,6 +112,7 @@ def _build_rows(
     return rows
 
 
+# Main application
 st.set_page_config(page_title="Flathunt Results", layout="wide")
 st.title("Flathunt Results")
 

@@ -17,73 +17,7 @@ NODE_BUFFER = 0
 EDGE_BUFFER = 25
 
 
-def isochrones(graph: nx.Graph, node: Hashable, trip_time: float) -> list[nx.Graph]:
-    """Compute reachable subgraphs from a node within a given travel time.
-
-    Transit-only edges (both endpoints have a ``station_name`` attribute) are
-    removed before splitting into connected components, so each returned
-    subgraph represents a contiguous road-reachable region.
-
-    Args:
-        graph: The combined roads-and-transport graph.
-        node: The starting node identifier.
-        trip_time: Maximum travel duration in minutes.
-
-    Returns:
-        A list of subgraphs, one per connected component reachable within
-        ``trip_time`` minutes.
-    """
-    subgraph = nx.ego_graph(graph, node, radius=trip_time, distance="duration")
-
-    remove_edges = set()
-    for n_fr, n_to in subgraph.edges():
-        if (
-            "station_name" in subgraph.nodes[n_fr]
-            and "station_name" in subgraph.nodes[n_to]
-        ):
-            remove_edges.add((n_fr, n_to))
-
-    for n_fr, n_to in remove_edges:
-        subgraph.remove_edge(n_fr, n_to)
-
-    subgraphs_nodes = nx.connected_components(subgraph)
-
-    return [nx.subgraph(subgraph, nodes) for nodes in subgraphs_nodes]
-
-
-def make_poly(graph: nx.Graph, edge_buff: float, node_buff: float):
-    """Build a single unioned polygon covering all road nodes and edges in a graph.
-
-    Station-to-station edges are excluded so that transit corridors do not
-    inflate the walking polygon.
-
-    Args:
-        graph: A subgraph whose nodes carry ``x`` and ``y`` attributes (BNG metres).
-        edge_buff: Buffer distance in metres applied to each edge geometry.
-        node_buff: Buffer distance in metres applied to each node point.
-
-    Returns:
-        A Shapely geometry (typically a Polygon or MultiPolygon) representing
-        the union of all buffered nodes and edges.
-    """
-    node_points = [
-        Point((data["x"], data["y"])) for node, data in graph.nodes(data=True)
-    ]
-    nodes_gdf = gpd.GeoDataFrame({"id": list(graph.nodes)}, geometry=node_points)
-    nodes_gdf = nodes_gdf.set_index("id")
-    edge_lines = []
-    for n_fr, n_to in graph.edges():
-        if "station_name" in graph.nodes[n_fr] and "station_name" in graph.nodes[n_to]:
-            continue
-        edge_lookup = graph.get_edge_data(n_fr, n_to)["geometry"]
-        edge_lines.append(edge_lookup)
-    n = nodes_gdf.buffer(node_buff).geometry
-    e = gpd.GeoSeries(edge_lines).buffer(edge_buff).geometry
-    all_gs = list(n) + list(e)
-    new_iso = gpd.GeoSeries(all_gs).union_all()
-    return new_iso
-
-
+# Simple utility functions
 def find_nearest_node(x1, y1, x2, y2):
     """Return the index of the nearest point in an array to a query point.
 
@@ -98,53 +32,6 @@ def find_nearest_node(x1, y1, x2, y2):
     """
     distances = euclidean(x1, y1, x2, y2)
     return distances.argmin(axis=0).item()
-
-
-def load_graph(station_cost: float) -> nx.Graph:
-    """Load the roads-and-transport graph from Dagster storage and apply a station penalty.
-
-    Args:
-        station_cost: Additional duration in minutes added to every edge that
-            connects to at least one station node.
-
-    Returns:
-        The combined roads-and-transport NetworkX graph with adjusted edge durations.
-    """
-    graph = pickle.loads(Path(".dagster/storage/roads_and_transport").read_bytes())
-    for n_fr, n_to in graph.edges():
-        if "station_name" in graph.nodes[n_fr] or "station_name" in graph.nodes[n_to]:
-            graph.edges[n_fr, n_to]["duration"] += station_cost
-    return graph
-
-
-def lookup(
-    graph: nx.Graph, lon: float, lat: float, max_duration: float
-) -> list[nx.Graph]:
-    """Find isochrone subgraphs reachable from a WGS84 coordinate within a time limit.
-
-    Args:
-        graph: The combined roads-and-transport graph.
-        lon: Longitude of the origin point in WGS84.
-        lat: Latitude of the origin point in WGS84.
-        max_duration: Maximum travel duration in minutes.
-
-    Returns:
-        A list of connected subgraphs reachable within ``max_duration`` minutes
-        from the road node nearest to the given coordinate.
-    """
-    x, y = wgs84_to_bng(lon, lat)
-    road_nodes = [
-        node_id
-        for node_id, data in graph.nodes(data=True)
-        if "station_name" not in data
-    ]
-    points = np.array(
-        [(graph.nodes[node]["x"], graph.nodes[node]["y"]) for node in road_nodes]
-    )
-    closest_node_index = find_nearest_node(x, y, points[:, 0], points[:, 1])
-    locked_query = road_nodes[closest_node_index]
-    subgraphs = isochrones(graph, locked_query, max_duration)
-    return subgraphs
 
 
 def get_graph_bounds(graph: nx.Graph) -> tuple[float, float, float, float]:
@@ -186,6 +73,122 @@ def bounds_to_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
     )
 
 
+# Core graph loading and isochrone functions
+def load_graph(station_cost: float) -> nx.Graph:
+    """Load the roads-and-transport graph from Dagster storage and apply a station penalty.
+
+    Args:
+        station_cost: Additional duration in minutes added to every edge that
+            connects to at least one station node.
+
+    Returns:
+        The combined roads-and-transport NetworkX graph with adjusted edge durations.
+    """
+    graph = pickle.loads(Path(".dagster/storage/roads_and_transport").read_bytes())
+    for n_fr, n_to in graph.edges():
+        if "station_name" in graph.nodes[n_fr] or "station_name" in graph.nodes[n_to]:
+            graph.edges[n_fr, n_to]["duration"] += station_cost
+    return graph
+
+
+def isochrones(graph: nx.Graph, node: Hashable, trip_time: float) -> list[nx.Graph]:
+    """Compute reachable subgraphs from a node within a given travel time.
+
+    Transit-only edges (both endpoints have a ``station_name`` attribute) are
+    removed before splitting into connected components, so each returned
+    subgraph represents a contiguous road-reachable region.
+
+    Args:
+        graph: The combined roads-and-transport graph.
+        node: The starting node identifier.
+        trip_time: Maximum travel duration in minutes.
+
+    Returns:
+        A list of subgraphs, one per connected component reachable within
+        ``trip_time`` minutes.
+    """
+    subgraph = nx.ego_graph(graph, node, radius=trip_time, distance="duration")
+
+    remove_edges = set()
+    for n_fr, n_to in subgraph.edges():
+        if (
+            "station_name" in subgraph.nodes[n_fr]
+            and "station_name" in subgraph.nodes[n_to]
+        ):
+            remove_edges.add((n_fr, n_to))
+
+    for n_fr, n_to in remove_edges:
+        subgraph.remove_edge(n_fr, n_to)
+
+    subgraphs_nodes = nx.connected_components(subgraph)
+
+    return [nx.subgraph(subgraph, nodes) for nodes in subgraphs_nodes]
+
+
+def lookup(
+    graph: nx.Graph, lon: float, lat: float, max_duration: float
+) -> list[nx.Graph]:
+    """Find isochrone subgraphs reachable from a WGS84 coordinate within a time limit.
+
+    Args:
+        graph: The combined roads-and-transport graph.
+        lon: Longitude of the origin point in WGS84.
+        lat: Latitude of the origin point in WGS84.
+        max_duration: Maximum travel duration in minutes.
+
+    Returns:
+        A list of connected subgraphs reachable within ``max_duration`` minutes
+        from the road node nearest to the given coordinate.
+    """
+    x, y = wgs84_to_bng(lon, lat)
+    road_nodes = [
+        node_id
+        for node_id, data in graph.nodes(data=True)
+        if "station_name" not in data
+    ]
+    points = np.array(
+        [(graph.nodes[node]["x"], graph.nodes[node]["y"]) for node in road_nodes]
+    )
+    closest_node_index = find_nearest_node(x, y, points[:, 0], points[:, 1])
+    locked_query = road_nodes[closest_node_index]
+    subgraphs = isochrones(graph, locked_query, max_duration)
+    return subgraphs
+
+
+def make_poly(graph: nx.Graph, edge_buff: float, node_buff: float):
+    """Build a single unioned polygon covering all road nodes and edges in a graph.
+
+    Station-to-station edges are excluded so that transit corridors do not
+    inflate the walking polygon.
+
+    Args:
+        graph: A subgraph whose nodes carry ``x`` and ``y`` attributes (BNG metres).
+        edge_buff: Buffer distance in metres applied to each edge geometry.
+        node_buff: Buffer distance in metres applied to each node point.
+
+    Returns:
+        A Shapely geometry (typically a Polygon or MultiPolygon) representing
+        the union of all buffered nodes and edges.
+    """
+    node_points = [
+        Point((data["x"], data["y"])) for node, data in graph.nodes(data=True)
+    ]
+    nodes_gdf = gpd.GeoDataFrame({"id": list(graph.nodes)}, geometry=node_points)
+    nodes_gdf = nodes_gdf.set_index("id")
+    edge_lines = []
+    for n_fr, n_to in graph.edges():
+        if "station_name" in graph.nodes[n_fr] and "station_name" in graph.nodes[n_to]:
+            continue
+        edge_lookup = graph.get_edge_data(n_fr, n_to)["geometry"]
+        edge_lines.append(edge_lookup)
+    n = nodes_gdf.buffer(node_buff).geometry
+    e = gpd.GeoSeries(edge_lines).buffer(edge_buff).geometry
+    all_gs = list(n) + list(e)
+    new_iso = gpd.GeoSeries(all_gs).union_all()
+    return new_iso
+
+
+# Complex algorithms for graph operations
 def get_intersection(
     graph: nx.Graph,
     groups: list[list[nx.Graph]],

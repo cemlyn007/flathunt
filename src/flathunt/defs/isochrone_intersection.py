@@ -23,6 +23,21 @@ class Config(dg.Config):
     station_cost_offset: float = 0.0
 
 
+def _apply_station_cost_offset(graph: nx.Graph, station_cost_offset: float) -> nx.Graph:
+    """Apply a cost offset to edges connected to station nodes."""
+    if station_cost_offset == 0.0:
+        return graph
+
+    graph_copy = graph.copy()
+    for n_fr, n_to in graph_copy.edges():
+        if (
+            "station_name" in graph_copy.nodes[n_fr]
+            or "station_name" in graph_copy.nodes[n_to]
+        ):
+            graph_copy.edges[n_fr, n_to]["duration"] += station_cost_offset
+    return graph_copy
+
+
 @dg.asset
 def isochrone_intersection(
     config: Config,
@@ -50,14 +65,7 @@ def isochrone_intersection(
         logger.warning("No commute queries configured; returning empty intersection.")
         return []
 
-    graph = roads_and_transport.copy()
-    if config.station_cost_offset != 0.0:
-        for n_fr, n_to in graph.edges():
-            if (
-                "station_name" in graph.nodes[n_fr]
-                or "station_name" in graph.nodes[n_to]
-            ):
-                graph.edges[n_fr, n_to]["duration"] += config.station_cost_offset
+    graph = _apply_station_cost_offset(roads_and_transport, config.station_cost_offset)
 
     logger.info("Computing isochrones for %d queries.", len(config.queries))
     isochrone_subgraphs = [

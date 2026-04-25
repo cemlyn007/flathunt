@@ -21,6 +21,45 @@ TARGET_DATETIME = tfl.api.get_next_datetime(datetime.time(9, 0, 0, tzinfo=dateti
 MAX_RIGHTMOVE_POLYLINE_POINTS = 1000
 
 
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+
+def check_property_size(
+    property: rightmove.models.MapProperty, min_square_meters: float
+):
+    """Check whether a property meets a minimum floor-area requirement.
+
+    Parses the ``display_size`` field, which may be expressed in square feet
+    or square metres. Properties with no size information are considered to
+    pass the check.
+
+    Args:
+        property: The Rightmove property to check.
+        min_square_meters: Minimum acceptable floor area in square metres.
+
+    Returns:
+        ``True`` if the property's size is unknown or at least ``min_square_meters``,
+        ``False`` if it is known and below the threshold.
+    """
+    if property.display_size:
+        if property.display_size.endswith(" sq. ft."):
+            square_ft = int(
+                property.display_size.removesuffix(" sq. ft.").replace(",", "")
+            )
+            square_meters = int(square_ft * _SQFT_TO_SQM)
+            if square_meters < min_square_meters:
+                return False
+        elif property.display_size.endswith(" sqm"):
+            square_meters = int(
+                property.display_size.removesuffix(" sqm").replace(",", "")
+            )
+            if square_meters < min_square_meters:
+                return False
+    return True
+
+
 def split_polygon(polygon: Polygon) -> list[Polygon]:
     """Split a polygon into up to four quadrant sub-polygons by bisecting its bounding box.
 
@@ -73,6 +112,56 @@ def split_polygon(polygon: Polygon) -> list[Polygon]:
     return parts
 
 
+# ============================================================================
+# Private Helper Functions
+# ============================================================================
+
+
+def _subdivide_exterior(
+    exterior: LinearRing,
+) -> list[LinearRing]:
+    """Subdivide a polygon exterior into parts that each satisfy the Rightmove coordinate limit.
+
+    The polygon is split into quadrants recursively until every part has at
+    most ``MAX_RIGHTMOVE_POLYLINE_POINTS`` vertices (after optional simplification).
+
+    Args:
+        exterior: Exterior ring of the polygon in WGS84.
+
+    Returns:
+        A list of exterior rings, safe to pass directly to the Rightmove
+        polyline search endpoint.
+    """
+    poly = Polygon(exterior)
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+
+    polys = split_polygon(poly)
+    results = []
+    for sub_poly in polys:
+        if sub_poly.is_empty or not sub_poly.is_valid or sub_poly.area < 1e-9:
+            continue
+
+        if len(sub_poly.exterior.coords) <= MAX_RIGHTMOVE_POLYLINE_POINTS:
+            sub_exterior = sub_poly.exterior
+        else:
+            sub_exterior, _ = find_min_simplify_tolerance(
+                sub_poly.exterior, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
+            )
+        # Check if simplified polygon is valid
+        if Polygon(sub_exterior).area < 1e-9:
+            continue
+
+        results.append(sub_exterior)
+
+    return results
+
+
+# ============================================================================
+# API Functions
+# ============================================================================
+
+
 async def fetch_journey_results(
     client: tfl.api.Tfl, lon: float, lat: float, query_lon: float, query_lat: float
 ) -> int | None:
@@ -123,46 +212,6 @@ async def fetch_journey_results(
             query_lat,
         )
         return None
-
-
-def _subdivide_exterior(
-    exterior: LinearRing,
-) -> list[LinearRing]:
-    """Subdivide a polygon exterior into parts that each satisfy the Rightmove coordinate limit.
-
-    The polygon is split into quadrants recursively until every part has at
-    most ``MAX_RIGHTMOVE_POLYLINE_POINTS`` vertices (after optional simplification).
-
-    Args:
-        exterior: Exterior ring of the polygon in WGS84.
-
-    Returns:
-        A list of exterior rings, safe to pass directly to the Rightmove
-        polyline search endpoint.
-    """
-    poly = Polygon(exterior)
-    if not poly.is_valid:
-        poly = poly.buffer(0)
-
-    polys = split_polygon(poly)
-    results = []
-    for sub_poly in polys:
-        if sub_poly.is_empty or not sub_poly.is_valid or sub_poly.area < 1e-9:
-            continue
-
-        if len(sub_poly.exterior.coords) <= MAX_RIGHTMOVE_POLYLINE_POINTS:
-            sub_exterior = sub_poly.exterior
-        else:
-            sub_exterior, _ = find_min_simplify_tolerance(
-                sub_poly.exterior, max_coords=MAX_RIGHTMOVE_POLYLINE_POINTS
-            )
-        # Check if simplified polygon is valid
-        if Polygon(sub_exterior).area < 1e-9:
-            continue
-
-        results.append(sub_exterior)
-
-    return results
 
 
 async def get_property_ids_in_area(
@@ -280,37 +329,3 @@ async def get_property_ids_in_area(
             if predicate is not None:
                 return [p for p in search_results if predicate(p)]
             return search_results
-
-
-def check_property_size(
-    property: rightmove.models.MapProperty, min_square_meters: float
-):
-    """Check whether a property meets a minimum floor-area requirement.
-
-    Parses the ``display_size`` field, which may be expressed in square feet
-    or square metres. Properties with no size information are considered to
-    pass the check.
-
-    Args:
-        property: The Rightmove property to check.
-        min_square_meters: Minimum acceptable floor area in square metres.
-
-    Returns:
-        ``True`` if the property's size is unknown or at least ``min_square_meters``,
-        ``False`` if it is known and below the threshold.
-    """
-    if property.display_size:
-        if property.display_size.endswith(" sq. ft."):
-            square_ft = int(
-                property.display_size.removesuffix(" sq. ft.").replace(",", "")
-            )
-            square_meters = int(square_ft * _SQFT_TO_SQM)
-            if square_meters < min_square_meters:
-                return False
-        elif property.display_size.endswith(" sqm"):
-            square_meters = int(
-                property.display_size.removesuffix(" sqm").replace(",", "")
-            )
-            if square_meters < min_square_meters:
-                return False
-    return True

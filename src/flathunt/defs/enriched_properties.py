@@ -28,22 +28,16 @@ _LLM_CALL_INTERVAL = 15.0  # seconds between LLM calls
 _DETAILS_CONCURRENCY = 3
 
 
+class Config(dg.Config):
+    min_square_meters: float = 0.0
+    github_token: str = Field(default_factory=lambda: os.environ["GITHUB_TOKEN"])
+    cache_data_dir: str = "cache"
+
+
 def _is_rate_limit_error(exc: BaseException) -> bool:
     if isinstance(exc, httpx.HTTPStatusError):
         return exc.response.status_code in (429, 503)
     return isinstance(exc, httpx.TimeoutException | httpx.NetworkError)
-
-
-def _parse_display_size(display_size: str | None) -> float | None:
-    """Return the floor area in square metres, or None if not present or not parseable."""
-    if not display_size:
-        return None
-    if display_size.endswith(" sq. ft."):
-        sq_ft = int(display_size.removesuffix(" sq. ft.").replace(",", ""))
-        return sq_ft * 0.092903
-    if display_size.endswith(" sqm"):
-        return float(display_size.removesuffix(" sqm").replace(",", ""))
-    return None
 
 
 async def _get_floor_plan_sqm(
@@ -102,6 +96,18 @@ async def _get_floor_plan_sqm(
         )
 
     return sqm
+
+
+def _parse_display_size(display_size: str | None) -> float | None:
+    """Return the floor area in square metres, or None if not present or not parseable."""
+    if not display_size:
+        return None
+    if display_size.endswith(" sq. ft."):
+        sq_ft = int(display_size.removesuffix(" sq. ft.").replace(",", ""))
+        return sq_ft * 0.092903
+    if display_size.endswith(" sqm"):
+        return float(display_size.removesuffix(" sqm").replace(",", ""))
+    return None
 
 
 async def _get_description_info(
@@ -228,12 +234,6 @@ async def _process_property(
         extracted_annual_ground_rent=desc_info.annual_ground_rent,
         extracted_council_tax_band=desc_info.council_tax_band,
     )
-
-
-class Config(dg.Config):
-    min_square_meters: float = 0.0
-    github_token: str = Field(default_factory=lambda: os.environ["GITHUB_TOKEN"])
-    cache_data_dir: str = "cache"
 
 
 @dg.asset
