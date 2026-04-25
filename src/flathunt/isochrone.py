@@ -4,12 +4,10 @@ import pickle
 import threading
 from collections.abc import Hashable
 from pathlib import Path
-from typing import cast
 
 import geopandas as gpd
 import networkx as nx
 import numpy as np
-import tqdm
 from shapely.geometry import Point
 from shapely.geometry.polygon import LinearRing, Polygon
 
@@ -345,52 +343,3 @@ def find_min_simplify_tolerance(
             low = mid
 
     return best_exterior, best_tolerance
-
-
-def get_isochrone_polys(
-    isochrone_subgraphs: list[list[nx.Graph]],
-) -> list[list[Polygon]]:
-    """Generate polygons for every subgraph in a nested list of isochrone subgraphs.
-
-    Polygon construction is parallelised across a thread pool. Progress is
-    reported via a ``tqdm`` progress bar.
-
-    Args:
-        isochrone_subgraphs: A list (one entry per query) of lists of subgraphs,
-            as returned by repeated calls to :func:`isochrones`.
-
-    Returns:
-        A nested list of Polygons with the same shape as ``isochrone_subgraphs``.
-
-    Raises:
-        ValueError: If any polygon failed to be generated.
-    """
-    isochrone_polys = [[None] * len(subgraphs) for subgraphs in isochrone_subgraphs]
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [
-            executor.submit(
-                lambda qi, si, sg: (
-                    qi,
-                    si,
-                    make_poly(sg, EDGE_BUFFER, NODE_BUFFER),
-                ),
-                query_index,
-                subgraph_index,
-                subgraph,
-            )
-            for query_index, subgraphs in enumerate(isochrone_subgraphs)
-            for subgraph_index, subgraph in enumerate(subgraphs)
-        ]
-        for future in tqdm.tqdm(
-            concurrent.futures.as_completed(futures),
-            total=len(futures),
-            desc="Generating isochrone polygons",
-        ):
-            qi, si, poly = future.result()
-            isochrone_polys[qi][si] = poly
-    if any(
-        any(poly is None for poly in subgraph_polys)
-        for subgraph_polys in isochrone_polys
-    ):
-        raise ValueError("Some isochrone polygons were not generated.")
-    return cast(list[list[Polygon]], isochrone_polys)
