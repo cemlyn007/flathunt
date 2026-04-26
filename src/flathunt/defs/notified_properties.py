@@ -22,7 +22,7 @@ def _open_db(path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS notified ("
-        "  property_id INTEGER PRIMARY KEY,"
+        "  property_id TEXT PRIMARY KEY,"
         "  notified_at INTEGER NOT NULL"
         ")"
     )
@@ -30,19 +30,23 @@ def _open_db(path: Path) -> sqlite3.Connection:
     return conn
 
 
-def _load_notified_ids(path: Path) -> set[int]:
+def _load_notified_ids(path: Path) -> set[str]:
     with _open_db(path) as conn:
         rows = conn.execute("SELECT property_id FROM notified").fetchall()
     return {row[0] for row in rows}
 
 
-def _save_notified_ids(path: Path, ids: list[int]) -> None:
+def _save_notified_ids(path: Path, ids: list[str]) -> None:
     now = int(datetime.now(tz=UTC).timestamp())
     with _open_db(path) as conn:
         conn.executemany(
             "INSERT OR IGNORE INTO notified (property_id, notified_at) VALUES (?, ?)",
             [(pid, now) for pid in ids],
         )
+
+
+def _property_key(prop: FinalProperty) -> str:
+    return f"{prop.source}:{prop.id}"
 
 
 def _format_size(prop: FinalProperty) -> str:
@@ -97,12 +101,17 @@ def _property_card(prop: FinalProperty, index: int) -> str:
 
     view_button = ""
     if prop.property_url:
-        url = html.escape(rightmove.api.property_url(prop.property_url))
+        if prop.source == "zoopla":
+            url = html.escape(prop.property_url)
+            label = "View on Zoopla"
+        else:
+            url = html.escape(rightmove.api.property_url(prop.property_url))
+            label = "View on Rightmove"
         view_button = (
             f'<a href="{url}" style="display: inline-block; margin-top: 16px; '
             f"padding: 10px 20px; background-color: #00aeef; color: #ffffff; "
             f"text-decoration: none; border-radius: 4px; font-weight: bold; "
-            f'font-size: 14px;">View on Rightmove &rarr;</a>'
+            f'font-size: 14px;">{label} &rarr;</a>'
         )
 
     stat_style = (
@@ -162,7 +171,7 @@ def _build_html_email(new_properties: list[FinalProperty]) -> str:
 
     <!-- Footer -->
     <div style="text-align: center; padding: 16px; color: #aaa; font-size: 12px;">
-      Sent by Flathunt &bull; <a href="https://www.rightmove.co.uk" style="color: #aaa;">rightmove.co.uk</a>
+      Sent by Flathunt
     </div>
 
   </div>
@@ -192,19 +201,6 @@ def notified_properties(
     smtp: SmtpResource,
     enriched_properties: list[FinalProperty],
 ) -> None:
-    """Send email notifications for newly seen enriched properties.
-
-    Loads the set of already-notified property IDs from a JSON file, computes
-    the diff against the current enriched_properties list, and if any new
-    properties exist sends an HTML summary email via SMTP. Updates the
-    persistent ID set only after a successful send so that failures are
-    automatically retried on the next pipeline run.
-
-    Args:
-        cache: Cache resource providing the cache directory path.
-        smtp: SMTP resource providing credentials and recipient list.
-        enriched_properties: Fully enriched properties from the enriched_properties asset.
-    """
     if not smtp.to_addresses:
         context.log.warning("smtp.to_addresses is empty — skipping email notification.")
         return
@@ -212,9 +208,11 @@ def notified_properties(
     db_path = Path(cache.data_dir) / _NOTIFIED_IDS_DB
     already_notified = _load_notified_ids(db_path)
 
-    new_properties = [p for p in enriched_properties if p.id not in already_notified]
+    new_properties = [
+        p for p in enriched_properties if _property_key(p) not in already_notified
+    ]
     context.log.info(
-        "%d total properties, %d already notified, %d new.",
+        "%d rightmove properties, %d already notified, %d new.",
         len(enriched_properties),
         len(already_notified),
         len(new_properties),
@@ -232,5 +230,5 @@ def notified_properties(
     _send_email(smtp, subject, html_body)
     context.log.info("Email sent to %s.", ", ".join(smtp.to_addresses))
 
-    _save_notified_ids(db_path, [p.id for p in new_properties])
+    _save_notified_ids(db_path, [_property_key(p) for p in new_properties])
     context.log.info("Recorded %d new IDs in %s.", len(new_properties), db_path)

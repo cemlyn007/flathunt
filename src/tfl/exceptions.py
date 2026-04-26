@@ -8,6 +8,7 @@ class TflApiError(Exception):
         exception_type: str | None = None,
         timestamp_utc: str | None = None,
         relative_uri: str | None = None,
+        retry_after: float | None = None,
     ) -> None:
         super().__init__(message)
         self.message = message
@@ -15,6 +16,7 @@ class TflApiError(Exception):
         self.exception_type = exception_type
         self.timestamp_utc = timestamp_utc
         self.relative_uri = relative_uri
+        self.retry_after = retry_after
 
 
 class JourneyNotFoundError(TflApiError):

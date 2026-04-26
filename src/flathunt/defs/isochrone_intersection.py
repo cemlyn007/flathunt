@@ -37,7 +37,7 @@ def _apply_station_cost_offset(graph: nx.Graph, station_cost_offset: float) -> n
     return graph_copy
 
 
-@dg.asset(group_name="property_search")
+@dg.asset(group_name="network_data", io_manager_key="fs_io_manager")
 def isochrone_intersection(
     config: Config,
     queries: QueriesResource,

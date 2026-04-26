@@ -71,6 +71,11 @@ def _get_wait_time(retry_state) -> float:
     """Get wait time based on retry-after header or exponential backoff."""
     if retry_state.outcome.exception():
         exception = retry_state.outcome.exception()
+        if (
+            isinstance(exception, exceptions.TflApiError)
+            and exception.retry_after is not None
+        ):
+            return exception.retry_after
         if isinstance(exception, httpx.HTTPStatusError):
             retry_after = exception.response.headers.get("retry-after")
             if retry_after:
@@ -107,6 +112,11 @@ async def get(
             http_status_code = (
                 error_data.get("httpStatusCode") or e.response.status_code
             )
+            retry_after_raw = e.response.headers.get("retry-after")
+            retry_after: float | None = None
+            with contextlib.suppress(ValueError, TypeError):
+                if retry_after_raw is not None:
+                    retry_after = float(retry_after_raw)
 
             if exception_type == "EntityNotFoundException":
                 logger.debug(
@@ -135,6 +145,7 @@ async def get(
                     exception_type=exception_type,
                     timestamp_utc=error_data.get("timestampUtc"),
                     relative_uri=error_data.get("relativeUri"),
+                    retry_after=retry_after,
                 ) from e
         except (ValueError, KeyError):
             logger.error(

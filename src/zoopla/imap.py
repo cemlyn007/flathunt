@@ -87,6 +87,34 @@ class ZooplaImapChecker:
 
         return results
 
+    def fetch_by_message_id(self, message_id: str) -> ZooplaRawEmail:
+        conn = self._require_connection()
+        status, data = conn.uid("SEARCH", "HEADER", "Message-ID", message_id)
+        if status != "OK":
+            raise RuntimeError(f"IMAP SEARCH failed: {status}")
+        raw_uids = data[0].split() if data[0] else []
+        if not raw_uids:
+            raise KeyError(f"No email found with Message-ID {message_id!r}")
+        uid_str = raw_uids[0].decode()
+        status, fetch_data = conn.uid("FETCH", uid_str, "(RFC822)")
+        if status != "OK":
+            raise RuntimeError(f"IMAP FETCH failed: {status}")
+        response_part = fetch_data[0]
+        if not isinstance(response_part, tuple):
+            raise RuntimeError(f"Unexpected FETCH response for {message_id!r}")
+        _, raw_bytes = response_part
+        msg = email.message_from_bytes(raw_bytes)
+        subject = msg.get("Subject", "")
+        date_str = msg.get("Date", "")
+        received_at = _parse_date(date_str)
+        return ZooplaRawEmail(
+            uid=uid_str,
+            message_id=message_id,
+            subject=subject,
+            received_at=received_at,
+            raw_bytes=raw_bytes,
+        )
+
     def mark_seen(self, uids: list[str]) -> None:
         if not uids:
             return

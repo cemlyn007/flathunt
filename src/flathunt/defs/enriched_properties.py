@@ -476,7 +476,7 @@ class Config(dg.Config):
     min_square_meters: float = 0.0
 
 
-@dg.asset(group_name="notification")
+@dg.asset(group_name="rightmove", io_manager_key="fs_io_manager")
 def enriched_properties(
     context: dg.AssetExecutionContext,
     config: Config,

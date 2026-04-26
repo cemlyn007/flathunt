@@ -25,7 +25,7 @@ def _build_commute_destinations(queries: QueriesResource) -> list[CommuteDest]:
     ]
 
 
-@dg.asset(group_name="property_search")
+@dg.asset(group_name="rightmove")
 def matched_property_ids(
     context: dg.AssetExecutionContext,
     queries: QueriesResource,

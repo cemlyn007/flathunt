@@ -59,7 +59,7 @@ def _save_seen_ids(path: Path, ids: Iterable[int]) -> None:
         )
 
 
-@dg.asset(group_name="property_search")
+@dg.asset(group_name="rightmove")
 def candidate_properties(
     context: dg.AssetExecutionContext,
     config: Config,

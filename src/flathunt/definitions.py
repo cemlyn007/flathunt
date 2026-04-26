@@ -12,7 +12,9 @@ _DAILY_CRON = os.environ.get("FLATHUNT__DAILY_CRON", "0 22 * * *")
 
 flathunt_job = dg.define_asset_job(
     name="flathunt",
-    selection=dg.AssetSelection.groups("property_search", "notification"),
+    selection=dg.AssetSelection.groups(
+        "rightmove", "notification", "zoopla", "network_data"
+    ),
     config=dg.config_from_files(["flathunt_run_config.yaml"]),
 )
 

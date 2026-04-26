@@ -100,3 +100,6 @@ class FinalProperty(pydantic.BaseModel):
     years_remaining_on_lease: int | None = None
     extracted_tenure_type: str | None = None
     extracted_years_remaining_on_lease: int | None = None
+
+    # Source identifier for notification DB namespacing
+    source: str = "rightmove"
