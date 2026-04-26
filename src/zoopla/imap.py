@@ -20,17 +20,20 @@ class ZooplaRawEmail:
 
 
 class ZooplaImapChecker:
-    def __init__(self, host: str, port: int, username: str, password: str) -> None:
+    def __init__(
+        self, host: str, port: int, username: str, password: str, mailbox: str = "INBOX"
+    ) -> None:
         self._host = host
         self._port = port
         self._username = username
         self._password = password
+        self._mailbox = mailbox
         self._connection: imaplib.IMAP4_SSL | None = None
 
     def __enter__(self) -> "ZooplaImapChecker":
         self._connection = imaplib.IMAP4_SSL(self._host, self._port)
         self._connection.login(self._username, self._password)
-        self._connection.select("INBOX", readonly=False)
+        self._connection.select(self._mailbox, readonly=False)
         return self
 
     def __exit__(self, *args: object) -> None:

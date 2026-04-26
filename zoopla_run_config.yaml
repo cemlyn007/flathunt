@@ -1,4 +1,7 @@
 resources:
+  imap:
+    config:
+      mailbox: "[Gmail]/All Mail"
   queries:
     config:
       queries:

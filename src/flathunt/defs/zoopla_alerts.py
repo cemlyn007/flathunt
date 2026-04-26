@@ -43,7 +43,7 @@ def zoopla_property_alerts(
             properties=[],
         )
     with ZooplaImapChecker(
-        imap.host, imap.port, imap.username, imap.password
+        imap.host, imap.port, imap.username, imap.password, imap.mailbox
     ) as checker:
         raw_email = checker.fetch_by_message_id(config.message_id)
     alert = parse_zoopla_alert_email(raw_email.raw_bytes)
@@ -82,7 +82,7 @@ def zoopla_email_sensor(
     run_requests: list[dg.RunRequest] = []
 
     with ZooplaImapChecker(
-        imap.host, imap.port, imap.username, imap.password
+        imap.host, imap.port, imap.username, imap.password, imap.mailbox
     ) as checker:
         raw_emails = checker.fetch_unseen_alerts()
         new_uids: list[str] = []
