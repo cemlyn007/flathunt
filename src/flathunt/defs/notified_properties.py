@@ -15,6 +15,7 @@ from flathunt.models import FinalProperty, parse_display_size_sqm
 logger = logging.getLogger(__name__)
 
 _NOTIFIED_IDS_DB = "notified_properties.db"
+_SEARCH_MATCHES_DB = "rightmove_search_matches.db"
 
 
 def _open_db(path: Path) -> sqlite3.Connection:
@@ -242,6 +243,25 @@ def notified_properties(
 
     _save_notified_ids(db_path, [_property_key(p) for p in new_properties])
     context.log.info("Recorded %d new IDs in %s.", len(new_properties), db_path)
+
+    # Record all matched IDs (not just new ones) for pipeline comparison
+    rightmove_ids = [str(p.id) for p in enriched_properties if p.source == "rightmove"]
+    if rightmove_ids:
+        now = int(datetime.now(tz=UTC).timestamp())
+        search_db_path = Path(cache.data_dir) / _SEARCH_MATCHES_DB
+        search_db_path.parent.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(search_db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS search_matches ("
+                "  property_id TEXT PRIMARY KEY,"
+                "  found_at INTEGER NOT NULL"
+                ")"
+            )
+            conn.executemany(
+                "INSERT OR IGNORE INTO search_matches (property_id, found_at) VALUES (?, ?)",
+                [(pid, now) for pid in rightmove_ids],
+            )
+
     context.add_output_metadata({
         "total_count": len(enriched_properties),
         "already_notified_count": len(already_notified),

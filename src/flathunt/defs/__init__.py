@@ -14,6 +14,15 @@ from flathunt.defs.resources import (
     SmtpResource,
     TflResource,
 )
+from flathunt.defs.rightmove_alerts import (
+    rightmove_email_sensor,
+    rightmove_property_alerts,
+)
+from flathunt.defs.rightmove_email_matched_properties import (
+    rightmove_email_matched_properties,
+)
+from flathunt.defs.rightmove_enriched_properties import rightmove_enriched_properties
+from flathunt.defs.rightmove_notified_properties import rightmove_notified_properties
 from flathunt.defs.rightmove_property_details import rightmove_property_details
 from flathunt.defs.roads import roads
 from flathunt.defs.roads_and_transport import roads_and_transport
@@ -50,6 +59,10 @@ all_assets = [
     zoopla_enriched_properties,
     zoopla_matched_properties,
     zoopla_notified_properties,
+    rightmove_property_alerts,
+    rightmove_enriched_properties,
+    rightmove_email_matched_properties,
+    rightmove_notified_properties,
 ]
 
 all_resources = {
@@ -67,6 +80,7 @@ all_sensors = [
     monitor_roads_shapefile,
     monitor_tfl_topology,
     zoopla_email_sensor,
+    rightmove_email_sensor,
 ]
 
 zoopla_job = dg.define_asset_job(
@@ -80,4 +94,27 @@ zoopla_job = dg.define_asset_job(
     config=dg.config_from_files(["zoopla_run_config.yaml"]),
 )
 
-all_jobs = [zoopla_job]
+rightmove_email_job = dg.define_asset_job(
+    name="rightmove_email",
+    selection=dg.AssetSelection.assets(
+        "rightmove_property_alerts",
+        "rightmove_enriched_properties",
+        "rightmove_email_matched_properties",
+        "rightmove_notified_properties",
+    ),
+    config=dg.config_from_files(["rightmove_run_config.yaml"]),
+)
+
+rightmove_search_job = dg.define_asset_job(
+    name="rightmove_search",
+    selection=dg.AssetSelection.assets(
+        "candidate_properties",
+        "matched_property_ids",
+        "rightmove_property_details",
+        "enriched_properties",
+        "notified_properties",
+    ),
+    config=dg.config_from_files(["flathunt_run_config.yaml"]),
+)
+
+all_jobs = [zoopla_job, rightmove_email_job, rightmove_search_job]
