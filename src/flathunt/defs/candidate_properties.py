@@ -157,4 +157,5 @@ def candidate_properties(
     _save_seen_ids(seen_ids_path, (p.id for p in properties))
     logger.info("Updated seen property IDs in %s.", seen_ids_path)
 
+    context.add_output_metadata({"property_count": len(properties)})
     return properties

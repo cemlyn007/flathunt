@@ -90,6 +90,7 @@ def monitor_roads_shapefile(
 @dg.sensor(
     minimum_interval_seconds=_SENSOR_INTERVAL,
     default_status=dg.DefaultSensorStatus.RUNNING,
+    required_resource_keys={"tfl_resource"},
 )
 def monitor_tfl_topology(
     context: dg.SensorEvaluationContext,
@@ -100,7 +101,7 @@ def monitor_tfl_topology(
 
     now = time.time()
     if now - cursor.get("tfl_last_checked", 0) >= _TFL_CHECK_INTERVAL:
-        tfl_api_key = os.environ["FLATHUNT__TFL_API_KEY"]
+        tfl_api_key = context.resources.tfl_resource.api_key
         client = tfl.api.Tfl(app_key=tfl_api_key)
         lines = asyncio.run(client.get_all_lines_routes())
         tfl_version = _compute_tfl_version(lines)

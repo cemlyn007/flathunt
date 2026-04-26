@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import dagster as dg
 
 from flathunt.defs.candidate_properties import candidate_properties
@@ -12,6 +14,7 @@ from flathunt.defs.resources import (
     SmtpResource,
     TflResource,
 )
+from flathunt.defs.rightmove_property_details import rightmove_property_details
 from flathunt.defs.roads import roads
 from flathunt.defs.roads_and_transport import roads_and_transport
 from flathunt.defs.sources import (
@@ -29,6 +32,8 @@ from flathunt.defs.zoopla_enriched_properties import zoopla_enriched_properties
 from flathunt.defs.zoopla_matched_properties import zoopla_matched_properties
 from flathunt.defs.zoopla_notified_properties import zoopla_notified_properties
 
+_DEFAULT_CACHE_DIR = str(Path(__file__).resolve().parent.parent.parent.parent / "cache")
+
 all_assets = [
     roads_shapefile,
     tfl_network_topology,
@@ -38,6 +43,7 @@ all_assets = [
     isochrone_intersection,
     candidate_properties,
     matched_property_ids,
+    rightmove_property_details,
     enriched_properties,
     notified_properties,
     zoopla_property_alerts,
@@ -52,7 +58,9 @@ all_resources = {
     "queries": QueriesResource(),
     "smtp": SmtpResource(),
     "imap": ImapResource(),
-    "fs_io_manager": dg.FilesystemIOManager(base_dir="cache/dagster_io"),
+    "fs_io_manager": dg.FilesystemIOManager(
+        base_dir=str(Path(_DEFAULT_CACHE_DIR) / "dagster_io")
+    ),
 }
 
 all_sensors = [
@@ -63,7 +71,12 @@ all_sensors = [
 
 zoopla_job = dg.define_asset_job(
     name="zoopla",
-    selection=dg.AssetSelection.groups("zoopla"),
+    selection=dg.AssetSelection.assets(
+        "zoopla_property_alerts",
+        "zoopla_enriched_properties",
+        "zoopla_matched_properties",
+        "zoopla_notified_properties",
+    ),
     config=dg.config_from_files(["zoopla_run_config.yaml"]),
 )
 

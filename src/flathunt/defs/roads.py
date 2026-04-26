@@ -60,4 +60,8 @@ def create_roads_graph(
 def roads(context: dg.AssetExecutionContext, config: Config) -> nx.Graph:
     roads_gdf = gpd.read_file(config.file_path)
     graph = create_roads_graph(roads_gdf, config.meters_per_minute)
+    context.add_output_metadata({
+        "node_count": graph.number_of_nodes(),
+        "edge_count": graph.number_of_edges(),
+    })
     return graph

@@ -68,4 +68,9 @@ def zoopla_enriched_properties(
         if p.listing_id in results
     ]
     context.log.info("Returning %d enriched Zoopla listing(s).", len(ordered))
+    context.add_output_metadata({
+        "total_count": len(ordered),
+        "cache_hit_count": len(results) - len(to_fetch),
+        "fetched_count": len(to_fetch),
+    })
     return ordered

@@ -63,6 +63,7 @@ def _connect_transport_to_roads(
     automation_condition=dg.AutomationCondition.eager(), group_name="network_data"
 )
 def roads_and_transport(
+    context: dg.AssetExecutionContext,
     config: Config,
     roads: nx.Graph,
     transport: nx.Graph,
@@ -85,4 +86,8 @@ def roads_and_transport(
     graph = _connect_transport_to_roads(
         graph, roads, transport, config.meters_per_minute
     )
+    context.add_output_metadata({
+        "node_count": graph.number_of_nodes(),
+        "edge_count": graph.number_of_edges(),
+    })
     return graph

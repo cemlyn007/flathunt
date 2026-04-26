@@ -8,7 +8,6 @@ import httpx
 import pydantic
 from anthropic.types.messages.batch_create_params import Request
 
-import rightmove.api
 import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.defs.resources import CacheResource
@@ -24,10 +23,8 @@ logger = logging.getLogger(__name__)
 
 _FLOOR_PLAN_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _LEASEHOLD_CACHE_TTL = 30 * 24 * 3600  # 30 days
-_PROPERTY_DETAILS_CACHE_TTL = 7 * 24 * 3600  # 7 days
 _LLM_CONCURRENCY = 1
 _LLM_CALL_INTERVAL = 0.5  # seconds between LLM calls (Anthropic handles rate limits)
-_DETAILS_CONCURRENCY = 3
 _BATCH_POLL_INITIAL_DELAY = 30  # seconds
 _BATCH_POLL_MAX_DELAY = 180  # seconds (5 minutes)
 _BATCH_POLL_BACKOFF = 1.5  # multiplier for exponential backoff
@@ -397,29 +394,12 @@ async def _process_property(
     needs_extraction: bool,
     floor_plan_cache: ModelCache[tuple[float | None, str | None]],
     description_info_cache: ModelCache[ExtractedPropertyInfo],
-    details_cache: ModelCache[rightmove.models.PropertyDetails],
+    details: rightmove.models.PropertyDetails | None,
     extractor: FloorPlanSizeExtractor,
     description_extractor: PropertyDescriptionExtractor,
-    rightmove_client: rightmove.api.Rightmove,
-    details_semaphore: asyncio.Semaphore,
     llm_semaphore: asyncio.Semaphore,
 ) -> FinalProperty:
-    """Fetch property details and optionally extract floor plan size, then build a FinalProperty."""
-    details = None
-    cache_key = str(prop.id)
-    try:
-        details = details_cache.get(cache_key)
-        logger.debug("Property details cache hit for property %d.", prop.id)
-    except KeyError:
-        try:
-            async with details_semaphore:
-                details = await rightmove_client.get_property_details(prop.property_url)
-            details_cache.update([(cache_key, details)])
-        except Exception:
-            logger.exception(
-                "Failed to fetch property details for property %d.", prop.id
-            )
-
+    """Optionally extract floor plan size from details, then build a FinalProperty."""
     extracted_sqm: float | None = None
     extracted_sqm_breakdown: str | None = None
     if needs_extraction:
@@ -483,6 +463,7 @@ def enriched_properties(
     cache: CacheResource,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
+    rightmove_property_details: dict[int, rightmove.models.PropertyDetails | None],
 ) -> list[FinalProperty]:
     """Enrich matched properties with living costs and filter by floor area.
 
@@ -522,13 +503,6 @@ def enriched_properties(
         ttl=_FLOOR_PLAN_CACHE_TTL,
     )
 
-    details_cache_path = Path(cache.data_dir) / "property_details_cache.db"
-    details_cache: ModelCache[rightmove.models.PropertyDetails] = ModelCache(
-        rightmove.models.PropertyDetails,
-        details_cache_path,
-        ttl=_PROPERTY_DETAILS_CACHE_TTL,
-    )
-
     description_info_cache_path = Path(cache.data_dir) / "description_info_cache.db"
     description_info_cache: ModelCache[ExtractedPropertyInfo] = ModelCache(
         ExtractedPropertyInfo,
@@ -538,10 +512,8 @@ def enriched_properties(
 
     extractor = FloorPlanSizeExtractor()
     description_extractor = PropertyDescriptionExtractor()
-    rightmove_client = rightmove.api.Rightmove()
 
-    async def _run_all() -> list[FinalProperty]:
-        details_semaphore = asyncio.Semaphore(_DETAILS_CONCURRENCY)
+    async def _run_all() -> tuple[list[FinalProperty], int]:
         llm_semaphore = asyncio.Semaphore(_LLM_CONCURRENCY)
 
         # PHASE 1: Collect all batch requests for floor plans and descriptions
@@ -554,23 +526,8 @@ def enriched_properties(
             if prop is None:
                 continue
 
-            # Fetch property details
+            details = rightmove_property_details.get(prop.id)
             cache_key = str(prop.id)
-            try:
-                details = details_cache.get(cache_key)
-                logger.debug("Property details cache hit for property %d.", prop.id)
-            except KeyError:
-                try:
-                    async with details_semaphore:
-                        details = await rightmove_client.get_property_details(
-                            prop.property_url
-                        )
-                    details_cache.update([(cache_key, details)])
-                except Exception:
-                    logger.exception(
-                        "Failed to fetch property details for property %d.", prop.id
-                    )
-                    details = None
 
             # Collect floor plan batch requests (skip if cached)
             metadata_sqm = _parse_display_size(prop.display_size)
@@ -635,6 +592,7 @@ def enriched_properties(
                 }
 
         context.log.info("Collected %d extraction requests", len(batch_requests))
+        batch_request_count = len(batch_requests)
 
         # PHASE 2: Submit batch and poll for completion
         if batch_requests:
@@ -666,11 +624,9 @@ def enriched_properties(
                     True,  # always attempt extraction; _get_floor_plan_sqm checks cache first
                     floor_plan_cache,
                     description_info_cache,
-                    details_cache,
+                    rightmove_property_details.get(prop.id),
                     extractor,
                     description_extractor,
-                    rightmove_client,
-                    details_semaphore,
                     llm_semaphore,
                 )
             )
@@ -680,9 +636,9 @@ def enriched_properties(
         for i, coro in enumerate(asyncio.as_completed(tasks), start=1):
             results.append(await coro)
             context.log.info("Enriched property %d / %d.", i, total)
-        return results
+        return results, batch_request_count
 
-    final_properties = asyncio.run(_run_all())
+    final_properties, batch_request_count = asyncio.run(_run_all())
 
     result = []
     for fp in final_properties:
@@ -699,4 +655,9 @@ def enriched_properties(
         len(result),
         len(final_properties),
     )
+    context.add_output_metadata({
+        "matched_count": len(matched_property_ids),
+        "batch_request_count": batch_request_count,
+        "final_count": len(result),
+    })
     return result

@@ -101,4 +101,8 @@ def matched_property_ids(
         len(result),
         len(candidate_properties),
     )
+    context.add_output_metadata({
+        "candidate_count": len(candidate_properties),
+        "matched_count": len(result),
+    })
     return result

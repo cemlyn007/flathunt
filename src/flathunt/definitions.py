@@ -32,7 +32,22 @@ flathunt_schedule = dg.ScheduleDefinition(
 def flathunt_on_graph_update(
     context: dg.SensorEvaluationContext,
     asset_event: dg.EventLogEntry,
-) -> Iterator[dg.RunRequest]:
+) -> Iterator[dg.RunRequest | dg.SkipReason]:
+    active = context.instance.get_runs(
+        filters=dg.RunsFilter(
+            job_name="flathunt",
+            statuses=[
+                dg.DagsterRunStatus.QUEUED,
+                dg.DagsterRunStatus.STARTING,
+                dg.DagsterRunStatus.STARTED,
+            ],
+        )
+    )
+    if active:
+        yield dg.SkipReason(
+            f"flathunt already has {len(active)} active run(s); skipping."
+        )
+        return
     yield dg.RunRequest(run_key=asset_event.run_id)
 
 

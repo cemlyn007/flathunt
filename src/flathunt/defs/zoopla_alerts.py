@@ -31,6 +31,10 @@ def zoopla_property_alerts(
 ) -> ZooplaPropertyAlert:
     if not config.message_id:
         context.log.info("No message_id provided; returning empty alert.")
+        context.add_output_metadata({
+            "property_count": 0,
+            "alert_type": AlertType.NEW_LISTING.value,
+        })
         return ZooplaPropertyAlert(
             message_id="",
             subject="",
@@ -56,6 +60,10 @@ def zoopla_property_alerts(
             prop.address,
             f"{prop.price_gbp:,}" if prop.price_gbp is not None else "?",
         )
+    context.add_output_metadata({
+        "property_count": len(alert.properties),
+        "alert_type": alert.alert_type.value,
+    })
     return alert
 
 
@@ -104,5 +112,5 @@ def zoopla_email_sensor(
             checker.mark_seen(new_uids)
             context.log.info("Marked %d email(s) as seen in IMAP.", len(new_uids))
 
-    cursor["seen_message_ids"] = list(seen_message_ids)
+    cursor["seen_message_ids"] = list(seen_message_ids)[-500:]
     return dg.SensorResult(run_requests=run_requests, cursor=json.dumps(cursor))

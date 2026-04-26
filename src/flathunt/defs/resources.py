@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import dagster as dg
 from pydantic import Field
 
 from flathunt.defs.config import CommuteDestConfig
+
+_DEFAULT_CACHE_DIR = str(Path(__file__).resolve().parent.parent.parent.parent / "cache")
 
 
 class TflResource(dg.ConfigurableResource):
@@ -9,7 +13,7 @@ class TflResource(dg.ConfigurableResource):
 
 
 class CacheResource(dg.ConfigurableResource):
-    data_dir: str = "cache"
+    data_dir: str = _DEFAULT_CACHE_DIR
 
 
 class QueriesResource(dg.ConfigurableResource):

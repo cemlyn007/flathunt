@@ -16,7 +16,7 @@ from flathunt.models import FinalProperty
 __all__ = ["zoopla_notified_properties"]
 
 
-@dg.asset(group_name="zoopla")
+@dg.asset(group_name="notification")
 def zoopla_notified_properties(
     context: dg.AssetExecutionContext,
     cache: CacheResource,
@@ -25,10 +25,20 @@ def zoopla_notified_properties(
 ) -> None:
     if not zoopla_matched_properties:
         context.log.info("No Zoopla properties after filtering — skipping email.")
+        context.add_output_metadata({
+            "total_count": 0,
+            "already_notified_count": 0,
+            "new_count": 0,
+        })
         return
 
     if not smtp.to_addresses:
         context.log.warning("smtp.to_addresses is empty — skipping email notification.")
+        context.add_output_metadata({
+            "total_count": len(zoopla_matched_properties),
+            "already_notified_count": 0,
+            "new_count": 0,
+        })
         return
 
     db_path = Path(cache.data_dir) / _NOTIFIED_IDS_DB
@@ -46,6 +56,11 @@ def zoopla_notified_properties(
 
     if not new_properties:
         context.log.info("All Zoopla properties already notified — skipping email.")
+        context.add_output_metadata({
+            "total_count": len(zoopla_matched_properties),
+            "already_notified_count": len(already_notified),
+            "new_count": 0,
+        })
         return
 
     n = len(new_properties)
@@ -58,3 +73,8 @@ def zoopla_notified_properties(
 
     _save_notified_ids(db_path, [_property_key(p) for p in new_properties])
     context.log.info("Recorded %d new Zoopla IDs in %s.", len(new_properties), db_path)
+    context.add_output_metadata({
+        "total_count": len(zoopla_matched_properties),
+        "already_notified_count": len(already_notified),
+        "new_count": len(new_properties),
+    })

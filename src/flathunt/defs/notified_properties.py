@@ -203,6 +203,11 @@ def notified_properties(
 ) -> None:
     if not smtp.to_addresses:
         context.log.warning("smtp.to_addresses is empty — skipping email notification.")
+        context.add_output_metadata({
+            "total_count": len(enriched_properties),
+            "already_notified_count": 0,
+            "new_count": 0,
+        })
         return
 
     db_path = Path(cache.data_dir) / _NOTIFIED_IDS_DB
@@ -220,6 +225,11 @@ def notified_properties(
 
     if not new_properties:
         context.log.info("No new properties to notify about. Skipping email.")
+        context.add_output_metadata({
+            "total_count": len(enriched_properties),
+            "already_notified_count": len(already_notified),
+            "new_count": 0,
+        })
         return
 
     n = len(new_properties)
@@ -232,3 +242,8 @@ def notified_properties(
 
     _save_notified_ids(db_path, [_property_key(p) for p in new_properties])
     context.log.info("Recorded %d new IDs in %s.", len(new_properties), db_path)
+    context.add_output_metadata({
+        "total_count": len(enriched_properties),
+        "already_notified_count": len(already_notified),
+        "new_count": len(new_properties),
+    })

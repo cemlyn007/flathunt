@@ -158,4 +158,9 @@ def zoopla_matched_properties(
         len(matched),
         len(isochrone_passed),
     )
+    context.add_output_metadata({
+        "enriched_count": len(zoopla_enriched_properties),
+        "isochrone_passed_count": len(isochrone_passed),
+        "matched_count": len(matched),
+    })
     return matched

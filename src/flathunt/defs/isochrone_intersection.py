@@ -39,6 +39,7 @@ def _apply_station_cost_offset(graph: nx.Graph, station_cost_offset: float) -> n
 
 @dg.asset(group_name="network_data", io_manager_key="fs_io_manager")
 def isochrone_intersection(
+    context: dg.AssetExecutionContext,
     config: Config,
     queries: QueriesResource,
     roads_and_transport: nx.Graph,
@@ -93,4 +94,5 @@ def isochrone_intersection(
 
     non_empty = cast(list[Polygon], [p for p in polys if not p.is_empty])
     logger.info("Produced %d non-empty intersection polygon(s).", len(non_empty))
+    context.add_output_metadata({"polygon_count": len(non_empty)})
     return non_empty

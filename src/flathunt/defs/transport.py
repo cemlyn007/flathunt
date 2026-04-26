@@ -159,7 +159,9 @@ def _add_transport_edges(
     automation_condition=dg.AutomationCondition.eager(),
     group_name="network_data",
 )
-async def transport(config: Config, tfl_resource: TflResource) -> nx.Graph:
+async def transport(
+    context: dg.AssetExecutionContext, config: Config, tfl_resource: TflResource
+) -> nx.Graph:
     """Build a public transit network graph from TfL data.
 
     Fetches current TfL line and stop point information, queries journey times
@@ -228,4 +230,8 @@ async def transport(config: Config, tfl_resource: TflResource) -> nx.Graph:
         logger.info("Missing pairs by line:")
         for line_id, count in line_counts.most_common():
             logger.info("  %s: %d", line_id, count)
+    context.add_output_metadata({
+        "node_count": transport_graph.number_of_nodes(),
+        "edge_count": transport_graph.number_of_edges(),
+    })
     return transport_graph
