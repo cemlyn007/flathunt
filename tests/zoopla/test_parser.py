@@ -1,4 +1,3 @@
-import email
 import email.message
 import email.policy
 import textwrap
