@@ -8,7 +8,7 @@ from flathunt.cache import ModelCache
 from flathunt.defs.resources import CacheResource
 from flathunt.property_search import DEFAULT_JOURNEY_CACHE_TTL
 from zoopla.client import ZooplaClient
-from zoopla.models import ZooplaListingDetail, ZooplaPropertyAlert
+from zoopla.models import ZooplaListingDetail, ZooplaProperty, ZooplaPropertyAlert
 
 logger = logging.getLogger(__name__)
 
@@ -21,10 +21,16 @@ _DETAIL_CACHE_TTL = DEFAULT_JOURNEY_CACHE_TTL
 def zoopla_enriched_properties(
     context: dg.AssetExecutionContext,
     cache: CacheResource,
-    zoopla_property_alerts: ZooplaPropertyAlert,
+    zoopla_property_alerts: list[ZooplaPropertyAlert],
 ) -> list[ZooplaListingDetail]:
-    if not zoopla_property_alerts.properties:
-        context.log.info("No properties in alert; skipping detail fetch.")
+    deduped_props: dict[str, ZooplaProperty] = {}
+    for alert in zoopla_property_alerts:
+        for prop in alert.properties:
+            deduped_props.setdefault(prop.listing_id, prop)
+    properties = list(deduped_props.values())
+
+    if not properties:
+        context.log.info("No properties across alerts; skipping detail fetch.")
         return []
 
     cache_path = Path(cache.data_dir) / "zoopla_detail_cache.db"
@@ -35,7 +41,7 @@ def zoopla_enriched_properties(
     to_fetch = []
     results: dict[str, ZooplaListingDetail] = {}
 
-    for prop in zoopla_property_alerts.properties:
+    for prop in properties:
         try:
             cached = detail_cache.get(prop.listing_id)
             results[prop.listing_id] = cached
@@ -62,13 +68,10 @@ def zoopla_enriched_properties(
         for detail in fetched_details:
             results[detail.listing_id] = detail
 
-    ordered = [
-        results[p.listing_id]
-        for p in zoopla_property_alerts.properties
-        if p.listing_id in results
-    ]
+    ordered = [results[p.listing_id] for p in properties if p.listing_id in results]
     context.log.info("Returning %d enriched Zoopla listing(s).", len(ordered))
     context.add_output_metadata({
+        "alert_count": len(zoopla_property_alerts),
         "total_count": len(ordered),
         "cache_hit_count": len(results) - len(to_fetch),
         "fetched_count": len(to_fetch),

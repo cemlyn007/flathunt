@@ -1,12 +1,13 @@
+import hashlib
 import json
 import logging
-from datetime import UTC, datetime
 
 import dagster as dg
+from pydantic import Field
 
 from flathunt.defs.resources import ImapResource
 from zoopla.imap import ZooplaImapChecker
-from zoopla.models import AlertType, ZooplaPropertyAlert
+from zoopla.models import ZooplaPropertyAlert
 from zoopla.parser import parse_zoopla_alert_email
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ _SENSOR_INTERVAL = 300  # seconds
 
 
 class ZooplaAlertsConfig(dg.Config):
-    message_id: str = ""
+    message_ids: list[str] = Field(default_factory=list)
 
 
 @dg.asset(group_name="zoopla")
@@ -28,43 +29,40 @@ def zoopla_property_alerts(
     context: dg.AssetExecutionContext,
     config: ZooplaAlertsConfig,
     imap: ImapResource,
-) -> ZooplaPropertyAlert:
-    if not config.message_id:
-        context.log.info("No message_id provided; returning empty alert.")
-        context.add_output_metadata({
-            "property_count": 0,
-            "alert_type": AlertType.NEW_LISTING.value,
-        })
-        return ZooplaPropertyAlert(
-            message_id="",
-            subject="",
-            received_at=datetime.now(tz=UTC),
-            alert_type=AlertType.NEW_LISTING,
-            properties=[],
-        )
+) -> list[ZooplaPropertyAlert]:
+    if not config.message_ids:
+        context.log.info("No message_ids provided; returning no alerts.")
+        context.add_output_metadata({"alert_count": 0, "property_count": 0})
+        return []
+
+    alerts: list[ZooplaPropertyAlert] = []
     with ZooplaImapChecker(
         imap.host, imap.port, imap.username, imap.password, imap.mailbox
     ) as checker:
-        raw_email = checker.fetch_by_message_id(config.message_id)
-    alert = parse_zoopla_alert_email(raw_email.raw_bytes)
-    context.log.info(
-        "Parsed %d propert(ies) from alert (type=%s, subject=%r).",
-        len(alert.properties),
-        alert.alert_type.value,
-        alert.subject,
-    )
-    for prop in alert.properties:
-        context.log.info(
-            "  %s — %s — £%s",
-            prop.listing_id,
-            prop.address,
-            f"{prop.price_gbp:,}" if prop.price_gbp is not None else "?",
-        )
+        for message_id in config.message_ids:
+            raw_email = checker.fetch_by_message_id(message_id)
+            alert = parse_zoopla_alert_email(raw_email.raw_bytes)
+            alerts.append(alert)
+            context.log.info(
+                "Parsed %d propert(ies) from alert (type=%s, subject=%r).",
+                len(alert.properties),
+                alert.alert_type.value,
+                alert.subject,
+            )
+            for prop in alert.properties:
+                context.log.info(
+                    "  %s — %s — £%s",
+                    prop.listing_id,
+                    prop.address,
+                    f"{prop.price_gbp:,}" if prop.price_gbp is not None else "?",
+                )
+
+    total_properties = sum(len(a.properties) for a in alerts)
     context.add_output_metadata({
-        "property_count": len(alert.properties),
-        "alert_type": alert.alert_type.value,
+        "alert_count": len(alerts),
+        "property_count": total_properties,
     })
-    return alert
+    return alerts
 
 
 @dg.sensor(
@@ -80,6 +78,7 @@ def zoopla_email_sensor(
     seen_message_ids: set[str] = set(cursor.get("seen_message_ids", []))
 
     run_requests: list[dg.RunRequest] = []
+    batch_message_ids: list[str] = []
 
     with ZooplaImapChecker(
         imap.host, imap.port, imap.username, imap.password, imap.mailbox
@@ -90,23 +89,31 @@ def zoopla_email_sensor(
         for raw_email in raw_emails:
             if raw_email.message_id in seen_message_ids:
                 continue
+            batch_message_ids.append(raw_email.message_id)
+            seen_message_ids.add(raw_email.message_id)
+            new_uids.append(raw_email.uid)
+            context.log.info("Batched email %r.", raw_email.message_id)
 
+        if batch_message_ids:
+            run_key = hashlib.sha256(
+                "|".join(sorted(batch_message_ids)).encode()
+            ).hexdigest()
             run_requests.append(
                 dg.RunRequest(
-                    run_key=raw_email.message_id,
+                    run_key=run_key,
                     run_config=dg.RunConfig(
                         ops={
                             "zoopla_property_alerts": ZooplaAlertsConfig(
-                                message_id=raw_email.message_id
+                                message_ids=batch_message_ids
                             )
                         }
                     ),
-                    tags={"zoopla/message_id": raw_email.message_id},
+                    tags={"zoopla/batch_size": str(len(batch_message_ids))},
                 )
             )
-            seen_message_ids.add(raw_email.message_id)
-            new_uids.append(raw_email.uid)
-            context.log.info("Queued run for email %r.", raw_email.message_id)
+            context.log.info(
+                "Queued single run for %d email(s).", len(batch_message_ids)
+            )
 
         if new_uids:
             checker.mark_seen(new_uids)

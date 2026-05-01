@@ -9,7 +9,7 @@ import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.defs.resources import CacheResource
 from flathunt.models import FinalProperty
-from rightmove.email_models import RightmovePropertyAlert
+from rightmove.email_models import RightmoveProperty, RightmovePropertyAlert
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,18 @@ def _to_final_property(
 def rightmove_enriched_properties(
     context: dg.AssetExecutionContext,
     cache: CacheResource,
-    rightmove_property_alerts: RightmovePropertyAlert,
+    rightmove_property_alerts: list[RightmovePropertyAlert],
 ) -> list[FinalProperty]:
-    if not rightmove_property_alerts.properties:
-        context.log.info("No properties in alert; skipping detail fetch.")
+    deduped_props: dict[str, RightmoveProperty] = {}
+    for alert in rightmove_property_alerts:
+        for prop in alert.properties:
+            deduped_props.setdefault(prop.listing_id, prop)
+    properties = list(deduped_props.values())
+
+    if not properties:
+        context.log.info("No properties across alerts; skipping detail fetch.")
         context.add_output_metadata({
+            "alert_count": len(rightmove_property_alerts),
             "total_count": 0,
             "cache_hit_count": 0,
             "fetched_count": 0,
@@ -103,7 +110,7 @@ def rightmove_enriched_properties(
         fetched_count = 0
         failed_count = 0
 
-        for prop in rightmove_property_alerts.properties:
+        for prop in properties:
             try:
                 details = detail_cache.get(prop.listing_id)
                 results[prop.listing_id] = details
@@ -127,7 +134,8 @@ def rightmove_enriched_properties(
                     failed_count += 1
 
         context.add_output_metadata({
-            "total_count": len(rightmove_property_alerts.properties),
+            "alert_count": len(rightmove_property_alerts),
+            "total_count": len(properties),
             "cache_hit_count": cache_hit_count,
             "fetched_count": fetched_count,
             "failed_count": failed_count,
@@ -143,7 +151,7 @@ def rightmove_enriched_properties(
             prop.price_gbp,
             details_by_id.get(prop.listing_id),
         )
-        for prop in rightmove_property_alerts.properties
+        for prop in properties
     ]
     context.log.info(
         "Returning %d enriched Rightmove listing(s).", len(final_properties)
