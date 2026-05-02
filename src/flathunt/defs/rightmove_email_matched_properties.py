@@ -64,7 +64,7 @@ def rightmove_email_matched_properties(
     tfl_resource: TflResource,
     queries: QueriesResource,
     isochrone_intersection: list[Polygon],
-    rightmove_property_alerts: RightmovePropertyAlert,
+    rightmove_property_alerts: list[RightmovePropertyAlert],
     rightmove_enriched_properties: list[FinalProperty],
 ) -> list[FinalProperty]:
     if not rightmove_enriched_properties:
@@ -72,9 +72,10 @@ def rightmove_email_matched_properties(
         context.add_output_metadata({"total_count": 0, "matched_count": 0})
         return []
 
-    email_by_id: dict[str, RightmoveProperty] = {
-        p.listing_id: p for p in rightmove_property_alerts.properties
-    }
+    email_by_id: dict[str, RightmoveProperty] = {}
+    for alert in rightmove_property_alerts:
+        for prop in alert.properties:
+            email_by_id.setdefault(prop.listing_id, prop)
 
     total = len(rightmove_enriched_properties)
     after_price = after_floorplans = after_photos = after_isochrone = 0
