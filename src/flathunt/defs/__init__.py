@@ -3,11 +3,16 @@ from pathlib import Path
 import dagster as dg
 import yaml
 
-from flathunt.defs.candidate_properties import candidate_properties
-from flathunt.defs.enriched_properties import enriched_properties
-from flathunt.defs.isochrone_intersection import isochrone_intersection
-from flathunt.defs.matched_property_ids import matched_property_ids
-from flathunt.defs.notified_properties import notified_properties
+from flathunt.defs.network import (
+    isochrone_intersection,
+    monitor_roads_shapefile,
+    monitor_tfl_topology,
+    roads,
+    roads_and_transport,
+    roads_shapefile,
+    tfl_network_topology,
+    transport,
+)
 from flathunt.defs.paths import REPO_ROOT
 from flathunt.defs.resources import (
     CacheResource,
@@ -16,32 +21,27 @@ from flathunt.defs.resources import (
     SmtpResource,
     TflResource,
 )
-from flathunt.defs.rightmove_alerts import (
+from flathunt.defs.rightmove_email import (
+    rightmove_email_matched_properties,
     rightmove_email_sensor,
+    rightmove_enriched_properties,
+    rightmove_notified_properties,
     rightmove_property_alerts,
 )
-from flathunt.defs.rightmove_email_matched_properties import (
-    rightmove_email_matched_properties,
+from flathunt.defs.rightmove_search import (
+    candidate_properties,
+    enriched_properties,
+    matched_property_ids,
+    notified_properties,
+    rightmove_property_details,
 )
-from flathunt.defs.rightmove_enriched_properties import rightmove_enriched_properties
-from flathunt.defs.rightmove_notified_properties import rightmove_notified_properties
-from flathunt.defs.rightmove_property_details import rightmove_property_details
-from flathunt.defs.roads import roads
-from flathunt.defs.roads_and_transport import roads_and_transport
-from flathunt.defs.sources import (
-    monitor_roads_shapefile,
-    monitor_tfl_topology,
-    roads_shapefile,
-    tfl_network_topology,
-)
-from flathunt.defs.transport import transport
-from flathunt.defs.zoopla_alerts import (
+from flathunt.defs.zoopla import (
     zoopla_email_sensor,
+    zoopla_enriched_properties,
+    zoopla_matched_properties,
+    zoopla_notified_properties,
     zoopla_property_alerts,
 )
-from flathunt.defs.zoopla_enriched_properties import zoopla_enriched_properties
-from flathunt.defs.zoopla_matched_properties import zoopla_matched_properties
-from flathunt.defs.zoopla_notified_properties import zoopla_notified_properties
 
 _resources_cfg = yaml.safe_load((REPO_ROOT / "resources.yaml").read_text())
 

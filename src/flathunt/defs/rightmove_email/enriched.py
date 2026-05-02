@@ -71,7 +71,7 @@ def _to_final_property(
     )
 
 
-@dg.asset(group_name="rightmove")
+@dg.asset(group_name="rightmove_email")
 def rightmove_enriched_properties(
     context: dg.AssetExecutionContext,
     cache: CacheResource,

@@ -1,21 +1,15 @@
 import html
-import logging
 import smtplib
 import sqlite3
 from datetime import UTC, datetime
 from email.message import EmailMessage
 from pathlib import Path
 
-import dagster as dg
-
 import rightmove
-from flathunt.defs.resources import CacheResource, SmtpResource
+from flathunt.defs.resources import SmtpResource
 from flathunt.models import FinalProperty, parse_display_size_sqm
 
-logger = logging.getLogger(__name__)
-
-_NOTIFIED_IDS_DB = "notified_properties.db"
-_SEARCH_MATCHES_DB = "rightmove_search_matches.db"
+NOTIFIED_IDS_DB = "notified_properties.db"
 
 
 def _open_db(path: Path) -> sqlite3.Connection:
@@ -64,13 +58,13 @@ def _migrate_notified_to_text_pk(conn: sqlite3.Connection) -> None:
     )
 
 
-def _load_notified_ids(path: Path) -> set[str]:
+def load_notified_ids(path: Path) -> set[str]:
     with _open_db(path) as conn:
         rows = conn.execute("SELECT property_id FROM notified").fetchall()
     return {row[0] for row in rows}
 
 
-def _save_notified_ids(path: Path, ids: list[str]) -> None:
+def save_notified_ids(path: Path, ids: list[str]) -> None:
     now = int(datetime.now(tz=UTC).timestamp())
     with _open_db(path) as conn:
         conn.executemany(
@@ -79,7 +73,7 @@ def _save_notified_ids(path: Path, ids: list[str]) -> None:
         )
 
 
-def _property_key(prop: FinalProperty) -> str:
+def property_key(prop: FinalProperty) -> str:
     return f"{prop.source}:{prop.id}"
 
 
@@ -180,7 +174,7 @@ def _property_card(prop: FinalProperty, index: int) -> str:
     )
 
 
-def _build_html_email(new_properties: list[FinalProperty]) -> str:
+def build_html_email(new_properties: list[FinalProperty]) -> str:
     n = len(new_properties)
     now = datetime.now(tz=UTC).strftime("%Y-%m-%d %H:%M UTC")
     plural = "y" if n == 1 else "ies"
@@ -213,7 +207,7 @@ def _build_html_email(new_properties: list[FinalProperty]) -> str:
 </html>"""
 
 
-def _send_email(smtp: SmtpResource, subject: str, html_body: str) -> None:
+def send_email(smtp: SmtpResource, subject: str, html_body: str) -> None:
     to = ", ".join(smtp.to_addresses)
     msg = EmailMessage()
     msg["Subject"] = subject
@@ -226,77 +220,3 @@ def _send_email(smtp: SmtpResource, subject: str, html_body: str) -> None:
         server.starttls()
         server.login(smtp.username, smtp.password)
         server.send_message(msg)
-
-
-@dg.asset(group_name="notification")
-def notified_properties(
-    context: dg.AssetExecutionContext,
-    cache: CacheResource,
-    smtp: SmtpResource,
-    enriched_properties: list[FinalProperty],
-) -> None:
-    if not smtp.to_addresses:
-        context.log.warning("smtp.to_addresses is empty — skipping email notification.")
-        context.add_output_metadata({
-            "total_count": len(enriched_properties),
-            "already_notified_count": 0,
-            "new_count": 0,
-        })
-        return
-
-    db_path = Path(cache.data_dir) / _NOTIFIED_IDS_DB
-    already_notified = _load_notified_ids(db_path)
-
-    new_properties = [
-        p for p in enriched_properties if _property_key(p) not in already_notified
-    ]
-    context.log.info(
-        "%d rightmove properties, %d already notified, %d new.",
-        len(enriched_properties),
-        len(already_notified),
-        len(new_properties),
-    )
-
-    if not new_properties:
-        context.log.info("No new properties to notify about. Skipping email.")
-        context.add_output_metadata({
-            "total_count": len(enriched_properties),
-            "already_notified_count": len(already_notified),
-            "new_count": 0,
-        })
-        return
-
-    n = len(new_properties)
-    plural = "y" if n == 1 else "ies"
-    subject = f"Flathunt: {n} new propert{plural}"
-    html_body = _build_html_email(new_properties)
-
-    _send_email(smtp, subject, html_body)
-    context.log.info("Email sent to %s.", ", ".join(smtp.to_addresses))
-
-    _save_notified_ids(db_path, [_property_key(p) for p in new_properties])
-    context.log.info("Recorded %d new IDs in %s.", len(new_properties), db_path)
-
-    # Record all matched IDs (not just new ones) for pipeline comparison
-    rightmove_ids = [str(p.id) for p in enriched_properties if p.source == "rightmove"]
-    if rightmove_ids:
-        now = int(datetime.now(tz=UTC).timestamp())
-        search_db_path = Path(cache.data_dir) / _SEARCH_MATCHES_DB
-        search_db_path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(search_db_path) as conn:
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS search_matches ("
-                "  property_id TEXT PRIMARY KEY,"
-                "  found_at INTEGER NOT NULL"
-                ")"
-            )
-            conn.executemany(
-                "INSERT OR IGNORE INTO search_matches (property_id, found_at) VALUES (?, ?)",
-                [(pid, now) for pid in rightmove_ids],
-            )
-
-    context.add_output_metadata({
-        "total_count": len(enriched_properties),
-        "already_notified_count": len(already_notified),
-        "new_count": len(new_properties),
-    })

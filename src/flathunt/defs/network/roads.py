@@ -7,7 +7,7 @@ import networkx as nx
 import tqdm
 from shapely.geometry import LineString
 
-from flathunt.defs.sources import roads_shapefile
+from flathunt.defs.network.sources import roads_shapefile
 from flathunt.geometry import euclidean, wgs84_to_bng
 
 

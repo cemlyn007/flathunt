@@ -2,13 +2,13 @@ from pathlib import Path
 
 import dagster as dg
 
-from flathunt.defs.notified_properties import (
-    _NOTIFIED_IDS_DB,
-    _build_html_email,
-    _load_notified_ids,
-    _property_key,
-    _save_notified_ids,
-    _send_email,
+from flathunt.defs.notification.email import (
+    NOTIFIED_IDS_DB,
+    build_html_email,
+    load_notified_ids,
+    property_key,
+    save_notified_ids,
+    send_email,
 )
 from flathunt.defs.resources import CacheResource, SmtpResource
 from flathunt.models import FinalProperty
@@ -42,13 +42,13 @@ def rightmove_notified_properties(
         })
         return
 
-    db_path = Path(cache.data_dir) / _NOTIFIED_IDS_DB
-    already_notified = _load_notified_ids(db_path)
+    db_path = Path(cache.data_dir) / NOTIFIED_IDS_DB
+    already_notified = load_notified_ids(db_path)
 
     new_properties = [
         p
         for p in rightmove_enriched_properties
-        if _property_key(p) not in already_notified
+        if property_key(p) not in already_notified
     ]
     context.log.info(
         "%d Rightmove enriched, %d already notified, %d new.",
@@ -69,12 +69,12 @@ def rightmove_notified_properties(
     n = len(new_properties)
     plural = "y" if n == 1 else "ies"
     subject = f"Flathunt (Rightmove): {n} new propert{plural}"
-    html_body = _build_html_email(new_properties)
+    html_body = build_html_email(new_properties)
 
-    _send_email(smtp, subject, html_body)
+    send_email(smtp, subject, html_body)
     context.log.info("Email sent to %s.", ", ".join(smtp.to_addresses))
 
-    _save_notified_ids(db_path, [_property_key(p) for p in new_properties])
+    save_notified_ids(db_path, [property_key(p) for p in new_properties])
     context.log.info(
         "Recorded %d new Rightmove IDs in %s.", len(new_properties), db_path
     )

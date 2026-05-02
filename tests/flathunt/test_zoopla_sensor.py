@@ -8,7 +8,7 @@ import dagster as dg
 import pytest
 
 from flathunt.defs.resources import ImapResource
-from flathunt.defs.zoopla_alerts import (
+from flathunt.defs.zoopla.alerts import (
     ZooplaAlertsConfig,
     zoopla_email_sensor,
     zoopla_property_alerts,
@@ -69,7 +69,7 @@ def mock_checker(
 def stub_run_config(monkeypatch: pytest.MonkeyPatch) -> dict:
     config: dict = {"resources": {"imap": {"config": {"mailbox": "[Gmail]/All Mail"}}}}
     monkeypatch.setattr(
-        "flathunt.defs.zoopla_alerts.load_job_run_config",
+        "flathunt.defs.zoopla.alerts.load_job_run_config",
         lambda _filename: dict(config),
     )
     return config
@@ -91,7 +91,7 @@ class TestZooplaEmailSensor:
         # Then: no run requests are generated
         checker = mock_checker([])
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
             result = zoopla_email_sensor(ctx, imap=fake_imap)
@@ -110,7 +110,7 @@ class TestZooplaEmailSensor:
         # Then: a single run request is created with the email's message ID in the batch
         checker = mock_checker([raw_email])
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
             result = zoopla_email_sensor(ctx, imap=fake_imap)
@@ -135,7 +135,7 @@ class TestZooplaEmailSensor:
         # Then: exactly one run request is emitted, batching both message_ids
         checker = mock_checker([raw_email, second_raw_email])
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
             result = zoopla_email_sensor(ctx, imap=fake_imap)
@@ -163,7 +163,7 @@ class TestZooplaEmailSensor:
         #       per-batch message_ids — i.e. the YAML preset is not dropped
         checker = mock_checker([raw_email])
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
             result = zoopla_email_sensor(ctx, imap=fake_imap)
@@ -189,7 +189,7 @@ class TestZooplaEmailSensor:
         # Then: the email is marked as seen in the IMAP server
         checker = mock_checker([raw_email])
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
             zoopla_email_sensor(ctx, imap=fake_imap)
@@ -229,7 +229,7 @@ class TestZooplaPropertyAlertsAsset:
         ctx = dg.build_asset_context()
         config = ZooplaAlertsConfig(message_ids=[raw_email.message_id])
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             alerts = cast(
                 list[ZooplaPropertyAlert],
@@ -260,7 +260,7 @@ class TestZooplaPropertyAlertsAsset:
             message_ids=[raw_email.message_id, second_raw_email.message_id]
         )
         with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+            "flathunt.defs.zoopla.alerts.ZooplaImapChecker", return_value=checker
         ):
             alerts = cast(
                 list[ZooplaPropertyAlert],

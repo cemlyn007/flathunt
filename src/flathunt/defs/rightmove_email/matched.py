@@ -56,7 +56,7 @@ class Config(dg.Config):
     min_square_meters: float
 
 
-@dg.asset(group_name="rightmove")
+@dg.asset(group_name="rightmove_email")
 def rightmove_email_matched_properties(
     context: dg.AssetExecutionContext,
     config: Config,

@@ -8,7 +8,7 @@ import dagster as dg
 import pytest
 
 from flathunt.defs.resources import ImapResource
-from flathunt.defs.rightmove_alerts import rightmove_email_sensor
+from flathunt.defs.rightmove_email.alerts import rightmove_email_sensor
 from rightmove.imap import RightmoveRawEmail
 
 _FIXTURES = Path(__file__).parent.parent / "rightmove" / "fixtures"
@@ -65,7 +65,7 @@ def stub_run_config(monkeypatch: pytest.MonkeyPatch) -> dict:
         }
     }
     monkeypatch.setattr(
-        "flathunt.defs.rightmove_alerts.load_job_run_config",
+        "flathunt.defs.rightmove_email.alerts.load_job_run_config",
         lambda _filename: json.loads(json.dumps(config)),
     )
     return config
@@ -79,7 +79,7 @@ class TestRightmoveEmailSensor:
     ) -> None:
         checker = mock_checker([])
         with patch(
-            "flathunt.defs.rightmove_alerts.RightmoveImapChecker",
+            "flathunt.defs.rightmove_email.alerts.RightmoveImapChecker",
             return_value=checker,
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
@@ -100,7 +100,7 @@ class TestRightmoveEmailSensor:
         #       per-batch message_ids — i.e. the YAML preset is not dropped
         checker = mock_checker([raw_email])
         with patch(
-            "flathunt.defs.rightmove_alerts.RightmoveImapChecker",
+            "flathunt.defs.rightmove_email.alerts.RightmoveImapChecker",
             return_value=checker,
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})
@@ -126,7 +126,7 @@ class TestRightmoveEmailSensor:
     ) -> None:
         checker = mock_checker([raw_email])
         with patch(
-            "flathunt.defs.rightmove_alerts.RightmoveImapChecker",
+            "flathunt.defs.rightmove_email.alerts.RightmoveImapChecker",
             return_value=checker,
         ):
             ctx = dg.build_sensor_context(resources={"imap": fake_imap})

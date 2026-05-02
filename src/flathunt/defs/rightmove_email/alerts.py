@@ -24,7 +24,7 @@ class RightmoveAlertsConfig(dg.Config):
     message_ids: list[str] = Field(default_factory=list)
 
 
-@dg.asset(group_name="rightmove")
+@dg.asset(group_name="rightmove_email")
 def rightmove_property_alerts(
     context: dg.AssetExecutionContext,
     config: RightmoveAlertsConfig,

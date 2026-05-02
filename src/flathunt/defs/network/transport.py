@@ -14,8 +14,8 @@ from shapely.geometry import LineString
 import tfl.api
 import tfl.exceptions
 import tfl.models
+from flathunt.defs.network.sources import tfl_network_topology
 from flathunt.defs.resources import TflResource
-from flathunt.defs.sources import tfl_network_topology
 from flathunt.geometry import wgs84_to_bng
 
 logger = logging.getLogger(__name__)
