@@ -76,16 +76,32 @@ def zoopla_enriched_properties(
                 for prop in to_fetch:
                     context.log.info("Fetching %s", prop.url)
                     detail = await client.get_listing_detail(prop.url)
+                    if _looks_unparsed(detail):
+                        context.log.warning(
+                            "Listing %s returned unparsed (no address/coords).",
+                            prop.listing_id,
+                        )
+                    else:
+                        context.log.info(
+                            "Listing %s parsed OK (address=%r, coords=(%s, %s)).",
+                            prop.listing_id,
+                            detail.address,
+                            detail.latitude,
+                            detail.longitude,
+                        )
                     fetched.append(detail)
             return fetched
 
         fetched_details = asyncio.run(_fetch_all())
         cacheable = [d for d in fetched_details if not _looks_unparsed(d)]
-        unparsed = len(fetched_details) - len(cacheable)
-        if unparsed:
+        unparsed_ids = sorted(
+            d.listing_id for d in fetched_details if _looks_unparsed(d)
+        )
+        if unparsed_ids:
             context.log.warning(
-                "Skipping cache for %d listing(s) that returned no address or coordinates.",
-                unparsed,
+                "Skipping cache for %d listing(s) that returned no address or coordinates (e.g. %s).",
+                len(unparsed_ids),
+                unparsed_ids[0],
             )
         detail_cache.update((d.listing_id, d) for d in cacheable)
         for detail in fetched_details:
