@@ -5,6 +5,7 @@ import logging
 import dagster as dg
 from pydantic import Field
 
+from flathunt.defs.paths import load_job_run_config
 from flathunt.defs.resources import ImapResource
 from rightmove.email_models import RightmovePropertyAlert
 from rightmove.email_parser import parse_rightmove_alert_email
@@ -98,16 +99,14 @@ def rightmove_email_sensor(
             run_key = hashlib.sha256(
                 "|".join(sorted(batch_message_ids)).encode()
             ).hexdigest()
+            run_config = load_job_run_config("rightmove_run_config.yaml")
+            run_config.setdefault("ops", {})["rightmove_property_alerts"] = {
+                "config": {"message_ids": batch_message_ids}
+            }
             run_requests.append(
                 dg.RunRequest(
                     run_key=run_key,
-                    run_config=dg.RunConfig(
-                        ops={
-                            "rightmove_property_alerts": RightmoveAlertsConfig(
-                                message_ids=batch_message_ids
-                            )
-                        }
-                    ),
+                    run_config=run_config,
                     tags={"rightmove/batch_size": str(len(batch_message_ids))},
                 )
             )

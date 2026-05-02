@@ -66,6 +66,16 @@ def mock_checker(
     return _make_checker
 
 
+@pytest.fixture(autouse=True)
+def stub_run_config(monkeypatch: pytest.MonkeyPatch) -> dict:
+    config: dict = {"resources": {"imap": {"config": {"mailbox": "[Gmail]/All Mail"}}}}
+    monkeypatch.setattr(
+        "flathunt.defs.zoopla_alerts.load_job_run_config",
+        lambda _filename: dict(config),
+    )
+    return config
+
+
 # ---------------------------------------------------------------------------
 # Sensor tests
 # ---------------------------------------------------------------------------
@@ -143,6 +153,33 @@ class TestZooplaEmailSensor:
         assert ops_config["message_ids"] == [
             raw_email.message_id,
             second_raw_email.message_id,
+        ]
+
+    def test_run_request_merges_yaml_resource_overrides(
+        self,
+        fake_imap: ImapResource,
+        raw_email: ZooplaRawEmail,
+        mock_checker: Callable[[list[ZooplaRawEmail]], MagicMock],
+    ) -> None:
+        # Given: a YAML preset with an IMAP mailbox override
+        # When: the sensor emits a run request
+        # Then: the run_config carries both the YAML resource block and the
+        #       per-batch message_ids — i.e. the YAML preset is not dropped
+        checker = mock_checker([raw_email])
+        with patch(
+            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
+        ):
+            ctx = dg.build_sensor_context(resources={"imap": fake_imap})
+            result = zoopla_email_sensor(ctx, imap=fake_imap)
+
+        assert isinstance(result, dg.SensorResult)
+        assert result.run_requests is not None
+        run_config = result.run_requests[0].run_config
+        assert run_config["resources"]["imap"]["config"]["mailbox"] == (
+            "[Gmail]/All Mail"
+        )
+        assert run_config["ops"]["zoopla_property_alerts"]["config"]["message_ids"] == [
+            raw_email.message_id
         ]
 
     def test_seen_email_is_not_requeued(

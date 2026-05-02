@@ -8,6 +8,7 @@ from flathunt.defs.enriched_properties import enriched_properties
 from flathunt.defs.isochrone_intersection import isochrone_intersection
 from flathunt.defs.matched_property_ids import matched_property_ids
 from flathunt.defs.notified_properties import notified_properties
+from flathunt.defs.paths import REPO_ROOT
 from flathunt.defs.resources import (
     CacheResource,
     ImapResource,
@@ -42,7 +43,6 @@ from flathunt.defs.zoopla_enriched_properties import zoopla_enriched_properties
 from flathunt.defs.zoopla_matched_properties import zoopla_matched_properties
 from flathunt.defs.zoopla_notified_properties import zoopla_notified_properties
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 _resources_cfg = yaml.safe_load((REPO_ROOT / "resources.yaml").read_text())
 
 all_assets = [
