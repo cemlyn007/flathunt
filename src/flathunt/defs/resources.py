@@ -34,4 +34,4 @@ class ImapResource(dg.ConfigurableResource):
     port: int = 993
     username: str = dg.EnvVar("FLATHUNT__IMAP_USERNAME")
     password: str = dg.EnvVar("FLATHUNT__IMAP_PASSWORD")
-    mailbox: str = "INBOX"
+    mailbox: str = "[Gmail]/All Mail"
