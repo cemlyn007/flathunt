@@ -118,20 +118,18 @@ class TestRightmoveEmailSensor:
             "message_ids"
         ] == [raw_email.message_id]
 
-    def test_seen_email_is_not_requeued(
+    def test_emails_are_marked_seen_in_imap(
         self,
         fake_imap: ImapResource,
         raw_email: RightmoveRawEmail,
         mock_checker: Callable[[list[RightmoveRawEmail]], MagicMock],
     ) -> None:
-        cursor = json.dumps({"seen_message_ids": [raw_email.message_id]})
         checker = mock_checker([raw_email])
         with patch(
             "flathunt.defs.rightmove_alerts.RightmoveImapChecker",
             return_value=checker,
         ):
-            ctx = dg.build_sensor_context(cursor=cursor, resources={"imap": fake_imap})
-            result = rightmove_email_sensor(ctx, imap=fake_imap)
+            ctx = dg.build_sensor_context(resources={"imap": fake_imap})
+            rightmove_email_sensor(ctx, imap=fake_imap)
 
-        assert isinstance(result, dg.SensorResult)
-        assert result.run_requests == []
+        checker.mark_seen.assert_called_once_with([raw_email.uid])

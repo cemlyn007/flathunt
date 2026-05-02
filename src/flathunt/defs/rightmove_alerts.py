@@ -1,5 +1,4 @@
 import hashlib
-import json
 import logging
 
 import dagster as dg
@@ -75,9 +74,6 @@ def rightmove_email_sensor(
     context: dg.SensorEvaluationContext,
     imap: ImapResource,
 ) -> dg.SensorResult:
-    cursor = json.loads(context.cursor) if context.cursor else {}
-    seen_message_ids: set[str] = set(cursor.get("seen_message_ids", []))
-
     run_requests: list[dg.RunRequest] = []
     batch_message_ids: list[str] = []
 
@@ -88,10 +84,7 @@ def rightmove_email_sensor(
         new_uids: list[str] = []
 
         for raw_email in raw_emails:
-            if raw_email.message_id in seen_message_ids:
-                continue
             batch_message_ids.append(raw_email.message_id)
-            seen_message_ids.add(raw_email.message_id)
             new_uids.append(raw_email.uid)
             context.log.info("Batched email %r.", raw_email.message_id)
 
@@ -118,5 +111,4 @@ def rightmove_email_sensor(
             checker.mark_seen(new_uids)
             context.log.info("Marked %d email(s) as seen in IMAP.", len(new_uids))
 
-    cursor["seen_message_ids"] = list(seen_message_ids)[-500:]
-    return dg.SensorResult(run_requests=run_requests, cursor=json.dumps(cursor))
+    return dg.SensorResult(run_requests=run_requests)

@@ -1,4 +1,3 @@
-import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -99,9 +98,6 @@ class TestZooplaEmailSensor:
 
         assert isinstance(result, dg.SensorResult)
         assert result.run_requests == []
-        assert result.cursor is not None
-        cursor = json.loads(result.cursor)
-        assert cursor["seen_message_ids"] == []
 
     def test_new_email_produces_single_batched_run_request(
         self,
@@ -181,47 +177,6 @@ class TestZooplaEmailSensor:
         assert run_config["ops"]["zoopla_property_alerts"]["config"]["message_ids"] == [
             raw_email.message_id
         ]
-
-    def test_seen_email_is_not_requeued(
-        self,
-        fake_imap: ImapResource,
-        raw_email: ZooplaRawEmail,
-        mock_checker: Callable[[list[ZooplaRawEmail]], MagicMock],
-    ) -> None:
-        # Given: an email that was previously seen (in cursor state)
-        # When: the sensor runs and encounters that same email
-        # Then: no run request is created for it
-        cursor = json.dumps({"seen_message_ids": [raw_email.message_id]})
-        checker = mock_checker([raw_email])
-        with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
-        ):
-            ctx = dg.build_sensor_context(cursor=cursor, resources={"imap": fake_imap})
-            result = zoopla_email_sensor(ctx, imap=fake_imap)
-
-        assert isinstance(result, dg.SensorResult)
-        assert result.run_requests == []
-
-    def test_seen_ids_are_persisted_in_cursor(
-        self,
-        fake_imap: ImapResource,
-        raw_email: ZooplaRawEmail,
-        mock_checker: Callable[[list[ZooplaRawEmail]], MagicMock],
-    ) -> None:
-        # Given: a new unseen email is available
-        # When: the sensor processes it
-        # Then: the email's message ID is persisted in the cursor state
-        checker = mock_checker([raw_email])
-        with patch(
-            "flathunt.defs.zoopla_alerts.ZooplaImapChecker", return_value=checker
-        ):
-            ctx = dg.build_sensor_context(resources={"imap": fake_imap})
-            result = zoopla_email_sensor(ctx, imap=fake_imap)
-
-        assert isinstance(result, dg.SensorResult)
-        assert result.cursor is not None
-        cursor = json.loads(result.cursor)
-        assert raw_email.message_id in cursor["seen_message_ids"]
 
     def test_new_emails_are_marked_seen_in_imap(
         self,
