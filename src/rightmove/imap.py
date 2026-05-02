@@ -33,7 +33,7 @@ class RightmoveImapChecker:
     def __enter__(self) -> "RightmoveImapChecker":
         self._connection = imaplib.IMAP4_SSL(self._host, self._port)
         self._connection.login(self._username, self._password)
-        self._connection.select(self._mailbox, readonly=False)
+        self._connection.select(f'"{self._mailbox}"', readonly=False)
         return self
 
     def __exit__(self, *args: object) -> None:
