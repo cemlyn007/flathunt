@@ -17,6 +17,14 @@ __all__ = ["zoopla_enriched_properties"]
 _DETAIL_CACHE_TTL = DEFAULT_JOURNEY_CACHE_TTL
 
 
+def _looks_unparsed(detail: ZooplaListingDetail) -> bool:
+    # Pages served behind a bot wall or that fail to settle yield a detail with
+    # no address and no coordinates. Treat these as transient parse failures.
+    return (
+        detail.latitude is None and detail.longitude is None and detail.address is None
+    )
+
+
 @dg.asset(group_name="zoopla")
 def zoopla_enriched_properties(
     context: dg.AssetExecutionContext,
@@ -44,10 +52,18 @@ def zoopla_enriched_properties(
     for prop in properties:
         try:
             cached = detail_cache.get(prop.listing_id)
-            results[prop.listing_id] = cached
-            context.log.info("Cache hit for listing %s.", prop.listing_id)
         except KeyError:
             to_fetch.append(prop)
+            continue
+        if _looks_unparsed(cached):
+            context.log.warning(
+                "Cached detail for listing %s looks unparsed; refetching.",
+                prop.listing_id,
+            )
+            to_fetch.append(prop)
+        else:
+            results[prop.listing_id] = cached
+            context.log.info("Cache hit for listing %s.", prop.listing_id)
 
     if to_fetch:
         context.log.info(
@@ -64,7 +80,14 @@ def zoopla_enriched_properties(
             return fetched
 
         fetched_details = asyncio.run(_fetch_all())
-        detail_cache.update((d.listing_id, d) for d in fetched_details)
+        cacheable = [d for d in fetched_details if not _looks_unparsed(d)]
+        unparsed = len(fetched_details) - len(cacheable)
+        if unparsed:
+            context.log.warning(
+                "Skipping cache for %d listing(s) that returned no address or coordinates.",
+                unparsed,
+            )
+        detail_cache.update((d.listing_id, d) for d in cacheable)
         for detail in fetched_details:
             results[detail.listing_id] = detail
 
