@@ -49,11 +49,11 @@ def _record_matched_ids(path: Path, ids: list[str]) -> None:
 
 
 class Config(dg.Config):
-    min_budget: float = 0.0
-    max_budget: float = 2_000_000.0
-    has_floorplans: bool = False
-    has_images: bool = False
-    min_square_meters: float = 0.0
+    min_budget: float
+    max_budget: float
+    has_floorplans: bool
+    has_images: bool
+    min_square_meters: float
 
 
 @dg.asset(group_name="rightmove")
