@@ -27,8 +27,41 @@ def _open_db(path: Path) -> sqlite3.Connection:
         "  notified_at INTEGER NOT NULL"
         ")"
     )
+    _migrate_notified_to_text_pk(conn)
     conn.commit()
     return conn
+
+
+def _migrate_notified_to_text_pk(conn: sqlite3.Connection) -> None:
+    """Migrate legacy `notified` table where property_id was INTEGER PRIMARY KEY.
+
+    Why: pre-source-prefix versions stored bare rightmove ids; the new key format is
+    "{source}:{id}". Inserting a string into an INTEGER PRIMARY KEY raises
+    IntegrityError("datatype mismatch"). Rewrite the table once and prefix existing
+    rows with "rightmove:" (the only source the legacy code populated).
+    """
+    pk_type = next(
+        (
+            row[2]
+            for row in conn.execute("PRAGMA table_info(notified)")
+            if row[1] == "property_id"
+        ),
+        None,
+    )
+    if pk_type != "INTEGER":
+        return
+    conn.executescript(
+        """
+        CREATE TABLE notified_new (
+            property_id TEXT PRIMARY KEY,
+            notified_at INTEGER NOT NULL
+        );
+        INSERT INTO notified_new (property_id, notified_at)
+            SELECT 'rightmove:' || property_id, notified_at FROM notified;
+        DROP TABLE notified;
+        ALTER TABLE notified_new RENAME TO notified;
+        """
+    )
 
 
 def _load_notified_ids(path: Path) -> set[str]:

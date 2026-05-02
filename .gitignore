@@ -14,3 +14,5 @@ greater-london-251126-free
 flathunt_run_config.yaml
 zoopla_run_config.yaml
 rightmove_run_config.yaml
+rightmove_search_run_config.yaml
+resources.yaml

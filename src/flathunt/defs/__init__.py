@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import dagster as dg
+import yaml
 
 from flathunt.defs.candidate_properties import candidate_properties
 from flathunt.defs.enriched_properties import enriched_properties
@@ -41,7 +42,8 @@ from flathunt.defs.zoopla_enriched_properties import zoopla_enriched_properties
 from flathunt.defs.zoopla_matched_properties import zoopla_matched_properties
 from flathunt.defs.zoopla_notified_properties import zoopla_notified_properties
 
-_DEFAULT_CACHE_DIR = str(Path(__file__).resolve().parent.parent.parent.parent / "cache")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+_resources_cfg = yaml.safe_load((REPO_ROOT / "resources.yaml").read_text())
 
 all_assets = [
     roads_shapefile,
@@ -67,12 +69,12 @@ all_assets = [
 
 all_resources = {
     "tfl_resource": TflResource(),
-    "cache": CacheResource(),
-    "queries": QueriesResource(),
-    "smtp": SmtpResource(),
+    "cache": CacheResource(**_resources_cfg["cache"]),
+    "queries": QueriesResource(**_resources_cfg["queries"]),
+    "smtp": SmtpResource(**_resources_cfg["smtp"]),
     "imap": ImapResource(),
     "fs_io_manager": dg.FilesystemIOManager(
-        base_dir=str(Path(_DEFAULT_CACHE_DIR) / "dagster_io")
+        base_dir=str(Path(_resources_cfg["cache"]["data_dir"]) / "dagster_io")
     ),
 }
 
@@ -91,7 +93,7 @@ zoopla_job = dg.define_asset_job(
         "zoopla_matched_properties",
         "zoopla_notified_properties",
     ),
-    config=dg.config_from_files(["zoopla_run_config.yaml"]),
+    config=dg.config_from_files([str(REPO_ROOT / "zoopla_run_config.yaml")]),
 )
 
 rightmove_email_job = dg.define_asset_job(
@@ -102,7 +104,7 @@ rightmove_email_job = dg.define_asset_job(
         "rightmove_email_matched_properties",
         "rightmove_notified_properties",
     ),
-    config=dg.config_from_files(["rightmove_run_config.yaml"]),
+    config=dg.config_from_files([str(REPO_ROOT / "rightmove_run_config.yaml")]),
 )
 
 rightmove_search_job = dg.define_asset_job(
@@ -114,7 +116,7 @@ rightmove_search_job = dg.define_asset_job(
         "enriched_properties",
         "notified_properties",
     ),
-    config=dg.config_from_files(["flathunt_run_config.yaml"]),
+    config=dg.config_from_files([str(REPO_ROOT / "rightmove_search_run_config.yaml")]),
 )
 
 all_jobs = [zoopla_job, rightmove_email_job, rightmove_search_job]
