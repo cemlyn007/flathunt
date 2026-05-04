@@ -38,6 +38,15 @@ _DATA_READY_PREDICATE = """
 })
 """
 
+# Substrings (case-insensitive) seen in the <title> of Cloudflare / bot-wall
+# interstitials. When matched we skip the data-ready wait — the listing payload
+# will never arrive, so burning the full timeout helps no-one.
+_BOT_WALL_TITLE_MARKERS = (
+    "just a moment",
+    "attention required",
+    "sorry, you have been blocked",
+)
+
 
 class ZooplaClient:
     """Async client for fetching Zoopla listing detail pages.
@@ -49,7 +58,7 @@ class ZooplaClient:
     """
 
     def __init__(
-        self, page_load_timeout: int = 30_000, data_ready_timeout_ms: int = 15_000
+        self, page_load_timeout: int = 30_000, data_ready_timeout_ms: int = 25_000
     ) -> None:
         self._page_load_timeout = page_load_timeout
         self._data_ready_timeout_ms = data_ready_timeout_ms
@@ -116,17 +125,26 @@ class ZooplaClient:
                     wait_until="domcontentloaded",
                     timeout=self._page_load_timeout,
                 )
-                try:
-                    await page.wait_for_function(
-                        _DATA_READY_PREDICATE, timeout=self._data_ready_timeout_ms
-                    )
-                except PlaywrightTimeoutError:
+                title = (await page.title()) or ""
+                if any(m in title.lower() for m in _BOT_WALL_TITLE_MARKERS):
                     logger.warning(
-                        "Zoopla page %s did not surface listing payload within %dms; "
-                        "parsing whatever is present.",
+                        "Bot wall detected for %s (title=%r); skipping data-ready wait.",
                         clean_url,
-                        self._data_ready_timeout_ms,
+                        title,
                     )
+                else:
+                    try:
+                        await page.wait_for_function(
+                            _DATA_READY_PREDICATE,
+                            timeout=self._data_ready_timeout_ms,
+                        )
+                    except PlaywrightTimeoutError:
+                        logger.warning(
+                            "Zoopla page %s did not surface listing payload within %dms; "
+                            "parsing whatever is present.",
+                            clean_url,
+                            self._data_ready_timeout_ms,
+                        )
                 html = await page.content()
             finally:
                 await page.close()

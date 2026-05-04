@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from pathlib import Path
 
 import dagster as dg
@@ -73,12 +74,23 @@ def zoopla_enriched_properties(
         async def _fetch_all() -> list[ZooplaListingDetail]:
             fetched: list[ZooplaListingDetail] = []
             async with ZooplaClient() as client:
-                for prop in to_fetch:
+                for i, prop in enumerate(to_fetch):
+                    if i > 0:
+                        await asyncio.sleep(random.uniform(1.0, 3.0))
                     context.log.info("Fetching %s", prop.url)
                     detail = await client.get_listing_detail(prop.url)
                     if _looks_unparsed(detail):
+                        backoff = random.uniform(2.0, 5.0)
                         context.log.warning(
-                            "Listing %s returned unparsed (no address/coords).",
+                            "Listing %s returned unparsed; retrying after %.1fs.",
+                            prop.listing_id,
+                            backoff,
+                        )
+                        await asyncio.sleep(backoff)
+                        detail = await client.get_listing_detail(prop.url)
+                    if _looks_unparsed(detail):
+                        context.log.warning(
+                            "Listing %s returned unparsed after retry (no address/coords).",
                             prop.listing_id,
                         )
                     else:
