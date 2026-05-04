@@ -19,7 +19,7 @@ class CommuteDestConfig(dg.Config):
     Attributes:
         lon: Longitude in EPSG:4326 (WGS84) coordinate system.
         lat: Latitude in EPSG:4326 (WGS84) coordinate system.
-        max_duration: Maximum acceptable travel duration in seconds.
+        max_duration: Maximum acceptable travel duration in minutes.
     """
 
     lon: float
