@@ -5,7 +5,9 @@ import email.utils
 import json
 import logging
 import re
+from collections.abc import Iterator
 from datetime import UTC, datetime
+from typing import Any
 
 from bs4 import BeautifulSoup
 
@@ -179,6 +181,55 @@ _ANALYTICS_TAXONOMY = re.compile(
 _FLOOR_AREA_SQFT = re.compile(r"([\d,]+)\s*sq\.\s*ft")
 _RSC_PUSH = re.compile(r'^self\.__next_f\.push\(\[1,"(.+)"\]\s*\)\s*;?\s*$', re.DOTALL)
 _UPRN_COORDS = re.compile(r'"uprn":(?:null|"[^"]*"),"coordinates":\{')
+_FLOORPLAN_HOST = "https://lc.zoocdn.com/"
+
+
+def _rsc_buffer(soup: BeautifulSoup) -> str:
+    """Concatenate every ``self.__next_f.push([1, "..."])`` payload into one string."""
+    parts: list[str] = []
+    for sc in soup.find_all("script"):
+        text = (sc.string or "").strip()
+        m = _RSC_PUSH.match(text)
+        if not m:
+            continue
+        with contextlib.suppress(json.JSONDecodeError):
+            parts.append(json.loads(f'"{m.group(1)}"'))
+    return "".join(parts)
+
+
+def _iter_json_values(buf: str) -> Iterator[Any]:
+    """Yield each well-formed JSON value embedded in an RSC buffer.
+
+    The buffer mixes JSON objects/arrays with non-JSON RSC directives
+    (e.g. ``T<n>,...`` text segments).  Probing each ``{`` and ``[`` with
+    ``raw_decode`` cleanly skips those directives.
+    """
+    decoder = json.JSONDecoder()
+    i = 0
+    n = len(buf)
+    while i < n:
+        c = buf[i]
+        if c in "{[":
+            try:
+                value, end = decoder.raw_decode(buf, i)
+            except json.JSONDecodeError:
+                i += 1
+                continue
+            yield value
+            i = end
+        else:
+            i += 1
+
+
+def _walk(node: Any) -> Iterator[tuple[str, Any]]:
+    """Yield every ``(key, value)`` pair anywhere in a JSON tree."""
+    if isinstance(node, dict):
+        for k, v in node.items():
+            yield k, v
+            yield from _walk(v)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk(item)
 
 
 def parse_zoopla_listing_html(html: str, url: str) -> ZooplaListingDetail:
@@ -194,6 +245,7 @@ def parse_zoopla_listing_html(html: str, url: str) -> ZooplaListingDetail:
     more_info = _parse_more_info(soup)
     latitude, longitude = _parse_coordinates(soup)
     image_urls = _parse_image_urls(soup, listing_ld)
+    floorplan_urls = _parse_floorplan_urls(soup)
 
     price_gbp: int | None = None
     raw_price = taxonomy.get("price_actual")
@@ -252,6 +304,7 @@ def parse_zoopla_listing_html(html: str, url: str) -> ZooplaListingDetail:
         agent_name=taxonomy.get("branch_name"),
         agent_logo_url=taxonomy.get("branch_logo_url"),
         image_urls=image_urls,
+        floorplan_urls=floorplan_urls,
         date_posted=date_posted,
         latitude=latitude,
         longitude=longitude,
@@ -344,25 +397,19 @@ def _parse_image_urls(soup: BeautifulSoup, listing_ld: dict) -> list[str]:
 
     # Prefer the largest variant from the RSC payloads
     rsc_urls: dict[str, tuple[int, int]] = {}
-    for sc in soup.find_all("script"):
-        text = (sc.string or "").strip()
-        m = _RSC_PUSH.match(text)
-        if not m:
+    buf = _rsc_buffer(soup)
+    for match in _ZOOCDN_IMAGE.finditer(buf):
+        raw = match.group(0)
+        parts = raw.split("/")
+        try:
+            w, h = int(parts[-3]), int(parts[-2])
+        except (ValueError, IndexError):
+            _add(raw)
             continue
-        with contextlib.suppress(json.JSONDecodeError):
-            payload: str = json.loads(f'"{m.group(1)}"')
-            for match in _ZOOCDN_IMAGE.finditer(payload):
-                raw = match.group(0)
-                parts = raw.split("/")
-                try:
-                    w, h = int(parts[-3]), int(parts[-2])
-                except (ValueError, IndexError):
-                    _add(raw)
-                    continue
-                filename = parts[-1]
-                prev = rsc_urls.get(filename)
-                if prev is None or w * h > prev[0] * prev[1]:
-                    rsc_urls[filename] = (w, h)
+        filename = parts[-1]
+        prev = rsc_urls.get(filename)
+        if prev is None or w * h > prev[0] * prev[1]:
+            rsc_urls[filename] = (w, h)
 
     for filename, (w, h) in rsc_urls.items():
         _add(f"https://lid.zoocdn.com/u/{w}/{h}/{filename}")
@@ -376,25 +423,59 @@ def _parse_image_urls(soup: BeautifulSoup, listing_ld: dict) -> list[str]:
     return urls
 
 
+def _parse_floorplan_urls(soup: BeautifulSoup) -> list[str]:
+    """Extract floor plan image URLs by walking the RSC JSON tree.
+
+    Recognises both shapes Zoopla emits:
+
+    * ``"floorPlan": [{"original": "<url>"}]``
+    * ``"floorPlan": {"image": [{"filename": "<hash>.png"}]}``
+
+    String values bound to ``floorPlan`` are RSC reference pointers
+    (e.g. ``"$5a:props:..."``) and are ignored by type-checking.
+    """
+    seen: set[str] = set()
+    urls: list[str] = []
+
+    def _add(url: str) -> None:
+        if url not in seen:
+            seen.add(url)
+            urls.append(url)
+
+    buf = _rsc_buffer(soup)
+    for top in _iter_json_values(buf):
+        for key, value in _walk(top):
+            if key != "floorPlan":
+                continue
+            # Shape 1: list of {"original": "<url>"}
+            if isinstance(value, list):
+                for entry in value:
+                    if isinstance(entry, dict):
+                        original = entry.get("original")
+                        if isinstance(original, str):
+                            _add(original)
+            # Shape 2: {"image": [{"filename": "<hash>.png"}]}
+            elif isinstance(value, dict):
+                images = value.get("image")
+                if isinstance(images, list):
+                    for entry in images:
+                        if isinstance(entry, dict):
+                            filename = entry.get("filename")
+                            if isinstance(filename, str):
+                                _add(_FLOORPLAN_HOST + filename)
+            # Anything else (including string RSC reference pointers) is ignored.
+
+    return urls
+
+
 def _parse_coordinates(soup: BeautifulSoup) -> tuple[float | None, float | None]:
-    for sc in soup.find_all("script"):
-        text = (sc.string or "").strip()
-        m = _RSC_PUSH.match(text)
-        if not m:
-            continue
-        try:
-            payload: str = json.loads(f'"{m.group(1)}"')
-        except json.JSONDecodeError:
-            continue
-        anchor = _UPRN_COORDS.search(payload)
-        if not anchor:
-            continue
-        coords_start = payload.index('"coordinates":', anchor.start()) + len(
-            '"coordinates":'
-        )
-        try:
-            coords, _ = json.JSONDecoder().raw_decode(payload, coords_start)
-            return float(coords["latitude"]), float(coords["longitude"])
-        except (json.JSONDecodeError, KeyError, ValueError):
-            continue
-    return None, None
+    buf = _rsc_buffer(soup)
+    anchor = _UPRN_COORDS.search(buf)
+    if not anchor:
+        return None, None
+    coords_start = buf.index('"coordinates":', anchor.start()) + len('"coordinates":')
+    try:
+        coords, _ = json.JSONDecoder().raw_decode(buf, coords_start)
+        return float(coords["latitude"]), float(coords["longitude"])
+    except (json.JSONDecodeError, KeyError, ValueError):
+        return None, None
