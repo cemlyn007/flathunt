@@ -1,44 +1,41 @@
 import copy
 import enum
-import gzip
-import http
-import http.client
 import json
-import urllib.parse
-from collections.abc import Iterable, Sequence
-from typing import Any, Literal, Optional
+import logging
+from collections.abc import Sequence
+from typing import Any, ClassVar, Literal
 
+import httpx
 import polyline as _polyline
 import pydantic
-from tenacity import Retrying
+from tenacity import AsyncRetrying
 
 from rightmove import models
+from rightmove.property_details import parse_property_details
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "SEARCH_LIST_MAX_RESULTS",
     "SEARCH_MAP_MAX_RESULTS",
-    "SEARCH_BY_IDS_MAX_RESULTS",
-    "HTTPError",
-    "SortType",
-    "MustHave",
     "DontShow",
     "FurnishType",
+    "HTTPError",
+    "MustHave",
     "PropertyType",
-    "SearchQuery",
     "Rightmove",
+    "SearchQuery",
+    "SortType",
     "polyline_identifier",
     "property_url",
 ]
 
 
 SEARCH_LIST_MAX_RESULTS = 1000
-"The maximum number of results the LIST viewType API will return indices up to."
+"The maximum number of results the listing search API will return indices up to."
 
 SEARCH_MAP_MAX_RESULTS = 499
-"The maximum number of results the MAP viewType API will return up to."
-
-SEARCH_BY_IDS_MAX_RESULTS = 25
-"The maximum number of results the by IDs API will return up to."
+"The maximum number of results the map search API will return up to."
 
 
 class HTTPError(Exception): ...
@@ -94,10 +91,10 @@ class SearchQuery(pydantic.BaseModel):
     min_bedrooms: int = 1
     max_bedrooms: int = 10
     min_price: int = 0
-    max_price: Optional[int] = None
+    max_price: int | None = None
     min_bathrooms: int = 1
     max_bathrooms: int = 5
-    number_of_properties_per_page: int = pydantic.Field(gt=0, le=25, default=24)
+    number_of_properties_per_page: int = pydantic.Field(gt=0, le=95, default=95)
     radius: float = pydantic.Field(gt=-1, default=0)
     "In Miles. Set to 0 to only return properties in area."
     sort_type: SortType = SortType.NEAREST_FIRST
@@ -125,9 +122,8 @@ class SearchQuery(pydantic.BaseModel):
         )
     )
     is_fetching: bool
-    max_days_since_added: Optional[int] = None
+    max_days_since_added: int | None = None
     channel: Literal["RENT", "BUY"] = "RENT"
-    view_type: Literal["LIST", "MAP"] = "LIST"
     area_size_unit: Literal["sqm"] = "sqm"
     currency_code: Literal["GBP"] = "GBP"
     include_let_agreed: bool = False
@@ -140,17 +136,17 @@ def polyline_identifier(polyline: list[tuple[float, float]]) -> str:
 
 
 class Rightmove:
-    def __init__(self, retrying: Optional[Retrying] = None) -> None:
+    def __init__(self, retrying: AsyncRetrying | None = None) -> None:
         self._raw_api = _RawRightmove()
         if retrying is not None:
-            self._raw_api.lookup = retrying.wraps(self._raw_api.lookup)
-            self._raw_api.search = retrying.wraps(self._raw_api.search)
-            self._raw_api.by_ids = retrying.wraps(self._raw_api.by_ids)
+            self._raw_api.lookup = retrying.wraps(self._raw_api.lookup)  # type: ignore
+            self._raw_api.listing_search = retrying.wraps(self._raw_api.listing_search)  # type: ignore
+            self._raw_api.map_search = retrying.wraps(self._raw_api.map_search)  # type: ignore
 
-    def lookup(
+    async def lookup(
         self,
         query: str,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> models.LookupMatches:
         """Get the location IDs related to a search query.
 
@@ -161,61 +157,109 @@ class Rightmove:
         Returns:
             models.LookupMatches: Matches
         """
-        lookup_results = self._raw_api.lookup(query=query, limit=limit)
+        lookup_results = await self._raw_api.lookup(query=query, limit=limit)
         return models.LookupMatches.model_validate(lookup_results)
 
-    def search(
+    async def search(
         self,
         query: SearchQuery,
-    ) -> list[models.Property]:
-        """Search for properties using the provided configuration.
+    ) -> list[models.ListingProperty]:
+        """Search for properties using the listing search endpoint.
 
         Args:
             query (SearchQuery): Search configuration parameters
 
         Returns:
-            list[models.Property]: List of properties matching the search criteria
+            list[models.ListingProperty]: List of properties matching the search criteria
                 of up to a max length of 1000.
         """
-        query = query.model_copy(update={"view_type": "LIST"})
-        search_results = self._raw_api.search(query=query)
+        search_results, _ = await self._raw_api.listing_search(query=query)
         return [
-            models.Property.model_validate(property)
+            models.ListingProperty.model_validate(property)
             for property in search_results["properties"]
         ]
 
-    def map_search(
+    async def map_search(
         self,
         query: SearchQuery,
-    ) -> tuple[list[models.PropertyLocation], int]:
-        """Search for properties using the provided configuration.
+    ) -> tuple[list[models.MapProperty], int]:
+        """Search for properties using the map search endpoint.
 
         Args:
             query (SearchQuery): Search configuration parameters
 
         Returns:
-            list[models.PropertyLocation]: List of properties matching the search criteria
+            list[models.MapProperty]: List of properties matching the search criteria
                 of up to a max length of 499.
-            int: Number of properties matching the search criteria.
+            int: Total number of properties matching the search criteria.
         """
-        query = query.model_copy(update={"view_type": "MAP"})
-        location_results = self._raw_api.search(query=query)
+        location_results = await self._raw_api.map_search(query=query)
+        features = location_results["geoJsonProperties"]["features"]
         return [
-            models.PropertyLocation.model_validate(property)
-            for property in location_results["properties"]
+            models.MapProperty.model_validate(feature["properties"])
+            for feature in features
         ], int(location_results["resultCount"].replace(",", ""))
 
-    def search_by_ids(
+    async def search_incremental(
         self,
-        ids: Iterable[int],
-        channel: Literal["RENT", "BUY"],
-    ) -> list[models.Property]:
-        "Note that only 25 ids can be passed at a time."
-        search_results = self._raw_api.by_ids(ids=ids, channel=channel)
-        return [
-            models.Property.model_validate(property)
-            for property in search_results["properties"]
+        query: SearchQuery,
+        seen_ids: frozenset[int],
+    ) -> tuple[list[models.MapProperty], int, bool]:
+        """Paginated listing search with incremental early-exit.
+
+        Fetches listing results sorted by ``query.sort_type`` (use
+        :attr:`SortType.MOST_RECENT` to get newest listings first) and stops
+        pagination as soon as a full page consists entirely of IDs already
+        present in ``seen_ids``.  Results from pages fetched *before* the
+        stopping point are still returned.
+
+        Validates each result as :class:`~rightmove.models.ListingProperty` (the
+        correct type for this endpoint) then constructs a
+        :class:`~rightmove.models.MapProperty` from the shared base fields, so
+        that no downstream type changes are required.
+
+        Args:
+            query: Search parameters.  Set ``sort_type=SortType.MOST_RECENT``
+                so that new listings appear on the first pages.
+            seen_ids: Set of property IDs observed in previous runs.
+
+        Returns:
+            A ``(properties, total_count, stopped_early)`` tuple.
+            ``total_count`` is the total number of results reported by the API
+            (useful for deciding whether to subdivide a search polygon).
+            ``stopped_early`` is ``True`` when an all-seen page was encountered
+            before all results were fetched.
+        """
+        search_results, stopped_early = await self._raw_api.listing_search(
+            query=query, seen_ids=seen_ids
+        )
+        total_count = int(search_results["resultCount"].replace(",", ""))
+        map_fields = set(models.MapProperty.model_fields)
+        properties = [
+            models.MapProperty.model_construct(**{
+                k: getattr(listing, k) for k in map_fields
+            })
+            for listing in (
+                models.ListingProperty.model_validate(prop)
+                for prop in search_results["properties"]
+            )
         ]
+        return properties, total_count, stopped_early
+
+    async def get_property_details(
+        self,
+        property_url: str,
+    ) -> models.PropertyDetails:
+        """Fetch and parse the details page for a property.
+
+        Args:
+            property_url: The property URL path (e.g. ``MapProperty.property_url``).
+
+        Returns:
+            A ``PropertyDetails`` instance parsed from the page.
+        """
+        html = await self._raw_api.property_details(property_url)
+        return parse_property_details(html)
 
 
 def property_url(property_url: str) -> str:
@@ -228,7 +272,12 @@ class _RawRightmove:
     LOS_LIMIT = 20
     "The maximum search results the lookup service will return."
 
-    def lookup(self, query: str, limit: Optional[int] = None) -> dict[str, Any]:
+    _HEADERS: ClassVar[dict[str, str]] = {
+        "User-Agent": "IAmLookingToRent/0.0.0",
+        "Accept": "*/*",
+    }
+
+    async def lookup(self, query: str, limit: int | None = None) -> dict[str, Any]:
         """Get the location IDs related to a search query.
 
         Args:
@@ -238,161 +287,177 @@ class _RawRightmove:
         Returns:
             dict[str, Any]: Matches
         """
-        connection = http.client.HTTPSConnection(self.LOS_HOST, port=443)
-        try:
-            return self._request(
-                connection,
-                "GET",
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.LOS_HOST}", timeout=30.0
+        ) as client:
+            response = await client.get(
                 "/typeahead",
-                {
+                params={
                     "query": query,
                     "limit": limit or self.LOS_LIMIT,
                     "exclude": "",
                 },
+                headers=self._HEADERS,
             )
-        finally:
-            connection.close()
+            response.raise_for_status()
+            return response.json()
 
-    def search(
+    async def listing_search(
+        self,
+        query: SearchQuery,
+        seen_ids: frozenset[int] | None = None,
+    ) -> tuple[dict[str, Any], bool]:
+        """Paginate the listing search endpoint, optionally stopping early.
+
+        Args:
+            query: Search parameters.
+            seen_ids: If provided, pagination stops as soon as a full page
+                contains only IDs already in this set (all properties on the
+                page have been seen before).  The properties fetched *before*
+                the stopping page are still returned.
+
+        Returns:
+            A ``(response_dict, stopped_early)`` tuple.  ``stopped_early`` is
+            ``True`` when pagination was halted because a page was fully
+            covered by ``seen_ids``.
+        """
+        params = self._get_listing_params(query)
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.BASE_HOST}", timeout=30.0
+        ) as client:
+            response = await client.get(
+                "/api/property-search/listing/search",
+                params=params,
+                headers=self._HEADERS,
+            )
+            response.raise_for_status()
+            if not response.content or not response.text.strip():
+                return {"properties": [], "resultCount": "0"}, False
+            try:
+                result = response.json()
+            except Exception:
+                logger.error(
+                    "Failed to decode listing search JSON response. status=%s content_length=%d content=%r",
+                    response.status_code,
+                    len(response.content),
+                    response.content[:500],
+                )
+                raise
+
+            full_response = copy.deepcopy(result)
+
+            if seen_ids is not None:
+                first_ids = {p["id"] for p in full_response["properties"]}
+                if first_ids and first_ids.issubset(seen_ids):
+                    return full_response, True
+
+            while len(full_response["properties"]) < min(
+                int(result["resultCount"].replace(",", "")), SEARCH_LIST_MAX_RESULTS
+            ):
+                params = copy.deepcopy(params)
+                params["index"] = int(result["pagination"]["next"])
+                response = await client.get(
+                    "/api/property-search/listing/search",
+                    params=params,
+                    headers=self._HEADERS,
+                )
+                response.raise_for_status()
+                result = response.json()
+                if seen_ids is not None:
+                    page_ids = {p["id"] for p in result["properties"]}
+                    if page_ids and page_ids.issubset(seen_ids):
+                        return full_response, True
+                full_response["properties"].extend(result["properties"])
+            return full_response, False
+
+    async def property_details(self, property_url: str) -> str:
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.BASE_HOST}", timeout=60.0
+        ) as client:
+            response = await client.get(property_url, headers=self._HEADERS)
+            response.raise_for_status()
+            return response.text
+
+    async def map_search(
         self,
         query: SearchQuery,
     ) -> dict[str, Any]:
-        params = self._get_search_params(query)
-        return self._search(params)
-
-    def by_ids(
-        self,
-        ids: Iterable[int],
-        channel: Literal["RENT", "BUY"],
-    ) -> dict[str, Any]:
-        params = {
-            "channel": channel,
-            "propertyIds": ",".join(map(str, ids)),
-            "viewType": "MAP",
-        }
-        connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
-        try:
-            return self._request(
-                connection,
-                "GET",
-                "/api/_searchByIds",
-                params,
+        params = self._get_map_params(query)
+        async with httpx.AsyncClient(
+            base_url=f"https://{self.BASE_HOST}", timeout=30.0
+        ) as client:
+            response = await client.get(
+                "/api/property-search/map/search",
+                params=params,
+                headers=self._HEADERS,
             )
-        finally:
-            connection.close()
+            response.raise_for_status()
+            if not response.content or not response.text.strip():
+                return {"geoJsonProperties": {"features": []}, "resultCount": "0"}
+            try:
+                result = response.json()
+            except Exception:
+                logger.error(
+                    "Failed to decode map search JSON response. status=%s content_length=%d content=%r",
+                    response.status_code,
+                    len(response.content),
+                    response.content[:500],
+                )
+                raise
+            return result
 
     def property_url(self, property_url: str) -> str:
         return f"https://{self.BASE_HOST}{property_url}"
 
-    def _get_search_params(self, query: SearchQuery) -> dict[str, Any]:
-        params = {
+    def _get_common_params(self, query: SearchQuery) -> dict[str, Any]:
+        params: dict[str, Any] = {
             "locationIdentifier": query.location_identifier,
             "numberOfPropertiesPerPage": query.number_of_properties_per_page,
             "radius": query.radius,
             "sortType": query.sort_type.value,
-            "includeLetAgreed": query.include_let_agreed,
-            "viewType": query.view_type,
             "channel": query.channel,
-            "areaSizeUnit": query.area_size_unit,
-            "currencyCode": query.currency_code,
-            "isFetching": query.is_fetching,
+            "transactionType": query.channel,
         }
-        if query.min_price:
-            params["minPrice"] = query.min_price
-        if query.max_price:
-            params["maxPrice"] = query.max_price
         if query.dont_show:
-            params["dontShow"] = ",".join(
-                dont_show.value for dont_show in query.dont_show
-            )
-        if query.furnish_types:
-            params["furnishTypes"] = ",".join(
-                furnish_type.value for furnish_type in query.furnish_types
-            )
+            params["dontShow"] = ",".join(d.value for d in query.dont_show)
         if query.must_have:
-            params["mustHave"] = ",".join(
-                must_have.value for must_have in query.must_have
-            )
+            params["mustHave"] = ",".join(m.value for m in query.must_have)
         if query.property_types:
-            params["propertyTypes"] = ",".join(
-                property_type.value for property_type in query.property_types
-            )
-        if query.include_let_agreed:
-            params["_includeLetAgreed"] = "on"
+            params["propertyTypes"] = ",".join(p.value for p in query.property_types)
         if query.max_days_since_added is not None:
             params["maxDaysSinceAdded"] = query.max_days_since_added
         if query.min_bedrooms:
             params["minBedrooms"] = query.min_bedrooms
         if query.max_bedrooms:
             params["maxBedrooms"] = query.max_bedrooms
+        return params
+
+    def _get_listing_params(self, query: SearchQuery) -> dict[str, Any]:
+        params = self._get_common_params(query)
+        params.update({
+            "includeLetAgreed": query.include_let_agreed,
+            "areaSizeUnit": query.area_size_unit,
+            "currencyCode": query.currency_code,
+            "isFetching": query.is_fetching,
+        })
+        if query.min_price:
+            params["minPrice"] = query.min_price
+        if query.max_price:
+            params["maxPrice"] = query.max_price
+        if query.furnish_types:
+            params["furnishTypes"] = ",".join(f.value for f in query.furnish_types)
+        if query.include_let_agreed:
+            params["_includeLetAgreed"] = "on"
         if query.min_bathrooms:
             params["minBathrooms"] = query.min_bathrooms
         if query.max_bathrooms:
             params["maxBathrooms"] = query.max_bathrooms
         return params
 
-    def _search(self, params: dict[str, Any]) -> dict[str, Any]:
-        connection = http.client.HTTPSConnection(self.BASE_HOST, port=443)
-        try:
-            endpoint_url = {
-                "LIST": "/api/_search",
-                "MAP": "/api/_mapSearch",
-            }[params["viewType"]]
-            response = self._request(
-                connection,
-                "GET",
-                endpoint_url,
-                params,
-            )
-            # MAP doesn't support pagination, so you'll
-            #  only get the first page of results.
-            if params["viewType"] == "MAP":
-                return response
-            full_response = copy.deepcopy(response)
-            while len(full_response["properties"]) < min(
-                int(response["resultCount"].replace(",", "")), SEARCH_LIST_MAX_RESULTS
-            ):
-                params = copy.deepcopy(params)
-                params["index"] = int(response["pagination"]["next"])
-                response = self._request(
-                    connection,
-                    "GET",
-                    endpoint_url,
-                    params,
-                )
-                full_response["properties"].extend(response["properties"])
-            return full_response
-        finally:
-            connection.close()
-
-    def _request(
-        self,
-        connection: http.client.HTTPSConnection,
-        method: Literal["GET"],
-        url: str,
-        parameters: dict[str, Any],
-    ) -> Any:
-        query_string = urllib.parse.urlencode(parameters, doseq=True)
-        urlparse = urllib.parse.urlparse(url)
-        urlparse = urlparse._replace(query=query_string)
-        url = urllib.parse.urlunparse(urlparse)
-        connection.request(
-            method,
-            url,
-            headers={
-                "User-Agent": "IAmLookingToRent/0.0.0",
-                "Accept-Encoding": "gzip",
-                "Accept": "*/*",
-                "Connection": "keep-alive",
-            },
-        )
-        http_response = connection.getresponse()
-        if http_response.status != http.HTTPStatus.OK:
-            raise HTTPError(
-                f"HTTP error {http_response.status}: {http_response.reason}"
-            )
-        raw_response = http_response.read()
-        if http_response.getheader("Content-Encoding") == "gzip":
-            raw_response = gzip.decompress(raw_response)
-        response = json.loads(raw_response)
-        return response
+    def _get_map_params(self, query: SearchQuery) -> dict[str, Any]:
+        params = self._get_common_params(query)
+        if query.min_price:
+            params["minPrice"] = query.min_price
+        if query.max_price:
+            params["maxPrice"] = query.max_price
+        return params

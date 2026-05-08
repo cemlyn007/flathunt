@@ -4,7 +4,55 @@ version: '3'
 
 
 tasks:
+  test:
+    cmds:
+      - uv run pytest
+
+  lint:
+    cmds:
+      - uv run ruff check --fix
+
+  format:
+    cmds:
+      - uv run ruff format
+
+  type-check:
+    cmds:
+      - uvx ty check
+
+  check-dead-code:
+    cmds:
+      - uv run vulture src 2>&1 | grep "unused \(function\|class\)" || echo "No unused functions or classes found"
+
+  ci:
+    cmds:
+      - task: lint
+      - task: format
+      - task: type-check
+      - task: test
+
   uv-sync:
     cmds:
-      - uv sync --all-groups --all-extras
-      - uv pip install -e .
+      - uv venv --python 3.14t --allow-existing .venvt
+      - uv venv --python 3.13 --allow-existing .venv
+      - UV_PROJECT_ENVIRONMENT=.venvt uv sync --all-groups --all-extras
+      - UV_PROJECT_ENVIRONMENT=.venvt uv pip install -e .
+      - UV_PROJECT_ENVIRONMENT=.venv uv sync --all-groups --all-extras
+      - UV_PROJECT_ENVIRONMENT=.venv uv pip install -e .
+
+  dagster:
+    cmds:
+      - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run --python .venv/bin/python dagster dev --host 0.0.0.0
+
+  streamlit:
+    dotenv: ['.env']
+    cmds:
+      - UV_PROJECT_ENVIRONMENT=.venv PYTHON_GIL=0 uv run --python .venvt/bin/python streamlit run src/flathunt/scripts/flathunter.py --server.address ${FLATHUNT__STREAMLIT_HOST} --server.port ${FLATHUNT__STREAMLIT_PORT}
+
+  docker-up:
+    cmds:
+      - docker compose up -d
+
+  docker-down:
+    cmds:
+      - docker compose down
