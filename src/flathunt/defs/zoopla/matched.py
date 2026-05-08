@@ -54,9 +54,17 @@ def _to_final_property(
     )
 
 
+class Config(dg.Config):
+    min_budget: float
+    max_budget: float
+    has_images: bool
+    min_square_meters: float
+
+
 @dg.asset(group_name="zoopla")
 def zoopla_matched_properties(
     context: dg.AssetExecutionContext,
+    config: Config,
     tfl_resource: TflResource,
     queries: QueriesResource,
     cache: CacheResource,
@@ -65,11 +73,64 @@ def zoopla_matched_properties(
 ) -> list[FinalProperty]:
     if not zoopla_enriched_properties:
         context.log.info("No enriched Zoopla properties; returning empty list.")
+        context.add_output_metadata({"total_count": 0, "matched_count": 0})
         return []
 
-    # Step 1: isochrone filter
-    isochrone_passed: list[ZooplaListingDetail] = []
+    total_enriched = len(zoopla_enriched_properties)
+
+    # Filter 1: price
+    price_passed: list[ZooplaListingDetail] = []
     for detail in zoopla_enriched_properties:
+        if detail.price_gbp is None:
+            context.log.info("Listing %s has no price; excluding.", detail.listing_id)
+            continue
+        if config.min_budget <= detail.price_gbp <= config.max_budget:
+            price_passed.append(detail)
+        else:
+            context.log.info(
+                "Listing %s price £%d outside [%d, %d]; excluding.",
+                detail.listing_id,
+                detail.price_gbp,
+                config.min_budget,
+                config.max_budget,
+            )
+    after_price = len(price_passed)
+
+    # Filter 2: photos
+    photo_passed: list[ZooplaListingDetail] = []
+    for detail in price_passed:
+        if config.has_images and len(detail.image_urls) <= 2:
+            context.log.info(
+                "Listing %s has insufficient photos (count=%d); excluding.",
+                detail.listing_id,
+                len(detail.image_urls),
+            )
+            continue
+        photo_passed.append(detail)
+    after_photos = len(photo_passed)
+
+    # Filter 3: floor area (skipped when floor_area_sqft is unknown — consistent with
+    # search pipeline behaviour for properties with unknown size)
+    size_passed: list[ZooplaListingDetail] = []
+    for detail in photo_passed:
+        if detail.floor_area_sqft is None:
+            size_passed.append(detail)
+            continue
+        sqm = detail.floor_area_sqft * _SQFT_TO_SQM
+        if sqm >= config.min_square_meters:
+            size_passed.append(detail)
+        else:
+            context.log.info(
+                "Listing %s floor area %.1f sqm below minimum %.1f; excluding.",
+                detail.listing_id,
+                sqm,
+                config.min_square_meters,
+            )
+    after_size = len(size_passed)
+
+    # Filter 4: isochrone
+    isochrone_passed: list[ZooplaListingDetail] = []
+    for detail in size_passed:
         if detail.latitude is None or detail.longitude is None:
             context.log.info(
                 "Listing %s has no coordinates; skipping isochrone check.",
@@ -89,14 +150,26 @@ def zoopla_matched_properties(
                 detail.latitude,
                 detail.longitude,
             )
+    after_isochrone = len(isochrone_passed)
 
     context.log.info(
-        "%d / %d listing(s) inside isochrone.",
-        len(isochrone_passed),
-        len(zoopla_enriched_properties),
+        "Filters: total=%d price=%d photos=%d size=%d isochrone=%d",
+        total_enriched,
+        after_price,
+        after_photos,
+        after_size,
+        after_isochrone,
     )
 
     if not isochrone_passed:
+        context.add_output_metadata({
+            "total_count": total_enriched,
+            "after_price": after_price,
+            "after_photos": after_photos,
+            "after_size": after_size,
+            "after_isochrone": after_isochrone,
+            "matched_count": 0,
+        })
         return []
 
     # Step 2: TfL commute filter
@@ -159,8 +232,11 @@ def zoopla_matched_properties(
         len(isochrone_passed),
     )
     context.add_output_metadata({
-        "enriched_count": len(zoopla_enriched_properties),
-        "isochrone_passed_count": len(isochrone_passed),
+        "total_count": total_enriched,
+        "after_price": after_price,
+        "after_photos": after_photos,
+        "after_size": after_size,
+        "after_isochrone": after_isochrone,
         "matched_count": len(matched),
     })
     return matched
