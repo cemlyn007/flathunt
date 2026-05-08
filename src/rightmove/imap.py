@@ -7,11 +7,11 @@ from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["ZooplaImapChecker", "ZooplaRawEmail"]
+__all__ = ["RightmoveImapChecker", "RightmoveRawEmail"]
 
 
 @dataclass
-class ZooplaRawEmail:
+class RightmoveRawEmail:
     uid: str
     message_id: str
     subject: str
@@ -19,7 +19,7 @@ class ZooplaRawEmail:
     raw_bytes: bytes
 
 
-class ZooplaImapChecker:
+class RightmoveImapChecker:
     def __init__(
         self, host: str, port: int, username: str, password: str, mailbox: str = "INBOX"
     ) -> None:
@@ -30,7 +30,7 @@ class ZooplaImapChecker:
         self._mailbox = mailbox
         self._connection: imaplib.IMAP4_SSL | None = None
 
-    def __enter__(self) -> "ZooplaImapChecker":
+    def __enter__(self) -> "RightmoveImapChecker":
         self._connection = imaplib.IMAP4_SSL(self._host, self._port)
         self._connection.login(self._username, self._password)
         self._connection.select(f'"{self._mailbox}"', readonly=False)
@@ -51,9 +51,9 @@ class ZooplaImapChecker:
             raise RuntimeError("Not connected; use as a context manager")
         return self._connection
 
-    def fetch_unseen_alerts(self) -> list[ZooplaRawEmail]:
+    def fetch_unseen_alerts(self) -> list[RightmoveRawEmail]:
         conn = self._require_connection()
-        status, data = conn.uid("SEARCH", "UNSEEN", 'FROM "propertyalerts"')
+        status, data = conn.uid("SEARCH", "UNSEEN", 'FROM "alert.rightmove.co.uk"')
         if status != "OK":
             raise RuntimeError(f"IMAP SEARCH failed: {status}")
 
@@ -66,7 +66,7 @@ class ZooplaImapChecker:
         if status != "OK":
             raise RuntimeError(f"IMAP FETCH failed: {status}")
 
-        results: list[ZooplaRawEmail] = []
+        results: list[RightmoveRawEmail] = []
         for i in range(0, len(fetch_data), 2):
             response_part = fetch_data[i]
             if not isinstance(response_part, tuple):
@@ -79,7 +79,7 @@ class ZooplaImapChecker:
             date_str = msg.get("Date", "")
             received_at = _parse_date(date_str)
             results.append(
-                ZooplaRawEmail(
+                RightmoveRawEmail(
                     uid=uid_str,
                     message_id=message_id,
                     subject=subject,
@@ -90,7 +90,7 @@ class ZooplaImapChecker:
 
         return results
 
-    def fetch_by_message_id(self, message_id: str) -> ZooplaRawEmail:
+    def fetch_by_message_id(self, message_id: str) -> RightmoveRawEmail:
         conn = self._require_connection()
         status, data = conn.uid("SEARCH", "HEADER", "Message-ID", message_id)
         if status != "OK":
@@ -110,7 +110,7 @@ class ZooplaImapChecker:
         subject = msg.get("Subject", "")
         date_str = msg.get("Date", "")
         received_at = _parse_date(date_str)
-        return ZooplaRawEmail(
+        return RightmoveRawEmail(
             uid=uid_str,
             message_id=message_id,
             subject=subject,

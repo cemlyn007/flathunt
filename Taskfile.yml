@@ -39,10 +39,20 @@ tasks:
       - UV_PROJECT_ENVIRONMENT=.venvt uv pip install -e .
       - UV_PROJECT_ENVIRONMENT=.venv uv sync --all-groups --all-extras
       - UV_PROJECT_ENVIRONMENT=.venv uv pip install -e .
+
   dagster:
     cmds:
       - UV_PROJECT_ENVIRONMENT=.venv DAGSTER_HOME=$(pwd)/.dagster uv run --python .venv/bin/python dagster dev --host 0.0.0.0
+
   streamlit:
     dotenv: ['.env']
     cmds:
       - UV_PROJECT_ENVIRONMENT=.venv PYTHON_GIL=0 uv run --python .venvt/bin/python streamlit run src/flathunt/scripts/flathunter.py --server.address ${FLATHUNT__STREAMLIT_HOST} --server.port ${FLATHUNT__STREAMLIT_PORT}
+
+  docker-up:
+    cmds:
+      - docker compose up -d
+
+  docker-down:
+    cmds:
+      - docker compose down

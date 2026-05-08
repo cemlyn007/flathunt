@@ -1,0 +1,40 @@
+services:
+  dagster:
+    build: .
+    image: flathunt:local
+    command: dagster dev --host 0.0.0.0 --port 3000
+    ports:
+      - "3000:3000"
+    environment:
+      DAGSTER_HOME: /app/.dagster
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./cache:/app/cache
+      - ./.dagster:/app/.dagster
+      - ./greater-london-251126-free:/app/greater-london-251126-free:ro
+      - ./resources.yaml:/app/resources.yaml:ro
+      - ./flathunt_run_config.yaml:/app/flathunt_run_config.yaml:ro
+      - ./rightmove_run_config.yaml:/app/rightmove_run_config.yaml:ro
+      - ./rightmove_search_run_config.yaml:/app/rightmove_search_run_config.yaml:ro
+      - ./zoopla_run_config.yaml:/app/zoopla_run_config.yaml:ro
+    restart: unless-stopped
+
+  streamlit:
+    image: flathunt:local
+    depends_on:
+      - dagster
+    command: >
+      streamlit run src/flathunt/scripts/flathunter.py
+        --server.address 0.0.0.0
+        --server.port 8501
+    ports:
+      - "8502:8501"
+    env_file:
+      - .env
+    volumes:
+      - ./src:/app/src
+      - ./cache:/app/cache:ro
+      - ./greater-london-251126-free:/app/greater-london-251126-free:ro
+    restart: unless-stopped

@@ -16,7 +16,7 @@ _PROPERTY_DETAILS_CACHE_TTL = 7 * 24 * 3600  # 7 days
 _DETAILS_CONCURRENCY = 3
 
 
-@dg.asset(group_name="rightmove")
+@dg.asset(group_name="rightmove_search")
 def rightmove_property_details(
     context: dg.AssetExecutionContext,
     cache: CacheResource,

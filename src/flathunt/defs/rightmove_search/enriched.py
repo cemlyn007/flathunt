@@ -11,6 +11,18 @@ from anthropic.types.messages.batch_create_params import Request
 import rightmove.models
 from flathunt.cache import ModelCache
 from flathunt.defs.resources import CacheResource
+from flathunt.floor_plan_batch import (
+    extract_json_from_response as _extract_json_from_response,
+)
+from flathunt.floor_plan_batch import (
+    parse_floor_plan_result,
+)
+from flathunt.floor_plan_batch import (
+    poll_batch_completion as _poll_batch_completion,
+)
+from flathunt.floor_plan_batch import (
+    submit_batch as _submit_batch,
+)
 from flathunt.models import FinalProperty, MatchedProperty, parse_display_size_sqm
 from rightmove.anthropic_config import get_client
 from rightmove.description_extractor import (
@@ -25,82 +37,6 @@ _FLOOR_PLAN_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _LEASEHOLD_CACHE_TTL = 30 * 24 * 3600  # 30 days
 _LLM_CONCURRENCY = 1
 _LLM_CALL_INTERVAL = 0.5  # seconds between LLM calls (Anthropic handles rate limits)
-_BATCH_POLL_INITIAL_DELAY = 30  # seconds
-_BATCH_POLL_MAX_DELAY = 180  # seconds (5 minutes)
-_BATCH_POLL_BACKOFF = 1.5  # multiplier for exponential backoff
-
-
-def _calculate_backoff_delay(poll_count: int) -> int:
-    """Calculate exponential backoff delay in seconds.
-
-    Starts at 30s, increases by 1.5x each iteration, caps at 180s (5 min).
-    """
-    delay = int(_BATCH_POLL_INITIAL_DELAY * (_BATCH_POLL_BACKOFF**poll_count))
-    return min(delay, _BATCH_POLL_MAX_DELAY)
-
-
-def _submit_batch(
-    requests: list[Request],
-    context: dg.AssetExecutionContext,
-) -> str:
-    """Submit batch to Anthropic and return batch_id."""
-    client = get_client()
-    batch = client.messages.batches.create(requests=requests)
-    context.log.info(
-        "Submitted batch %s with %d requests. Will expire at %s",
-        batch.id,
-        len(requests),
-        batch.expires_at,
-    )
-    return batch.id
-
-
-async def _poll_batch_completion(
-    batch_id: str,
-    context: dg.AssetExecutionContext,
-) -> None:
-    """Poll batch until completion, using exponential backoff."""
-    client = get_client()
-    poll_count = 0
-
-    while True:
-        batch = client.messages.batches.retrieve(batch_id)
-
-        if batch.processing_status == "ended":
-            context.log.info(
-                "Batch %s completed. Results: succeeded=%d, errored=%d, "
-                "expired=%d, canceled=%d",
-                batch_id,
-                batch.request_counts.succeeded,
-                batch.request_counts.errored,
-                batch.request_counts.expired,
-                batch.request_counts.canceled,
-            )
-            break
-
-        delay = _calculate_backoff_delay(poll_count)
-        context.log.info(
-            "Batch %s still processing (%d remaining)... waiting %ds",
-            batch_id,
-            batch.request_counts.processing,
-            delay,
-        )
-        await asyncio.sleep(delay)
-        poll_count += 1
-
-
-def _extract_json_from_response(text: str) -> str:
-    """Extract JSON from response, handling markdown code blocks."""
-    text = text.strip()
-    # Remove markdown code block markers (```json ... ```)
-    if text.startswith("```"):
-        # Remove opening ``` and optional language identifier
-        lines = text.split("\n", 1)
-        if len(lines) > 1:
-            text = lines[1]
-        # Remove closing ```
-        text = text.removesuffix("```")
-    return text.strip()
 
 
 def _process_batch_results(  # type: ignore[no-untyped-def]
@@ -150,14 +86,9 @@ def _process_batch_results(  # type: ignore[no-untyped-def]
                 json_content = _extract_json_from_response(message_content)
 
                 if extraction_type == "floor_plan":
-                    extraction = pydantic.TypeAdapter(
-                        FloorPlanExtraction | None
-                    ).validate_json(json_content)
-                    # Treat all-None extraction (is_empty()) as equivalent to None
-                    if extraction and not extraction.is_empty():
-                        total_sqm = extraction.get_total_sqm()
-                        breakdown_csv = extraction.get_breakdown_csv()
-                        floor_plan_updates[prop_id] = (total_sqm, breakdown_csv)
+                    total_sqm, breakdown_csv = parse_floor_plan_result(json_content)
+                    floor_plan_updates[prop_id] = (total_sqm, breakdown_csv)
+                    if total_sqm is not None or breakdown_csv is not None:
                         logger.info(
                             "Floor plan %s for property %s: total=%s, breakdown=%s",
                             meta["image_idx"],
@@ -166,7 +97,6 @@ def _process_batch_results(  # type: ignore[no-untyped-def]
                             breakdown_csv,
                         )
                     else:
-                        floor_plan_updates[prop_id] = (None, None)
                         logger.info(
                             "Floor plan %s for property %s returned no extraction",
                             meta["image_idx"],
@@ -456,7 +386,7 @@ class Config(dg.Config):
     min_square_meters: float = 0.0
 
 
-@dg.asset(group_name="rightmove", io_manager_key="fs_io_manager")
+@dg.asset(group_name="rightmove_search", io_manager_key="fs_io_manager")
 def enriched_properties(
     context: dg.AssetExecutionContext,
     config: Config,

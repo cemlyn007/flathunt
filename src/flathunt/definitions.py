@@ -3,19 +3,23 @@ from collections.abc import Iterator
 
 import dagster as dg
 
-from flathunt.defs import all_assets, all_jobs, all_resources, all_sensors
-from flathunt.defs.roads import roads
-from flathunt.defs.roads_and_transport import roads_and_transport
-from flathunt.defs.transport import transport
+from flathunt.defs import REPO_ROOT, all_assets, all_jobs, all_resources, all_sensors
+from flathunt.defs.network.roads import roads
+from flathunt.defs.network.roads_and_transport import roads_and_transport
+from flathunt.defs.network.transport import transport
 
 _DAILY_CRON = os.environ.get("FLATHUNT__DAILY_CRON", "0 22 * * *")
 
 flathunt_job = dg.define_asset_job(
     name="flathunt",
     selection=dg.AssetSelection.groups(
-        "rightmove", "notification", "zoopla", "network_data"
+        "rightmove_search",
+        "rightmove_email",
+        "notification",
+        "zoopla",
+        "network_data",
     ),
-    config=dg.config_from_files(["flathunt_run_config.yaml"]),
+    config=dg.config_from_files([str(REPO_ROOT / "flathunt_run_config.yaml")]),
 )
 
 flathunt_schedule = dg.ScheduleDefinition(

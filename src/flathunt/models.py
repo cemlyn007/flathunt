@@ -101,5 +101,9 @@ class FinalProperty(pydantic.BaseModel):
     extracted_tenure_type: str | None = None
     extracted_years_remaining_on_lease: int | None = None
 
+    # Location (populated for email-pipeline properties; None for search-pipeline)
+    latitude: float | None = None
+    longitude: float | None = None
+
     # Source identifier for notification DB namespacing
     source: str = "rightmove"

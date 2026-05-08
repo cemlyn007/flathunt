@@ -54,6 +54,7 @@ class ZooplaListingDetail(BaseModel):
     agent_name: str | None
     agent_logo_url: str | None
     image_urls: list[str]
+    floorplan_urls: list[str] = []
     date_posted: datetime | None
     latitude: float | None
     longitude: float | None
