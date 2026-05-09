@@ -36,9 +36,11 @@ from flathunt.defs.rightmove_search import (
     rightmove_property_details,
 )
 from flathunt.defs.zoopla import (
+    zoopla_candidate_properties,
     zoopla_email_sensor,
     zoopla_enriched_properties,
     zoopla_extracted_floor_plans,
+    zoopla_matched_ids,
     zoopla_matched_properties,
     zoopla_notified_properties,
     zoopla_property_alerts,
@@ -60,6 +62,8 @@ all_assets = [
     notified_properties,
     zoopla_property_alerts,
     zoopla_enriched_properties,
+    zoopla_candidate_properties,
+    zoopla_matched_ids,
     zoopla_extracted_floor_plans,
     zoopla_matched_properties,
     zoopla_notified_properties,
@@ -92,6 +96,8 @@ zoopla_job = dg.define_asset_job(
     selection=dg.AssetSelection.assets(
         "zoopla_property_alerts",
         "zoopla_enriched_properties",
+        "zoopla_candidate_properties",
+        "zoopla_matched_ids",
         "zoopla_extracted_floor_plans",
         "zoopla_matched_properties",
         "zoopla_notified_properties",

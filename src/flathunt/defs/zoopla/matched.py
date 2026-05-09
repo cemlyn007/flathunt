@@ -1,20 +1,8 @@
-import asyncio
 import logging
-from pathlib import Path
 
 import dagster as dg
-from shapely.geometry import Point
-from shapely.geometry.polygon import Polygon
 
-from flathunt.cache import ModelCache
-from flathunt.coords import CommuteDest
-from flathunt.defs.resources import CacheResource, QueriesResource, TflResource
-from flathunt.geometry import wgs84_to_bng
-from flathunt.models import FinalProperty
-from flathunt.property_search import (
-    DEFAULT_JOURNEY_CACHE_TTL,
-    get_properties_journey_duration_cached,
-)
+from flathunt.models import FinalProperty, MatchedProperty
 from rightmove.floor_plan import _SQFT_TO_SQM
 from rightmove.models import Price
 from zoopla.models import ZooplaListingDetail
@@ -108,9 +96,6 @@ def _apply_size_filter(
 
 
 class Config(dg.Config):
-    min_budget: float
-    max_budget: float
-    has_images: bool
     min_square_meters: float
 
 
@@ -118,177 +103,69 @@ class Config(dg.Config):
 def zoopla_matched_properties(
     context: dg.AssetExecutionContext,
     config: Config,
-    tfl_resource: TflResource,
-    queries: QueriesResource,
-    cache: CacheResource,
-    zoopla_enriched_properties: list[ZooplaListingDetail],
+    zoopla_matched_ids: list[MatchedProperty],
+    zoopla_candidate_properties: list[ZooplaListingDetail],
     zoopla_extracted_floor_plans: dict[str, tuple[float | None, str | None]],
-    isochrone_intersection: list[Polygon],
 ) -> list[FinalProperty]:
-    if not zoopla_enriched_properties:
-        context.log.info("No enriched Zoopla properties; returning empty list.")
+    """Assemble final Zoopla properties after applying the size filter.
+
+    All cheap filters (price, photos, isochrone) and the commute filter have
+    already been applied upstream.  This asset applies a final size check that
+    can fall back to vision-extracted floor areas, then builds the
+    :class:`FinalProperty` output list.  Mirrors the final filtering step in
+    Rightmove's ``enriched_properties`` asset.
+
+    Args:
+        context: Dagster execution context.
+        config: Minimum floor area threshold.
+        zoopla_matched_ids: Listings that passed all upstream filters.
+        zoopla_candidate_properties: Full detail objects for candidate listings.
+        zoopla_extracted_floor_plans: Vision-extracted sizes keyed by listing_id.
+
+    Returns:
+        Final properties ready for notification.
+    """
+    if not zoopla_matched_ids:
+        context.log.info("No matched Zoopla listings; returning empty list.")
         context.add_output_metadata({"total_count": 0, "matched_count": 0})
         return []
 
-    total_enriched = len(zoopla_enriched_properties)
+    detail_by_id = {d.listing_id: d for d in zoopla_candidate_properties}
+    durations_by_id = {
+        str(m.property_id): m.commute_durations for m in zoopla_matched_ids
+    }
 
-    # Filter 1: price
-    price_passed: list[ZooplaListingDetail] = []
-    for detail in zoopla_enriched_properties:
-        if detail.price_gbp is None:
-            context.log.info("Listing %s has no price; excluding.", detail.listing_id)
-            continue
-        if config.min_budget <= detail.price_gbp <= config.max_budget:
-            price_passed.append(detail)
-        else:
-            context.log.info(
-                "Listing %s price £%d outside [%d, %d]; excluding.",
-                detail.listing_id,
-                detail.price_gbp,
-                config.min_budget,
-                config.max_budget,
-            )
-    after_price = len(price_passed)
+    matched_details = [
+        detail_by_id[str(m.property_id)]
+        for m in zoopla_matched_ids
+        if str(m.property_id) in detail_by_id
+    ]
+    total = len(matched_details)
 
-    # Filter 2: photos
-    photo_passed: list[ZooplaListingDetail] = []
-    for detail in price_passed:
-        if config.has_images and len(detail.image_urls) <= 2:
-            context.log.info(
-                "Listing %s has insufficient photos (count=%d); excluding.",
-                detail.listing_id,
-                len(detail.image_urls),
-            )
-            continue
-        photo_passed.append(detail)
-    after_photos = len(photo_passed)
-
-    # Filter 3: floor area — falls back to vision-extracted size when structured
-    # data is absent; unknown-size listings are kept (consistent with prior behaviour).
     size_passed = _apply_size_filter(
-        photo_passed,
+        matched_details,
         zoopla_extracted_floor_plans,
         config.min_square_meters,
         context.log,
     )
-    after_size = len(size_passed)
-
-    # Filter 4: isochrone
-    isochrone_passed: list[ZooplaListingDetail] = []
-    for detail in size_passed:
-        if detail.latitude is None or detail.longitude is None:
-            context.log.info(
-                "Listing %s has no coordinates; skipping isochrone check.",
-                detail.listing_id,
-            )
-            continue
-        easting, northing = wgs84_to_bng(detail.longitude, detail.latitude)
-        pt = Point(easting, northing)
-        if isochrone_intersection and any(
-            poly.contains(pt) for poly in isochrone_intersection
-        ):
-            isochrone_passed.append(detail)
-        else:
-            context.log.info(
-                "Listing %s at (%.4f, %.4f) outside isochrone; skipping.",
-                detail.listing_id,
-                detail.latitude,
-                detail.longitude,
-            )
-    after_isochrone = len(isochrone_passed)
 
     context.log.info(
-        "Filters: total=%d price=%d photos=%d size=%d isochrone=%d",
-        total_enriched,
-        after_price,
-        after_photos,
-        after_size,
-        after_isochrone,
+        "Size filter: total=%d passed=%d",
+        total,
+        len(size_passed),
     )
 
-    if not isochrone_passed:
-        context.add_output_metadata({
-            "total_count": total_enriched,
-            "after_price": after_price,
-            "after_photos": after_photos,
-            "after_size": after_size,
-            "after_isochrone": after_isochrone,
-            "matched_count": 0,
-        })
-        return []
-
-    # Step 2: TfL commute filter
-    dests = [
-        CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration)
-        for q in queries.queries
-    ]
-
-    if not dests:
-        context.log.warning(
-            "No commute destinations configured; keeping all isochrone-passed listings."
+    result = [
+        _to_final_property(
+            detail,
+            durations_by_id.get(detail.listing_id, []),
+            zoopla_extracted_floor_plans,
         )
-        return [
-            _to_final_property(d, [], zoopla_extracted_floor_plans)
-            for d in isochrone_passed
-        ]
-
-    flat_to_froms: list[tuple[float, float, float, float]] = [
-        (detail.longitude, detail.latitude, dest.lon, dest.lat)
-        for detail in isochrone_passed
-        for dest in dests
-        if detail.longitude is not None and detail.latitude is not None
+        for detail in size_passed
     ]
-    total = len(flat_to_froms)
 
-    cache_path = Path(cache.data_dir) / "journey_cache.db"
-    journey_cache: ModelCache[int | None] = ModelCache(
-        int | None, cache_path, ttl=DEFAULT_JOURNEY_CACHE_TTL
-    )
-
-    async def _run_all() -> list[list[int | None]]:
-        raw: list[int | None] = [None] * total
-        received = 0
-        async for idx, duration in get_properties_journey_duration_cached(
-            flat_to_froms, journey_cache, tfl_resource.api_key
-        ):
-            raw[idx] = duration
-            received += 1
-            if received % 5 == 0 or received == total:
-                context.log.info("Journey results: %d / %d.", received, total)
-        n = len(dests)
-        return [raw[i * n : (i + 1) * n] for i in range(len(isochrone_passed))]
-
-    all_durations = asyncio.run(_run_all())
-
-    matched: list[FinalProperty] = []
-    for detail, durations in zip(isochrone_passed, all_durations, strict=False):
-        if all(
-            d is not None and d <= dest.max_duration
-            for d, dest in zip(durations, dests, strict=False)
-        ):
-            matched.append(
-                _to_final_property(
-                    detail, list(durations), zoopla_extracted_floor_plans
-                )
-            )
-        else:
-            context.log.info(
-                "Listing %s failed commute filter (durations=%s).",
-                detail.listing_id,
-                durations,
-            )
-
-    context.log.info(
-        "%d / %d listing(s) passed commute filter.",
-        len(matched),
-        len(isochrone_passed),
-    )
     context.add_output_metadata({
-        "total_count": total_enriched,
-        "after_price": after_price,
-        "after_photos": after_photos,
-        "after_size": after_size,
-        "after_isochrone": after_isochrone,
-        "matched_count": len(matched),
+        "total_count": total,
+        "matched_count": len(result),
     })
-    return matched
+    return result

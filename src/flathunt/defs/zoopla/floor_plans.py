@@ -1,8 +1,9 @@
 """Zoopla floor plan extraction asset.
 
 Extracts floor plan sizes from Zoopla listings using :class:`FloorPlanSizeExtractor`
-and an Anthropic message batch.  Sits between ``zoopla_enriched_properties`` and
-``zoopla_matched_properties`` in the pipeline.
+and an Anthropic message batch.  Sits between ``zoopla_matched_ids`` and
+``zoopla_matched_properties`` in the pipeline, processing only listings that have
+already passed all cheap filters and the TfL commute check.
 
 Three-phase flow:
   1. Collect batch requests — skip cached; skip listings with structured size data or
@@ -29,6 +30,7 @@ from flathunt.floor_plan_batch import (
     poll_batch_completion,
     submit_batch,
 )
+from flathunt.models import MatchedProperty
 from rightmove.anthropic_config import get_client
 from rightmove.floor_plan import FloorPlanExtraction, FloorPlanSizeExtractor
 from zoopla.models import ZooplaListingDetail
@@ -79,23 +81,25 @@ def _aggregate_floor_plan_extractions(
 def zoopla_extracted_floor_plans(
     context: dg.AssetExecutionContext,
     cache: CacheResource,
-    zoopla_enriched_properties: list[ZooplaListingDetail],
+    zoopla_matched_ids: list[MatchedProperty],
+    zoopla_candidate_properties: list[ZooplaListingDetail],
 ) -> dict[str, tuple[float | None, str | None]]:
-    """Extract floor plan sizes from Zoopla listings via Anthropic batch API.
+    """Extract floor plan sizes from matched Zoopla listings via Anthropic batch API.
 
-    For each listing where ``floor_area_sqft`` is absent and ``floorplan_urls``
-    is non-empty, downloads every floor plan image and submits it to an Anthropic
-    message batch for vision extraction.  Results are cached in a 30-day SQLite
-    cache keyed by ``listing_id``.
+    Only processes listings that appear in ``zoopla_matched_ids`` (i.e. those
+    that have already passed all cheap filters and the TfL commute check).
+    Mirrors the scoping applied in the Rightmove ``enriched_properties`` asset.
 
-    Listings already covered by structured metadata (``floor_area_sqft is not
-    None``) or with no floor plan URLs are excluded from the output dict so that
-    Phase D can treat absence as "no extraction needed".
+    For each qualifying listing where ``floor_area_sqft`` is absent and
+    ``floorplan_urls`` is non-empty, downloads every floor plan image and submits
+    it to an Anthropic message batch for vision extraction.  Results are cached
+    in a 30-day SQLite cache keyed by ``listing_id``.
 
     Args:
         context: Dagster execution context.
         cache: Cache resource providing the data directory.
-        zoopla_enriched_properties: Enriched Zoopla listing details.
+        zoopla_matched_ids: Listings that passed all cheap filters and commute check.
+        zoopla_candidate_properties: Full detail objects for candidate listings.
 
     Returns:
         A dict mapping ``listing_id`` → ``(total_sqm, breakdown_csv)`` for
@@ -121,8 +125,17 @@ def zoopla_extracted_floor_plans(
         # Listings for which we submitted at least one batch request
         submitted_listing_ids: set[str] = set()
 
-        for detail in zoopla_enriched_properties:
-            listing_id = detail.listing_id
+        detail_by_id = {d.listing_id: d for d in zoopla_candidate_properties}
+
+        for matched in zoopla_matched_ids:
+            listing_id = str(matched.property_id)
+            detail = detail_by_id.get(listing_id)
+            if detail is None:
+                logger.warning(
+                    "Matched listing %s not found in candidate properties; skipping.",
+                    listing_id,
+                )
+                continue
 
             # Structured size already available — skip silently.
             if detail.floor_area_sqft is not None:
@@ -182,7 +195,11 @@ def zoopla_extracted_floor_plans(
             await poll_batch_completion(batch_id, context)
 
             context.log.info("Phase 2: Processing batch results...")
-            for result in _stream_batch_results(batch_id):
+            loop = asyncio.get_running_loop()
+            batch_results = await loop.run_in_executor(
+                None, lambda: list(_stream_batch_results(batch_id))
+            )
+            for result in batch_results:
                 custom_id = result.custom_id
                 meta = custom_id_to_meta.get(custom_id)
                 if meta is None:

@@ -23,6 +23,7 @@ import pytest
 
 from flathunt.cache import ModelCache
 from flathunt.defs.zoopla.floor_plans import zoopla_extracted_floor_plans
+from flathunt.models import MatchedProperty
 from zoopla.models import ZooplaListingDetail
 
 # ---------------------------------------------------------------------------
@@ -96,8 +97,17 @@ def _run_asset(
     *,
     expect_submit: bool = True,
 ) -> dict[str, tuple[float | None, str | None]]:
-    """Run the asset under full mock control, return its output dict."""
+    """Run the asset under full mock control, return its output dict.
+
+    All listings are treated as matched (passed upstream filters).  Listing IDs
+    must be numeric strings so they round-trip through ``MatchedProperty.property_id``.
+    """
     cache_resource = _make_cache_resource(tmp_path)
+
+    matched_ids = [
+        MatchedProperty(property_id=int(listing.listing_id), commute_durations=[])
+        for listing in listings
+    ]
 
     # Fake HTTP response: returns b"fake-png" for any URL
     mock_http_response = MagicMock()
@@ -143,7 +153,8 @@ def _run_asset(
         result = zoopla_extracted_floor_plans(
             context=context,
             cache=cache_resource,
-            zoopla_enriched_properties=listings,
+            zoopla_matched_ids=matched_ids,
+            zoopla_candidate_properties=listings,
         )
         if not expect_submit:
             mock_submit.assert_not_called()
@@ -159,7 +170,7 @@ class TestSkipsListingsWithKnownFloorArea:
     def test_skips_listings_with_known_floor_area(self, tmp_path: Path) -> None:
         """Listings with floor_area_sqft already set should be excluded entirely."""
         listing = _make_listing(
-            "abc123", floor_area_sqft=637, floorplan_urls=["http://img/1.jpg"]
+            "12345", floor_area_sqft=637, floorplan_urls=["http://img/1.jpg"]
         )
         result = _run_asset(
             [listing], batch_results=[], tmp_path=tmp_path, expect_submit=False
@@ -172,7 +183,7 @@ class TestSkipsListingsWithNoFloorplanUrls:
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Listings with no floorplan_urls should be skipped with a log message."""
-        listing = _make_listing("abc123", floor_area_sqft=None, floorplan_urls=[])
+        listing = _make_listing("12345", floor_area_sqft=None, floorplan_urls=[])
 
         with caplog.at_level(logging.INFO, logger="flathunt.defs.zoopla.floor_plans"):
             result = _run_asset(
@@ -189,18 +200,18 @@ class TestSubmitsBatchForListingsNeedingExtraction:
     def test_submits_batch_and_populates_result(self, tmp_path: Path) -> None:
         """Single listing with one floor plan URL; batch succeeds with total_sqm."""
         listing = _make_listing(
-            "listing1", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
+            "10001", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
         )
         batch_results = [
             _make_batch_result(
-                "fp_listing1_0", json_text='{"total": 59.0, "units": "sq m"}'
+                "fp_10001_0", json_text='{"total": 59.0, "units": "sq m"}'
             )
         ]
 
         result = _run_asset([listing], batch_results, tmp_path=tmp_path)
 
-        assert "listing1" in result
-        total_sqm, breakdown_csv = result["listing1"]
+        assert "10001" in result
+        total_sqm, breakdown_csv = result["10001"]
         assert total_sqm == pytest.approx(59.0)
         assert breakdown_csv is None
 
@@ -210,7 +221,7 @@ class TestSubmitsBatchForListingsNeedingExtraction:
             tmp_path / "zoopla_floor_plan_size_cache.db",
             ttl=None,
         )
-        cached_total, _cached_csv = cache.get("listing1")
+        cached_total, _cached_csv = cache.get("10001")
         assert cached_total == pytest.approx(59.0)
 
 
@@ -223,16 +234,16 @@ class TestUsesCachedValueWithoutResubmitting:
             tmp_path / "zoopla_floor_plan_size_cache.db",
             ttl=30 * 24 * 3600,
         )
-        cache_db.update([("listing1", (80.0, None))])
+        cache_db.update([("10001", (80.0, None))])
 
         listing = _make_listing(
-            "listing1", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
+            "10001", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
         )
         result = _run_asset(
             [listing], batch_results=[], tmp_path=tmp_path, expect_submit=False
         )
 
-        assert result == {"listing1": (80.0, None)}
+        assert result == {"10001": (80.0, None)}
 
 
 class TestAggregatesMultipleFloorPlansPreferencesTotal:
@@ -241,27 +252,27 @@ class TestAggregatesMultipleFloorPlansPreferencesTotal:
     ) -> None:
         """Two URLs: first has breakdown only, second has total — prefer total."""
         listing = _make_listing(
-            "listing1",
+            "10001",
             floor_area_sqft=None,
             floorplan_urls=["http://img/fp0.jpg", "http://img/fp1.jpg"],
         )
         batch_results = [
             # First image: breakdown only (no total)
             _make_batch_result(
-                "fp_listing1_0",
+                "fp_10001_0",
                 json_text='{"breakdown": [30.0, 35.0], "units": "sq m"}',
             ),
             # Second image: total
             _make_batch_result(
-                "fp_listing1_1",
+                "fp_10001_1",
                 json_text='{"total": 65.0, "units": "sq m"}',
             ),
         ]
 
         result = _run_asset([listing], batch_results, tmp_path=tmp_path)
 
-        assert "listing1" in result
-        total_sqm, _ = result["listing1"]
+        assert "10001" in result
+        total_sqm, _ = result["10001"]
         assert total_sqm == pytest.approx(65.0)
 
 
@@ -269,33 +280,33 @@ class TestRecordsNoneWhenBatchReturnsNoExtraction:
     def test_records_none_when_batch_returns_null(self, tmp_path: Path) -> None:
         """Batch returns JSON null → (None, None) stored in output and cache."""
         listing = _make_listing(
-            "listing1", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
+            "10001", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
         )
-        batch_results = [_make_batch_result("fp_listing1_0", json_text="null")]
+        batch_results = [_make_batch_result("fp_10001_0", json_text="null")]
 
         result = _run_asset([listing], batch_results, tmp_path=tmp_path)
 
-        assert result == {"listing1": (None, None)}
+        assert result == {"10001": (None, None)}
 
         cache = ModelCache(
             tuple[float | None, str | None],
             tmp_path / "zoopla_floor_plan_size_cache.db",
             ttl=None,
         )
-        assert cache.get("listing1") == (None, None)
+        assert cache.get("10001") == (None, None)
 
 
 class TestRecordsNoneWhenBatchErroredForListing:
     def test_records_none_when_batch_errored(self, tmp_path: Path) -> None:
         """If batch result for custom_id is 'errored', output (None, None)."""
         listing = _make_listing(
-            "listing1", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
+            "10001", floor_area_sqft=None, floorplan_urls=["http://img/fp.jpg"]
         )
-        batch_results = [_make_batch_result("fp_listing1_0", result_type="errored")]
+        batch_results = [_make_batch_result("fp_10001_0", result_type="errored")]
 
         result = _run_asset([listing], batch_results, tmp_path=tmp_path)
 
-        assert result == {"listing1": (None, None)}
+        assert result == {"10001": (None, None)}
 
 
 class TestImageDownloadFailureSkipsListing:
@@ -307,13 +318,17 @@ class TestImageDownloadFailureSkipsListing:
         because the asset records "we tried" for all listings that need extraction.
         """
         listing_fail = _make_listing(
-            "listing_fail", floor_area_sqft=None, floorplan_urls=["http://img/fail.jpg"]
+            "20001", floor_area_sqft=None, floorplan_urls=["http://img/fail.jpg"]
         )
         listing_ok = _make_listing(
-            "listing_ok", floor_area_sqft=None, floorplan_urls=["http://img/ok.jpg"]
+            "20002", floor_area_sqft=None, floorplan_urls=["http://img/ok.jpg"]
         )
 
         cache_resource = _make_cache_resource(tmp_path)
+        matched_ids = [
+            MatchedProperty(property_id=20001, commute_durations=[]),
+            MatchedProperty(property_id=20002, commute_durations=[]),
+        ]
 
         fail_response = MagicMock()
         fail_response.raise_for_status = MagicMock(
@@ -340,7 +355,7 @@ class TestImageDownloadFailureSkipsListing:
 
         batch_results = [
             _make_batch_result(
-                "fp_listing_ok_0", json_text='{"total": 42.0, "units": "sq m"}'
+                "fp_20002_0", json_text='{"total": 42.0, "units": "sq m"}'
             )
         ]
 
@@ -378,16 +393,17 @@ class TestImageDownloadFailureSkipsListing:
                 zoopla_extracted_floor_plans(
                     context=context,
                     cache=cache_resource,
-                    zoopla_enriched_properties=[listing_fail, listing_ok],
+                    zoopla_matched_ids=matched_ids,
+                    zoopla_candidate_properties=[listing_fail, listing_ok],
                 ),
             )
 
         # listing_ok extracted fine
-        assert result.get("listing_ok") == pytest.approx((42.0, None))
+        assert result.get("20002") == pytest.approx((42.0, None))
         # listing_fail had no batch request submitted (download failed), so it's
         # absent from the result dict (no "we tried" record — the attempt never
         # reached batch submission).
-        assert "listing_fail" not in result
+        assert "20001" not in result
 
 
 class TestReturnsEmptyDictWhenInputEmpty:
