@@ -4,6 +4,7 @@ import dagster as dg
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.geometry import wgs84_to_bng
 from rightmove.floor_plan import _SQFT_TO_SQM
 from zoopla.models import ZooplaListingDetail
@@ -11,17 +12,10 @@ from zoopla.models import ZooplaListingDetail
 logger = logging.getLogger(__name__)
 
 
-class Config(dg.Config):
-    min_budget: float
-    max_budget: float
-    has_images: bool
-    min_square_meters: float
-
-
 @dg.asset(group_name="zoopla")
 def zoopla_candidate_properties(
     context: dg.AssetExecutionContext,
-    config: Config,
+    search_criteria: SearchCriteriaResource,
     zoopla_enriched_properties: list[ZooplaListingDetail],
     isochrone_intersection: list[Polygon],
 ) -> list[ZooplaListingDetail]:
@@ -48,22 +42,22 @@ def zoopla_candidate_properties(
         if detail.price_gbp is None:
             context.log.info("Listing %s has no price; excluding.", detail.listing_id)
             continue
-        if config.min_budget <= detail.price_gbp <= config.max_budget:
+        if search_criteria.min_budget <= detail.price_gbp <= search_criteria.max_budget:
             price_passed.append(detail)
         else:
             context.log.info(
                 "Listing %s price £%d outside [%d, %d]; excluding.",
                 detail.listing_id,
                 detail.price_gbp,
-                config.min_budget,
-                config.max_budget,
+                search_criteria.min_budget,
+                search_criteria.max_budget,
             )
     after_price = len(price_passed)
 
     # Filter 2: photos
     photo_passed: list[ZooplaListingDetail] = []
     for detail in price_passed:
-        if config.has_images and len(detail.image_urls) <= 2:
+        if search_criteria.has_images and len(detail.image_urls) <= 2:
             context.log.info(
                 "Listing %s has insufficient photos (count=%d); excluding.",
                 detail.listing_id,
@@ -102,12 +96,12 @@ def zoopla_candidate_properties(
     for detail in isochrone_passed:
         if detail.floor_area_sqft is not None:
             sqm = detail.floor_area_sqft * _SQFT_TO_SQM
-            if sqm < config.min_square_meters:
+            if sqm < search_criteria.min_square_meters:
                 context.log.info(
                     "Listing %s structured size %.1f sqm below minimum %.1f; excluding.",
                     detail.listing_id,
                     sqm,
-                    config.min_square_meters,
+                    search_criteria.min_square_meters,
                 )
                 continue
         size_passed.append(detail)

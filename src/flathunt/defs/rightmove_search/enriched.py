@@ -10,7 +10,7 @@ from anthropic.types.messages.batch_create_params import Request
 
 import rightmove.models
 from flathunt.cache import ModelCache
-from flathunt.defs.resources import CacheResource
+from flathunt.defs.resources import CacheResource, SearchCriteriaResource
 from flathunt.floor_plan_batch import (
     extract_json_from_response as _extract_json_from_response,
 )
@@ -382,14 +382,10 @@ async def _process_property(
     )
 
 
-class Config(dg.Config):
-    min_square_meters: float = 0.0
-
-
 @dg.asset(group_name="rightmove_search", io_manager_key="fs_io_manager")
 def enriched_properties(
     context: dg.AssetExecutionContext,
-    config: Config,
+    search_criteria: SearchCriteriaResource,
     cache: CacheResource,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
@@ -577,7 +573,7 @@ def enriched_properties(
             if fp.display_size
             else fp.extracted_sqm
         )
-        if sqm is None or sqm >= config.min_square_meters:
+        if sqm is None or sqm >= search_criteria.min_square_meters:
             result.append(fp)
 
     logger.info(

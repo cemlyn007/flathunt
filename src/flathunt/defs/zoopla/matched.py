@@ -2,6 +2,7 @@ import logging
 
 import dagster as dg
 
+from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.models import FinalProperty, MatchedProperty
 from rightmove.floor_plan import _SQFT_TO_SQM
 from rightmove.models import Price
@@ -95,14 +96,10 @@ def _apply_size_filter(
     return passed
 
 
-class Config(dg.Config):
-    min_square_meters: float
-
-
 @dg.asset(group_name="zoopla")
 def zoopla_matched_properties(
     context: dg.AssetExecutionContext,
-    config: Config,
+    search_criteria: SearchCriteriaResource,
     zoopla_matched_ids: list[MatchedProperty],
     zoopla_candidate_properties: list[ZooplaListingDetail],
     zoopla_extracted_floor_plans: dict[str, tuple[float | None, str | None]],
@@ -145,7 +142,7 @@ def zoopla_matched_properties(
     size_passed = _apply_size_filter(
         matched_details,
         zoopla_extracted_floor_plans,
-        config.min_square_meters,
+        search_criteria.min_square_meters,
         context.log,
     )
 

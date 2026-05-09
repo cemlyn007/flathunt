@@ -18,6 +18,7 @@ from flathunt.defs.resources import (
     CacheResource,
     ImapResource,
     QueriesResource,
+    SearchCriteriaResource,
     SmtpResource,
     TflResource,
 )
@@ -79,6 +80,7 @@ all_resources = {
     "queries": QueriesResource(**_resources_cfg["queries"]),
     "smtp": SmtpResource(**_resources_cfg["smtp"]),
     "imap": ImapResource(),
+    "search_criteria": SearchCriteriaResource(**_resources_cfg["search_criteria"]),
     "fs_io_manager": dg.FilesystemIOManager(
         base_dir=str(Path(_resources_cfg["cache"]["data_dir"]) / "dagster_io")
     ),
@@ -102,7 +104,6 @@ zoopla_job = dg.define_asset_job(
         "zoopla_matched_properties",
         "zoopla_notified_properties",
     ),
-    config=dg.config_from_files([str(REPO_ROOT / "zoopla_run_config.yaml")]),
 )
 
 rightmove_email_job = dg.define_asset_job(
@@ -113,7 +114,6 @@ rightmove_email_job = dg.define_asset_job(
         "rightmove_email_matched_properties",
         "rightmove_notified_properties",
     ),
-    config=dg.config_from_files([str(REPO_ROOT / "rightmove_run_config.yaml")]),
 )
 
 rightmove_search_job = dg.define_asset_job(
@@ -125,7 +125,6 @@ rightmove_search_job = dg.define_asset_job(
         "enriched_properties",
         "notified_properties",
     ),
-    config=dg.config_from_files([str(REPO_ROOT / "rightmove_search_run_config.yaml")]),
 )
 
 all_jobs = [zoopla_job, rightmove_email_job, rightmove_search_job]

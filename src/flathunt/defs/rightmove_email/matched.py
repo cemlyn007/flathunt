@@ -10,7 +10,12 @@ from shapely.geometry.polygon import Polygon
 
 from flathunt.cache import ModelCache
 from flathunt.coords import CommuteDest
-from flathunt.defs.resources import CacheResource, QueriesResource, TflResource
+from flathunt.defs.resources import (
+    CacheResource,
+    QueriesResource,
+    SearchCriteriaResource,
+    TflResource,
+)
 from flathunt.geometry import wgs84_to_bng
 from flathunt.models import FinalProperty
 from flathunt.property_search import (
@@ -48,18 +53,10 @@ def _record_matched_ids(path: Path, ids: list[str]) -> None:
         )
 
 
-class Config(dg.Config):
-    min_budget: float
-    max_budget: float
-    has_floorplans: bool
-    has_images: bool
-    min_square_meters: float
-
-
 @dg.asset(group_name="rightmove_email")
 def rightmove_email_matched_properties(
     context: dg.AssetExecutionContext,
-    config: Config,
+    search_criteria: SearchCriteriaResource,
     cache: CacheResource,
     tfl_resource: TflResource,
     queries: QueriesResource,
@@ -88,22 +85,22 @@ def rightmove_email_matched_properties(
         if amount is None:
             context.log.info("Property %s has no price; excluding.", prop.id)
             continue
-        if config.min_budget <= amount <= config.max_budget:
+        if search_criteria.min_budget <= amount <= search_criteria.max_budget:
             price_passed.append(prop)
         else:
             context.log.info(
                 "Property %s price £%d outside [%d, %d]; excluding.",
                 prop.id,
                 amount,
-                config.min_budget,
-                config.max_budget,
+                search_criteria.min_budget,
+                search_criteria.max_budget,
             )
     after_price = len(price_passed)
 
     # Filter 2: floorplans
     floorplan_passed: list[FinalProperty] = []
     for prop in price_passed:
-        if config.has_floorplans:
+        if search_criteria.has_floorplans:
             ep = email_by_id.get(str(prop.id))
             count = ep.floorplan_count if ep is not None else None
             if count is None or count == 0:
@@ -119,7 +116,7 @@ def rightmove_email_matched_properties(
     # Filter 3: photos
     photo_passed: list[FinalProperty] = []
     for prop in floorplan_passed:
-        if config.has_images:
+        if search_criteria.has_images:
             ep = email_by_id.get(str(prop.id))
             count = ep.photo_count if ep is not None else None
             if count is None or count <= 2:
@@ -244,7 +241,8 @@ def rightmove_email_matched_properties(
     size_passed = [
         p
         for p in matched
-        if p.extracted_sqm is None or p.extracted_sqm >= config.min_square_meters
+        if p.extracted_sqm is None
+        or p.extracted_sqm >= search_criteria.min_square_meters
     ]
 
     context.log.info(

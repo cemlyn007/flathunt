@@ -3,7 +3,6 @@ import logging
 import sqlite3
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Literal
 
 import dagster as dg
 from shapely.geometry import box
@@ -12,7 +11,7 @@ from shapely.ops import unary_union
 
 import rightmove.models
 from flathunt.cache import ModelCache
-from flathunt.defs.resources import CacheResource
+from flathunt.defs.resources import CacheResource, SearchCriteriaResource
 from flathunt.filters import check_property_size
 from flathunt.geometry import poly_bng_to_wgs84, poly_bng_to_wgs84_coords
 from flathunt.property_search import (
@@ -23,16 +22,6 @@ from flathunt.property_search import (
 logger = logging.getLogger(__name__)
 
 _SEEN_IDS_DB = "seen_property_ids.db"
-
-
-class Config(dg.Config):
-    channel: Literal["RENT", "BUY"] = "BUY"
-    # For BUY: purchase price in £. For RENT: monthly rent in £.
-    min_budget: float = 100_000
-    max_budget: float = 2_000_000
-    has_floorplans: bool = False
-    has_images: bool = False
-    min_square_meters: float = 0.0
 
 
 def _open_seen_ids_db(path: Path) -> sqlite3.Connection:
@@ -62,7 +51,7 @@ def _save_seen_ids(path: Path, ids: Iterable[int]) -> None:
 @dg.asset(group_name="rightmove_search")
 def candidate_properties(
     context: dg.AssetExecutionContext,
-    config: Config,
+    search_criteria: SearchCriteriaResource,
     cache: CacheResource,
     isochrone_intersection: list[Polygon],
 ) -> list[rightmove.models.MapProperty]:
@@ -111,14 +100,16 @@ def candidate_properties(
     def predicate(p: rightmove.models.MapProperty) -> bool:
         return (
             p.property_url is not None
-            and check_property_size(p, config.min_square_meters)
-            and ((p.number_of_images or 0) > 2 or not config.has_images)
-            and ((p.number_of_floorplans or 0) > 0 or not config.has_floorplans)
+            and check_property_size(p, search_criteria.min_square_meters)
+            and ((p.number_of_images or 0) > 2 or not search_criteria.has_images)
+            and (
+                (p.number_of_floorplans or 0) > 0 or not search_criteria.has_floorplans
+            )
         )
 
     logger.info(
         "Fetching %s properties within %d intersection polygon(s).",
-        config.channel,
+        search_criteria.channel,
         len(non_empty),
     )
 
@@ -132,11 +123,11 @@ def candidate_properties(
         done = 0
         async for props in fetch_properties_within_optimal_regions(
             non_empty,
-            config.channel,
+            search_criteria.channel,
             bounding_polygon,
             property_cache,
-            min_price=int(config.min_budget),
-            max_price=int(config.max_budget),
+            min_price=int(search_criteria.min_budget),
+            max_price=int(search_criteria.max_budget),
             seen_ids=seen_ids,
             predicate=predicate,
         ):

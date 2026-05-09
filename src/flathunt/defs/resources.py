@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 import dagster as dg
 from pydantic import Field
@@ -35,3 +36,12 @@ class ImapResource(dg.ConfigurableResource):
     username: str = dg.EnvVar("FLATHUNT__IMAP_USERNAME")
     password: str = dg.EnvVar("FLATHUNT__IMAP_PASSWORD")
     mailbox: str = "[Gmail]/All Mail"
+
+
+class SearchCriteriaResource(dg.ConfigurableResource):
+    channel: Literal["RENT", "BUY"] = "BUY"
+    min_budget: float = 400_000
+    max_budget: float = 775_000
+    has_floorplans: bool = True
+    has_images: bool = True
+    min_square_meters: float = 75.0
