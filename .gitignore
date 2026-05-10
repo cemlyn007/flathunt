@@ -11,10 +11,6 @@ assets
 greater-london-251126-free
 .env
 .venv14t
-flathunt_run_config.yaml
-zoopla_run_config.yaml
-rightmove_run_config.yaml
-rightmove_search_run_config.yaml
 resources.yaml
 .claude/agent-memory/tdd-feature-builder/MEMORY.md
 .claude/agent-memory/tdd-feature-builder/project_zoopla_rsc_parser.md

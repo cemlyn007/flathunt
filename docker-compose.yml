@@ -15,10 +15,6 @@ services:
       - ./.dagster:/app/.dagster
       - ./greater-london-251126-free:/app/greater-london-251126-free:ro
       - ./resources.yaml:/app/resources.yaml:ro
-      - ./flathunt_run_config.yaml:/app/flathunt_run_config.yaml:ro
-      - ./rightmove_run_config.yaml:/app/rightmove_run_config.yaml:ro
-      - ./rightmove_search_run_config.yaml:/app/rightmove_search_run_config.yaml:ro
-      - ./zoopla_run_config.yaml:/app/zoopla_run_config.yaml:ro
     restart: unless-stopped
 
   streamlit:
