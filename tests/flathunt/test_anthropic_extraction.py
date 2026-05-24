@@ -2,7 +2,9 @@
 
 import itertools
 from typing import Any
+from unittest.mock import MagicMock, patch
 
+import dagster as dg
 import pytest
 
 from flathunt.anthropic_extraction import (
@@ -16,11 +18,28 @@ from flathunt.anthropic_extraction import (
     ExtractionRequest,
     FloorPlanExtraction,
     FloorPlanResult,
+    RequestMeta,
+    _parse_batch_results,
     build_description_request,
     build_floor_plan_request,
     calculate_backoff_delay,
     extract_json_from_response,
 )
+
+
+def _fake_result(
+    custom_id, result_type="succeeded", json_text='{"total":59.0,"units":"sq m"}'
+):
+    r = MagicMock()
+    r.custom_id = custom_id
+    r.result = MagicMock()
+    r.result.type = result_type
+    if result_type == "succeeded":
+        block = MagicMock()
+        block.text = json_text
+        r.result.message = MagicMock()
+        r.result.message.content = [block]
+    return r
 
 
 class TestCalculateBackoffDelay:
@@ -127,3 +146,37 @@ class TestRequestBuilders:
             "bathrooms",
         ):
             assert field in text
+
+
+class TestParseBatchResults:
+    def _parse(self, results, meta):
+        with patch(
+            "flathunt.anthropic_extraction._stream_batch_results",
+            return_value=iter(results),
+        ):
+            return _parse_batch_results("batch", meta, dg.build_asset_context())
+
+    def test_floor_plan_succeeded_total(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, desc = self._parse([_fake_result("fp_1")], meta)
+        assert fp["1"].total_sqm == pytest.approx(59.0)
+        assert desc == {}
+
+    def test_floor_plan_empty_is_cached_result(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, _ = self._parse([_fake_result("fp_1", json_text="null")], meta)
+        assert "1" in fp and fp["1"].total_sqm is None and fp["1"].breakdown_csv is None
+
+    def test_errored_produces_no_entry(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, desc = self._parse([_fake_result("fp_1", result_type="errored")], meta)
+        assert fp == {} and desc == {}
+
+    def test_description_succeeded(self):
+        meta = {"desc_1": RequestMeta(kind=ExtractionKind.DESCRIPTION, listing_id="1")}
+        fp, desc = self._parse(
+            [_fake_result("desc_1", json_text='{"council_tax_band":"C","bedrooms":2}')],
+            meta,
+        )
+        assert desc["1"].council_tax_band == "C" and desc["1"].bedrooms == 2
+        assert fp == {}

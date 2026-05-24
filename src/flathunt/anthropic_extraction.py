@@ -9,6 +9,7 @@ import asyncio
 import base64
 import logging
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal, cast
@@ -270,6 +271,61 @@ def extract_json_from_response(text: str) -> str:
         # Remove closing ```
         text = text.removesuffix("```")
     return text.strip()
+
+
+def _stream_batch_results(batch_id: str) -> Iterable[Any]:
+    """Seam for tests: returns the raw Anthropic batch results iterable."""
+    client = get_client()
+    return client.messages.batches.results(batch_id)
+
+
+def _succeeded_text(result: Any) -> str:
+    """The ONLY place SDK shapes leak. Everything downstream is fully typed."""
+    return cast(str, result.result.message.content[0].text)
+
+
+def _parse_batch_results(
+    batch_id: str,
+    meta_by_custom_id: dict[str, RequestMeta],
+    context: dg.AssetExecutionContext,
+) -> tuple[dict[str, FloorPlanResult], dict[str, ExtractedPropertyInfo]]:
+    floor_plans: dict[str, FloorPlanResult] = {}
+    descriptions: dict[str, ExtractedPropertyInfo] = {}
+
+    for result in _stream_batch_results(batch_id):
+        meta = meta_by_custom_id.get(result.custom_id)
+        if meta is None:
+            logger.warning("Unknown custom_id in batch results: %s", result.custom_id)
+            continue
+        if result.result.type != "succeeded":
+            logger.error(
+                "Batch request %s %s — not cached, will retry next run.",
+                result.custom_id,
+                result.result.type,
+            )
+            continue
+        try:
+            json_content = extract_json_from_response(_succeeded_text(result))
+            if meta.kind is ExtractionKind.FLOOR_PLAN:
+                extraction = pydantic.TypeAdapter(
+                    FloorPlanExtraction | None
+                ).validate_json(json_content)
+                if extraction is None or extraction.is_empty():
+                    floor_plans[meta.listing_id] = FloorPlanResult()
+                else:
+                    floor_plans[meta.listing_id] = FloorPlanResult(
+                        total_sqm=extraction.get_total_sqm(),
+                        breakdown_csv=extraction.get_breakdown_csv(),
+                    )
+            else:
+                descriptions[meta.listing_id] = pydantic.TypeAdapter(
+                    ExtractedPropertyInfo
+                ).validate_json(json_content)
+        except (ValueError, pydantic.ValidationError):
+            logger.exception(
+                "Failed to parse %s result for %s.", meta.kind, result.custom_id
+            )
+    return floor_plans, descriptions
 
 
 def parse_floor_plan_result(
