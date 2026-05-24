@@ -31,7 +31,8 @@ from flathunt.defs.rightmove_email import (
 )
 from flathunt.defs.rightmove_search import (
     candidate_properties,
-    enriched_properties,
+    extracted_attributes,
+    matched_properties,
     matched_property_ids,
     notified_properties,
     rightmove_property_details,
@@ -59,7 +60,8 @@ all_assets = [
     candidate_properties,
     matched_property_ids,
     rightmove_property_details,
-    enriched_properties,
+    extracted_attributes,
+    matched_properties,
     notified_properties,
     zoopla_property_alerts,
     zoopla_enriched_properties,
@@ -122,7 +124,8 @@ rightmove_search_job = dg.define_asset_job(
         "candidate_properties",
         "matched_property_ids",
         "rightmove_property_details",
-        "enriched_properties",
+        "extracted_attributes",
+        "matched_properties",
         "notified_properties",
     ),
 )

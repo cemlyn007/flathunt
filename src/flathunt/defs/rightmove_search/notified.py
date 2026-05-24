@@ -26,12 +26,12 @@ def notified_properties(
     context: dg.AssetExecutionContext,
     cache: CacheResource,
     smtp: SmtpResource,
-    enriched_properties: list[FinalProperty],
+    matched_properties: list[FinalProperty],
 ) -> None:
     if not smtp.to_addresses:
         context.log.warning("smtp.to_addresses is empty — skipping email notification.")
         context.add_output_metadata({
-            "total_count": len(enriched_properties),
+            "total_count": len(matched_properties),
             "already_notified_count": 0,
             "new_count": 0,
         })
@@ -41,11 +41,11 @@ def notified_properties(
     already_notified = load_notified_ids(db_path)
 
     new_properties = [
-        p for p in enriched_properties if property_key(p) not in already_notified
+        p for p in matched_properties if property_key(p) not in already_notified
     ]
     context.log.info(
         "%d rightmove properties, %d already notified, %d new.",
-        len(enriched_properties),
+        len(matched_properties),
         len(already_notified),
         len(new_properties),
     )
@@ -53,7 +53,7 @@ def notified_properties(
     if not new_properties:
         context.log.info("No new properties to notify about. Skipping email.")
         context.add_output_metadata({
-            "total_count": len(enriched_properties),
+            "total_count": len(matched_properties),
             "already_notified_count": len(already_notified),
             "new_count": 0,
         })
@@ -71,7 +71,7 @@ def notified_properties(
     context.log.info("Recorded %d new IDs in %s.", len(new_properties), db_path)
 
     # Record all matched IDs (not just new ones) for pipeline comparison
-    rightmove_ids = [str(p.id) for p in enriched_properties if p.source == "rightmove"]
+    rightmove_ids = [str(p.id) for p in matched_properties if p.source == "rightmove"]
     if rightmove_ids:
         now = int(datetime.now(tz=UTC).timestamp())
         search_db_path = Path(cache.data_dir) / _SEARCH_MATCHES_DB
@@ -89,7 +89,7 @@ def notified_properties(
             )
 
     context.add_output_metadata({
-        "total_count": len(enriched_properties),
+        "total_count": len(matched_properties),
         "already_notified_count": len(already_notified),
         "new_count": len(new_properties),
     })
