@@ -21,6 +21,7 @@ from flathunt.defs.rightmove_email.matched import rightmove_email_matched_proper
 from flathunt.defs.rightmove_email.matched_ids import rightmove_email_matched_ids
 from flathunt.defs.rightmove_search.candidates import candidate_properties
 from flathunt.defs.rightmove_search.matched import matched_property_ids
+from flathunt.defs.rightmove_search.matched_properties import matched_properties
 from flathunt.defs.zoopla.candidates import zoopla_candidate_properties
 from flathunt.defs.zoopla.matched import zoopla_matched_properties
 from flathunt.defs.zoopla.matched_ids import zoopla_matched_ids
@@ -164,3 +165,19 @@ def test_rightmove_search_matched_ids_skips_when_empty(tmp_path: Path) -> None:
     assert value == []
     assert len(obs) == 1
     assert obs[0].metadata["matched_count"].value == 0
+
+
+def test_rightmove_search_matched_properties_skips_when_empty() -> None:
+    value, obs = drain_gate(
+        matched_properties(
+            context=dg.build_asset_context(),
+            search_criteria=_criteria(),
+            matched_property_ids=[],
+            candidate_properties=[],
+            rightmove_property_details={},
+            extracted_attributes={},
+        )
+    )
+    assert value == []
+    assert len(obs) == 1
+    assert obs[0].metadata["final_count"].value == 0

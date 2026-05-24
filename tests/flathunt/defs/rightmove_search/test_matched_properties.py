@@ -14,6 +14,7 @@ from flathunt.anthropic_extraction import (
 from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.defs.rightmove_search.matched_properties import matched_properties
 from flathunt.models import MatchedProperty
+from tests.flathunt.defs.gate_helpers import drain_gate
 
 # ---------------------------------------------------------------------------
 # Shared model-construction helpers (mirror test_extracted_attributes.py)
@@ -103,14 +104,17 @@ def _run(
     min_sqm: float = 30.0,
 ):
     sc = _search_criteria(min_sqm)
-    return matched_properties(
-        context=dg.build_asset_context(),
-        search_criteria=sc,
-        matched_property_ids=matched,
-        candidate_properties=candidates,
-        rightmove_property_details=details,
-        extracted_attributes=extracted,
+    value, _ = drain_gate(
+        matched_properties(
+            context=dg.build_asset_context(),
+            search_criteria=sc,
+            matched_property_ids=matched,
+            candidate_properties=candidates,
+            rightmove_property_details=details,
+            extracted_attributes=extracted,
+        )
     )
+    return value
 
 
 # ---------------------------------------------------------------------------
