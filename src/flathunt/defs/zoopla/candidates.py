@@ -36,13 +36,17 @@ def zoopla_candidate_properties(
     """
     total = len(zoopla_enriched_properties)
 
-    # Filter 1: price
+    # Filter 1: price — null-safe: unknown price passes (cannot rule out in-budget).
     price_passed: list[ZooplaListingDetail] = []
     for detail in zoopla_enriched_properties:
         if detail.price_gbp is None:
-            context.log.info("Listing %s has no price; excluding.", detail.listing_id)
-            continue
-        if search_criteria.min_budget <= detail.price_gbp <= search_criteria.max_budget:
+            context.log.info(
+                "Listing %s has no price; keeping as price-unknown.", detail.listing_id
+            )
+            price_passed.append(detail)
+        elif (
+            search_criteria.min_budget <= detail.price_gbp <= search_criteria.max_budget
+        ):
             price_passed.append(detail)
         else:
             context.log.info(
@@ -67,14 +71,15 @@ def zoopla_candidate_properties(
         photo_passed.append(detail)
     after_photos = len(photo_passed)
 
-    # Filter 3: isochrone
+    # Filter 3: isochrone — null-safe: unknown coordinates pass (commute-unknown path).
     isochrone_passed: list[ZooplaListingDetail] = []
     for detail in photo_passed:
         if detail.latitude is None or detail.longitude is None:
             context.log.info(
-                "Listing %s has no coordinates; excluding.",
+                "Listing %s has no coordinates; keeping as commute-unknown.",
                 detail.listing_id,
             )
+            isochrone_passed.append(detail)
             continue
         easting, northing = wgs84_to_bng(detail.longitude, detail.latitude)
         pt = Point(easting, northing)

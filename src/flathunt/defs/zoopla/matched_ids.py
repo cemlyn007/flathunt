@@ -64,13 +64,24 @@ def zoopla_matched_ids(
         })
         return result
 
-    # Candidates asset already filters out listings without coordinates, but
-    # guard defensively.
+    # Split candidates: listings without coordinates skip TfL lookup and are kept
+    # as commute-unknown; listings with coordinates are evaluated against dests.
     with_coords = [
         d
         for d in zoopla_candidate_properties
         if d.latitude is not None and d.longitude is not None
     ]
+    without_coords = [
+        d
+        for d in zoopla_candidate_properties
+        if d.latitude is None or d.longitude is None
+    ]
+
+    for detail in without_coords:
+        context.log.info(
+            "Listing %s has no coordinates; keeping as commute-unknown.",
+            detail.listing_id,
+        )
 
     flat_to_froms: list[tuple[float, float, float, float]] = [
         (detail.longitude, detail.latitude, dest.lon, dest.lat)
@@ -106,28 +117,35 @@ def zoopla_matched_ids(
     all_durations = asyncio.run(_run_all())
 
     matched: list[MatchedProperty] = []
+    # Commute-unknown listings always pass (null-safe: unknown duration ≠ failure).
+    matched.extend(
+        MatchedProperty(property_id=int(d.listing_id), commute_durations=[])
+        for d in without_coords
+    )
+    # Listings with coordinates: reject only if a known duration exceeds its max.
+    # A None duration (lookup failed) is treated as unknown → KEEP.
     for detail, prop_durations in zip(with_coords, all_durations, strict=True):
-        if all(
-            d is not None and d <= dest.max_duration
+        if any(
+            d is not None and d > dest.max_duration
             for d, dest in zip(prop_durations, dests, strict=True)
         ):
+            context.log.info(
+                "Listing %s failed commute filter (durations=%s).",
+                detail.listing_id,
+                prop_durations,
+            )
+        else:
             matched.append(
                 MatchedProperty(
                     property_id=int(detail.listing_id),
                     commute_durations=list(prop_durations),
                 )
             )
-        else:
-            context.log.info(
-                "Listing %s failed commute filter (durations=%s).",
-                detail.listing_id,
-                prop_durations,
-            )
 
     context.log.info(
         "%d / %d listing(s) passed commute filter.",
         len(matched),
-        len(with_coords),
+        len(zoopla_candidate_properties),
     )
     context.add_output_metadata({
         "candidate_count": len(zoopla_candidate_properties),
