@@ -24,6 +24,7 @@ from flathunt.defs.zoopla.matched import (
     zoopla_matched_properties,
 )
 from flathunt.models import FinalProperty, MatchedProperty
+from tests.flathunt.defs.gate_helpers import drain_gate
 from zoopla.models import ZooplaListingDetail
 
 logger = logging.getLogger(__name__)
@@ -288,6 +289,24 @@ def _search_criteria(min_square_meters: float = 30.0) -> SearchCriteriaResource:
     return SearchCriteriaResource(min_square_meters=min_square_meters)
 
 
+def _run_asset(
+    matched_ids: list[MatchedProperty],
+    candidates: list[ZooplaListingDetail],
+    extracted: dict[str, ExtractedAttributes],
+    min_square_meters: float = 30.0,
+) -> list[FinalProperty]:
+    value, _ = drain_gate(
+        zoopla_matched_properties(
+            context=dg.build_asset_context(),
+            search_criteria=_search_criteria(min_square_meters=min_square_meters),
+            zoopla_matched_ids=matched_ids,
+            zoopla_candidate_properties=candidates,
+            zoopla_extracted_attributes=extracted,
+        )
+    )
+    return cast(list[FinalProperty], value)
+
+
 class TestZooplaMatchedPropertiesAsset:
     def test_extracted_attributes_merged_into_final_property(self) -> None:
         """Extracted ExtractedAttributes fields are merged into FinalProperty correctly.
@@ -318,16 +337,7 @@ class TestZooplaMatchedPropertiesAsset:
             )
         }
 
-        results = cast(
-            list[FinalProperty],
-            zoopla_matched_properties(
-                context=dg.build_asset_context(),
-                search_criteria=_search_criteria(min_square_meters=30.0),
-                zoopla_matched_ids=matched_ids,
-                zoopla_candidate_properties=[listing],
-                zoopla_extracted_attributes=attrs,
-            ),
-        )
+        results = _run_asset(matched_ids, [listing], attrs, min_square_meters=30.0)
 
         assert len(results) == 1
         prop = results[0]
@@ -349,16 +359,7 @@ class TestZooplaMatchedPropertiesAsset:
             )
         }
 
-        results = cast(
-            list[FinalProperty],
-            zoopla_matched_properties(
-                context=dg.build_asset_context(),
-                search_criteria=_search_criteria(min_square_meters=50.0),
-                zoopla_matched_ids=matched_ids,
-                zoopla_candidate_properties=[listing],
-                zoopla_extracted_attributes=attrs,
-            ),
-        )
+        results = _run_asset(matched_ids, [listing], attrs, min_square_meters=50.0)
 
         assert results == []
 
@@ -372,15 +373,6 @@ class TestZooplaMatchedPropertiesAsset:
         # Empty ExtractedAttributes — no size signal at all.
         attrs: dict[str, ExtractedAttributes] = {listing_id: ExtractedAttributes()}
 
-        results = cast(
-            list[FinalProperty],
-            zoopla_matched_properties(
-                context=dg.build_asset_context(),
-                search_criteria=_search_criteria(min_square_meters=50.0),
-                zoopla_matched_ids=matched_ids,
-                zoopla_candidate_properties=[listing],
-                zoopla_extracted_attributes=attrs,
-            ),
-        )
+        results = _run_asset(matched_ids, [listing], attrs, min_square_meters=50.0)
 
         assert len(results) == 1

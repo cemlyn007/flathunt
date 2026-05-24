@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 
 import dagster as dg
 
@@ -111,14 +112,14 @@ def _apply_size_filter(
     return passed
 
 
-@dg.asset(group_name="zoopla")
+@dg.asset(group_name="zoopla", output_required=False)
 def zoopla_matched_properties(
     context: dg.AssetExecutionContext,
     search_criteria: SearchCriteriaResource,
     zoopla_matched_ids: list[MatchedProperty],
     zoopla_candidate_properties: list[ZooplaListingDetail],
     zoopla_extracted_attributes: dict[str, ExtractedAttributes],
-) -> list[FinalProperty]:
+) -> Iterator[dg.Output[list[FinalProperty]] | dg.AssetObservation]:
     """Assemble final Zoopla properties after applying the size filter.
 
     All cheap filters (price, photos, isochrone) and the commute filter have
@@ -139,8 +140,11 @@ def zoopla_matched_properties(
     """
     if not zoopla_matched_ids:
         context.log.info("No matched Zoopla listings; returning empty list.")
-        context.add_output_metadata({"total_count": 0, "matched_count": 0})
-        return []
+        yield dg.AssetObservation(
+            asset_key=context.asset_key,
+            metadata={"total_count": 0, "matched_count": 0},
+        )
+        return
 
     detail_by_id = {d.listing_id: d for d in zoopla_candidate_properties}
     durations_by_id = {
@@ -176,8 +180,11 @@ def zoopla_matched_properties(
         for detail in size_passed
     ]
 
-    context.add_output_metadata({
+    metadata = {
         "total_count": total,
         "matched_count": len(result),
-    })
-    return result
+    }
+    if not result:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(result, metadata=metadata)
