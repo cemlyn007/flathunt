@@ -26,6 +26,7 @@ import dagster as dg
 from flathunt.defs.resources import QueriesResource, TflResource
 from flathunt.defs.zoopla.matched_ids import zoopla_matched_ids
 from flathunt.models import MatchedProperty
+from tests.flathunt.defs.gate_helpers import drain_gate
 from zoopla.models import ZooplaListingDetail
 
 # ---------------------------------------------------------------------------
@@ -125,16 +126,16 @@ def _run_asset(
         new=mock_gen,
     ):
         context = dg.build_asset_context()
-        return cast(
-            list[MatchedProperty],
+        value, _ = drain_gate(
             zoopla_matched_ids(
                 context=context,
                 queries=queries,
                 tfl_resource=tfl,
                 cache=cache,
                 zoopla_candidate_properties=listings,
-            ),
+            )
         )
+        return cast(list[MatchedProperty], value)
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 
 import dagster as dg
@@ -17,14 +18,14 @@ from zoopla.models import ZooplaListingDetail
 logger = logging.getLogger(__name__)
 
 
-@dg.asset(group_name="zoopla")
+@dg.asset(group_name="zoopla", output_required=False)
 def zoopla_matched_ids(
     context: dg.AssetExecutionContext,
     queries: QueriesResource,
     tfl_resource: TflResource,
     cache: CacheResource,
     zoopla_candidate_properties: list[ZooplaListingDetail],
-) -> list[MatchedProperty]:
+) -> Iterator[dg.Output[list[MatchedProperty]] | dg.AssetObservation]:
     """Filter candidate Zoopla listings by TfL commute times.
 
     Mirrors ``matched_property_ids`` in the Rightmove pipeline.  Only listings
@@ -43,8 +44,11 @@ def zoopla_matched_ids(
     """
     if not zoopla_candidate_properties:
         logger.info("No candidate Zoopla properties to evaluate.")
-        context.add_output_metadata({"candidate_count": 0, "matched_count": 0})
-        return []
+        yield dg.AssetObservation(
+            asset_key=context.asset_key,
+            metadata={"candidate_count": 0, "matched_count": 0},
+        )
+        return
 
     dests = [
         CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration)
@@ -58,11 +62,14 @@ def zoopla_matched_ids(
             MatchedProperty(property_id=int(d.listing_id), commute_durations=[])
             for d in zoopla_candidate_properties
         ]
-        context.add_output_metadata({
-            "candidate_count": len(zoopla_candidate_properties),
-            "matched_count": len(result),
-        })
-        return result
+        yield dg.Output(
+            result,
+            metadata={
+                "candidate_count": len(zoopla_candidate_properties),
+                "matched_count": len(result),
+            },
+        )
+        return
 
     # Split candidates: listings without coordinates skip TfL lookup and are kept
     # as commute-unknown; listings with coordinates are evaluated against dests.
@@ -147,8 +154,11 @@ def zoopla_matched_ids(
         len(matched),
         len(zoopla_candidate_properties),
     )
-    context.add_output_metadata({
+    metadata = {
         "candidate_count": len(zoopla_candidate_properties),
         "matched_count": len(matched),
-    })
-    return matched
+    }
+    if not matched:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(matched, metadata=metadata)
