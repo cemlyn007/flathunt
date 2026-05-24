@@ -9,19 +9,18 @@ and returns the Output's value (``[]`` when the gate skipped) plus any
 observations, so existing list-based assertions keep working.
 """
 
-from collections.abc import Iterator
 from typing import Any
 
 import dagster as dg
 
 
-def drain_gate(
-    gen: Iterator[Any],
-) -> tuple[list[Any], list[dg.AssetObservation]]:
+def drain_gate(gen: Any) -> tuple[list[Any], list[dg.AssetObservation]]:
     """Drain a gate generator into (value, observations).
 
     Args:
         gen: The generator returned by calling a gate asset function directly.
+            Typed ``Any`` because ``@dg.asset`` erases the decorated function's
+            return type to ``object``, which is not assignable to ``Iterator``.
 
     Returns:
         A 2-tuple of the single Output's value (or ``[]`` if the gate yielded no
