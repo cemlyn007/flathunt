@@ -27,6 +27,7 @@ import dagster as dg
 from flathunt.defs.resources import QueriesResource, TflResource
 from flathunt.defs.rightmove_email.matched_ids import rightmove_email_matched_ids
 from flathunt.models import FinalProperty, MatchedProperty
+from tests.flathunt.defs.gate_helpers import drain_gate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,16 +100,16 @@ def _run_asset(
         new=mock_gen,
     ):
         context = dg.build_asset_context()
-        return cast(
-            list[MatchedProperty],
+        value, _ = drain_gate(
             rightmove_email_matched_ids(
                 context=context,
                 queries=queries,
                 tfl_resource=tfl,
                 cache=cache,
                 rightmove_email_candidate_properties=properties,
-            ),
+            )
         )
+        return cast(list[MatchedProperty], value)
 
 
 # ---------------------------------------------------------------------------
