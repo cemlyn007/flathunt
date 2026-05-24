@@ -1,4 +1,3 @@
-import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -49,28 +48,6 @@ def mock_checker() -> Callable[[list[RightmoveRawEmail]], MagicMock]:
     return _make_checker
 
 
-@pytest.fixture(autouse=True)
-def stub_run_config(monkeypatch: pytest.MonkeyPatch) -> dict:
-    config: dict = {
-        "ops": {
-            "rightmove_email_matched_properties": {
-                "config": {
-                    "min_budget": 400000,
-                    "max_budget": 775000,
-                    "has_floorplans": True,
-                    "has_images": True,
-                    "min_square_meters": 75.0,
-                }
-            }
-        }
-    }
-    monkeypatch.setattr(
-        "flathunt.defs.rightmove_email.alerts.load_job_run_config",
-        lambda _filename: json.loads(json.dumps(config)),
-    )
-    return config
-
-
 class TestRightmoveEmailSensor:
     def test_no_emails_yields_no_run_requests(
         self,
@@ -88,16 +65,16 @@ class TestRightmoveEmailSensor:
         assert isinstance(result, dg.SensorResult)
         assert result.run_requests == []
 
-    def test_run_request_merges_yaml_ops_overrides(
+    def test_run_request_carries_batched_message_ids(
         self,
         fake_imap: ImapResource,
         raw_email: RightmoveRawEmail,
         mock_checker: Callable[[list[RightmoveRawEmail]], MagicMock],
     ) -> None:
-        # Given: a YAML preset with rightmove_email_matched_properties filters
+        # Given: a single unseen email
         # When: the sensor emits a run request
-        # Then: the run_config carries both the YAML ops block and the
-        #       per-batch message_ids — i.e. the YAML preset is not dropped
+        # Then: the inline run_config carries the email's message_id under the
+        #       rightmove_property_alerts op
         checker = mock_checker([raw_email])
         with patch(
             "flathunt.defs.rightmove_email.alerts.RightmoveImapChecker",
@@ -110,10 +87,6 @@ class TestRightmoveEmailSensor:
         assert result.run_requests is not None
         assert len(result.run_requests) == 1
         run_config = result.run_requests[0].run_config
-        matched_cfg = run_config["ops"]["rightmove_email_matched_properties"]["config"]
-        assert matched_cfg["min_budget"] == 400000
-        assert matched_cfg["max_budget"] == 775000
-        assert matched_cfg["has_floorplans"] is True
         assert run_config["ops"]["rightmove_property_alerts"]["config"][
             "message_ids"
         ] == [raw_email.message_id]

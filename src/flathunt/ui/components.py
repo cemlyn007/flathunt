@@ -425,7 +425,7 @@ def render_property_table(
 def _convert_properties_to_dicts(
     properties: Iterable[tuple[rightmove.models.MapProperty, Sequence[int | None]]],
     channel: Literal["RENT", "BUY"],
-) -> list[dict[str, str | int]]:
+) -> list[dict[str, str | int | None]]:
     """Convert property/duration pairs into display-ready dicts for a Streamlit dataframe.
 
     Args:
