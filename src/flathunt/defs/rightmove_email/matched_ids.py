@@ -94,7 +94,10 @@ def rightmove_email_matched_ids(
 
     flat_to_froms: list[tuple[float, float, float, float]] = []
     for prop in with_coords:
-        assert prop.longitude is not None and prop.latitude is not None
+        if prop.longitude is None or prop.latitude is None:
+            raise ValueError(
+                f"Property {prop.id} in with_coords is missing coordinates."
+            )
         flat_to_froms.extend(
             (prop.longitude, prop.latitude, dest.lon, dest.lat) for dest in dests
         )
