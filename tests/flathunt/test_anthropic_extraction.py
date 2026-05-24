@@ -1,0 +1,90 @@
+"""Tests for the shared Anthropic-batch helpers in flathunt.anthropic_extraction."""
+
+import itertools
+
+import pytest
+
+from flathunt.anthropic_extraction import (
+    BATCH_POLL_BACKOFF,
+    BATCH_POLL_INITIAL_DELAY,
+    BATCH_POLL_MAX_DELAY,
+    SQFT_TO_SQM,
+    ExtractedAttributes,
+    ExtractedPropertyInfo,
+    ExtractionKind,
+    FloorPlanExtraction,
+    FloorPlanResult,
+    calculate_backoff_delay,
+    extract_json_from_response,
+)
+
+
+class TestCalculateBackoffDelay:
+    def test_calculate_backoff_delay_starts_at_initial(self):
+        assert calculate_backoff_delay(0) == BATCH_POLL_INITIAL_DELAY
+
+    def test_calculate_backoff_delay_grows_then_caps(self):
+        delays = [calculate_backoff_delay(i) for i in range(20)]
+
+        # Must be monotonically non-decreasing
+        for prev, curr in itertools.pairwise(delays):
+            assert curr >= prev
+
+        # Must eventually cap at BATCH_POLL_MAX_DELAY
+        assert delays[-1] == BATCH_POLL_MAX_DELAY
+
+        # Must actually grow (not stay flat from the start)
+        assert delays[1] > delays[0]
+
+        # Verify the growth factor: delay[1] should be
+        # int(INITIAL * BACKOFF^1)
+        expected_second = int(BATCH_POLL_INITIAL_DELAY * (BATCH_POLL_BACKOFF**1))
+        assert delays[1] == min(expected_second, BATCH_POLL_MAX_DELAY)
+
+
+class TestExtractJsonFromResponse:
+    def test_extract_json_from_response_strips_markdown_fences(self):
+        fenced = '```json\n{"key": "value"}\n```'
+        assert extract_json_from_response(fenced) == '{"key": "value"}'
+
+    def test_extract_json_from_response_strips_plain_fences(self):
+        fenced = '```\n{"key": "value"}\n```'
+        assert extract_json_from_response(fenced) == '{"key": "value"}'
+
+    def test_extract_json_from_response_strips_surrounding_whitespace(self):
+        padded = '  {"key": "value"}  '
+        assert extract_json_from_response(padded) == '{"key": "value"}'
+
+    def test_extract_json_from_response_passes_plain_json_through(self):
+        plain = '{"total": 65.0, "units": "sq m"}'
+        assert extract_json_from_response(plain) == plain
+
+
+class TestDomainModels:
+    def test_floor_plan_result_defaults_to_none(self):
+        r = FloorPlanResult()
+        assert r.total_sqm is None and r.breakdown_csv is None
+
+    def test_extracted_property_info_has_beds_and_baths(self):
+        info = ExtractedPropertyInfo(bedrooms=2, bathrooms=1)
+        assert info.bedrooms == 2 and info.bathrooms == 1
+        assert info.tenure_type is None
+        assert info.years_remaining_on_lease is None
+
+    def test_extracted_attributes_bundles_both(self):
+        attrs = ExtractedAttributes(
+            floor_plan=FloorPlanResult(total_sqm=59.0),
+            description=ExtractedPropertyInfo(council_tax_band="C"),
+        )
+        assert attrs.floor_plan is not None
+        assert attrs.floor_plan.total_sqm == 59.0
+        assert attrs.description is not None
+        assert attrs.description.council_tax_band == "C"
+
+    def test_extraction_kind_values(self):
+        assert ExtractionKind.FLOOR_PLAN == "floor_plan"
+        assert ExtractionKind.DESCRIPTION == "description"
+
+    def test_floor_plan_extraction_get_total_sqm_sqft(self):
+        e = FloorPlanExtraction(total=1000.0, units="sq ft")
+        assert e.get_total_sqm() == pytest.approx(1000.0 * SQFT_TO_SQM)

@@ -1,12 +1,15 @@
-"""Shared Anthropic-batch infrastructure for floor-plan (and other) pipelines.
+"""Shared, strongly-typed Anthropic batch extraction for all pipelines.
 
-Provides constants, backoff helpers, batch submission/polling, JSON extraction,
-and a floor-plan result parser that can be reused across any pipeline that submits
-Anthropic message batches.
+Owns every Anthropic type, prompt, request builder, the batch runner, and the
+single ``extract_attributes`` entry point. Source-agnostic: pipelines normalise
+their own detail models into ``ListingExtractionInput`` at the boundary.
 """
 
 import asyncio
 import logging
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Literal
 
 import dagster as dg
 import httpx
@@ -15,16 +18,96 @@ from anthropic.types.messages.batch_create_params import Request
 
 import rightmove.models
 from flathunt.cache import ModelCache
-from rightmove.anthropic_config import get_client
-from rightmove.floor_plan import FloorPlanExtraction, FloorPlanSizeExtractor
+from rightmove.anthropic_config import (
+    get_client,
+)
+from rightmove.floor_plan import (
+    FloorPlanExtraction as _LegacyFloorPlanExtraction,
+)
+from rightmove.floor_plan import (
+    FloorPlanSizeExtractor,
+)
 
 logger = logging.getLogger(__name__)
 
-_LLM_CALL_INTERVAL = 0.5  # seconds between LLM calls
+SQFT_TO_SQM = 0.09290304
+
+FLOOR_PLAN_CACHE_TTL = 30 * 24 * 3600  # 30 days
+DESCRIPTION_CACHE_TTL = 30 * 24 * 3600  # 30 days
 
 BATCH_POLL_INITIAL_DELAY = 30  # seconds
 BATCH_POLL_MAX_DELAY = 180  # seconds
-BATCH_POLL_BACKOFF = 1.5  # multiplier for exponential backoff
+BATCH_POLL_BACKOFF = 1.5
+
+
+class ExtractionKind(StrEnum):
+    FLOOR_PLAN = "floor_plan"
+    DESCRIPTION = "description"
+
+
+class FloorPlanExtraction(pydantic.BaseModel):
+    total: float | None = None
+    breakdown: list[float] | None = None
+    units: Literal["sq m", "sq ft"] | None = None
+
+    def is_empty(self) -> bool:
+        return self.total is None and self.breakdown is None and self.units is None
+
+    def get_total_sqm(self) -> float | None:
+        if self.units is None:
+            return None
+        if self.total is not None:
+            return self.total if self.units == "sq m" else self.total * SQFT_TO_SQM
+        if self.breakdown:
+            max_val = max(self.breakdown)
+            return max_val if self.units == "sq m" else max_val * SQFT_TO_SQM
+        return None
+
+    def get_breakdown_csv(self) -> str | None:
+        if not self.breakdown:
+            return None
+        if self.units == "sq m":
+            return ",".join(f"{v:.1f}" for v in self.breakdown)
+        return ",".join(f"{v * SQFT_TO_SQM:.1f}" for v in self.breakdown)
+
+
+class FloorPlanResult(pydantic.BaseModel):
+    total_sqm: float | None = None
+    breakdown_csv: str | None = None
+
+
+class ExtractedPropertyInfo(pydantic.BaseModel):
+    tenure_type: str | None = None
+    years_remaining_on_lease: int | None = None
+    annual_service_charge: float | None = None
+    annual_ground_rent: float | None = None
+    council_tax_band: str | None = None
+    bedrooms: int | None = None
+    bathrooms: int | None = None
+
+
+class ExtractedAttributes(pydantic.BaseModel):
+    floor_plan: FloorPlanResult | None = None
+    description: ExtractedPropertyInfo | None = None
+
+
+class RequestMeta(pydantic.BaseModel):
+    kind: ExtractionKind
+    listing_id: str
+
+
+@dataclass(frozen=True)
+class ExtractionRequest:
+    meta: RequestMeta
+    request: Request
+
+
+class ListingExtractionInput(pydantic.BaseModel):
+    listing_id: str
+    description: str | None
+    floor_plan_image_urls: list[str]
+    needs_floor_plan: bool
+    needs_description: bool
 
 
 def calculate_backoff_delay(poll_count: int) -> int:
@@ -116,12 +199,15 @@ def parse_floor_plan_result(
     return extraction.get_total_sqm(), extraction.get_breakdown_csv()
 
 
+_LLM_CALL_INTERVAL = 0.5  # seconds between LLM calls
+
+
 async def _extract_all_floor_plans(
     prop_id: int,
     details: rightmove.models.PropertyDetails | None,
     extractor: FloorPlanSizeExtractor,
     llm_semaphore: asyncio.Semaphore,
-) -> FloorPlanExtraction | None:
+) -> _LegacyFloorPlanExtraction | None:
     """Extract sizes from all floor plan images, aggregating results intelligently.
 
     - Prefers total size if found in any image
@@ -132,7 +218,7 @@ async def _extract_all_floor_plans(
         logger.warning("Property %d has no floor plan URLs in page model.", prop_id)
         return None
 
-    all_extractions: list[FloorPlanExtraction] = []
+    all_extractions: list[_LegacyFloorPlanExtraction] = []
 
     for i, floor_plan in enumerate(details.floorplans):
         try:

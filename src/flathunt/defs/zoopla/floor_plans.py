@@ -23,13 +23,13 @@ import httpx
 import pydantic
 from anthropic.types.messages.batch_create_params import Request
 
-from flathunt.cache import ModelCache
-from flathunt.defs.resources import CacheResource
-from flathunt.floor_plan_batch import (
+from flathunt.anthropic_extraction import (
     extract_json_from_response,
     poll_batch_completion,
     submit_batch,
 )
+from flathunt.cache import ModelCache
+from flathunt.defs.resources import CacheResource
 from flathunt.models import MatchedProperty
 from rightmove.anthropic_config import get_client
 from rightmove.floor_plan import FloorPlanExtraction, FloorPlanSizeExtractor

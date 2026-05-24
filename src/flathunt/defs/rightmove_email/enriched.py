@@ -6,9 +6,9 @@ import dagster as dg
 
 import rightmove.api
 import rightmove.models
+from flathunt.anthropic_extraction import get_floor_plan_sqm
 from flathunt.cache import ModelCache
 from flathunt.defs.resources import CacheResource
-from flathunt.floor_plan_batch import get_floor_plan_sqm
 from flathunt.models import FinalProperty
 from rightmove.email_models import RightmoveProperty, RightmovePropertyAlert
 from rightmove.floor_plan import FloorPlanSizeExtractor
