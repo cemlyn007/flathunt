@@ -20,6 +20,7 @@ from flathunt.defs.rightmove_email.candidates import (
 from flathunt.defs.rightmove_email.matched import rightmove_email_matched_properties
 from flathunt.defs.rightmove_email.matched_ids import rightmove_email_matched_ids
 from flathunt.defs.rightmove_search.candidates import candidate_properties
+from flathunt.defs.rightmove_search.matched import matched_property_ids
 from flathunt.defs.zoopla.candidates import zoopla_candidate_properties
 from flathunt.defs.zoopla.matched import zoopla_matched_properties
 from flathunt.defs.zoopla.matched_ids import zoopla_matched_ids
@@ -148,3 +149,18 @@ def test_rightmove_search_candidates_skips_when_isochrone_empty(
     assert value == []
     assert len(obs) == 1
     assert obs[0].metadata["property_count"].value == 0
+
+
+def test_rightmove_search_matched_ids_skips_when_empty(tmp_path: Path) -> None:
+    value, obs = drain_gate(
+        matched_property_ids(
+            context=dg.build_asset_context(),
+            queries=_queries(),
+            tfl_resource=_tfl(),
+            cache=_cache(tmp_path),
+            candidate_properties=[],
+        )
+    )
+    assert value == []
+    assert len(obs) == 1
+    assert obs[0].metadata["matched_count"].value == 0
