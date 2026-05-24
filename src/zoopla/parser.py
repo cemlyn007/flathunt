@@ -180,7 +180,6 @@ _ANALYTICS_TAXONOMY = re.compile(
 )
 _FLOOR_AREA_SQFT = re.compile(r"([\d,]+)\s*sq\.\s*ft")
 _RSC_PUSH = re.compile(r'^self\.__next_f\.push\(\[1,"(.+)"\]\s*\)\s*;?\s*$', re.DOTALL)
-_UPRN_COORDS = re.compile(r'"uprn":(?:null|"[^"]*"),"coordinates":\{')
 _FLOORPLAN_HOST = "https://lc.zoocdn.com/"
 
 
@@ -469,13 +468,31 @@ def _parse_floorplan_urls(soup: BeautifulSoup) -> list[str]:
 
 
 def _parse_coordinates(soup: BeautifulSoup) -> tuple[float | None, float | None]:
+    """Find the listing's lat/lng in the RSC payload.
+
+    The listing's coordinates live in JSON objects keyed by ``uprn``, in two
+    shapes Zoopla currently emits:
+
+    * ``{"coordinates": {"latitude": ..., "longitude": ...}, ..., "uprn": ...}``
+    * ``{"latitude": ..., "longitude": ..., ..., "uprn": ...}``
+
+    Requiring ``uprn`` filters out the dozens of nearby EV-charging-station
+    coordinate objects on the same page.
+    """
     buf = _rsc_buffer(soup)
-    anchor = _UPRN_COORDS.search(buf)
-    if not anchor:
-        return None, None
-    coords_start = buf.index('"coordinates":', anchor.start()) + len('"coordinates":')
-    try:
-        coords, _ = json.JSONDecoder().raw_decode(buf, coords_start)
-        return float(coords["latitude"]), float(coords["longitude"])
-    except (json.JSONDecodeError, KeyError, ValueError):
-        return None, None
+    for top in _iter_json_values(buf):
+        for _, value in _walk(top):
+            if not isinstance(value, dict) or "uprn" not in value:
+                continue
+            coords = value.get("coordinates")
+            if isinstance(coords, dict):
+                lat, lng = coords.get("latitude"), coords.get("longitude")
+            else:
+                lat, lng = value.get("latitude"), value.get("longitude")
+            if lat is None or lng is None:
+                continue
+            try:
+                return float(lat), float(lng)
+            except (TypeError, ValueError):
+                continue
+    return None, None

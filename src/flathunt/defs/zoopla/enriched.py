@@ -120,11 +120,26 @@ def zoopla_enriched_properties(
             results[detail.listing_id] = detail
 
     ordered = [results[p.listing_id] for p in properties if p.listing_id in results]
+    # Listings where the page parsed (address present, so not bot-walled per
+    # _looks_unparsed) but coordinate extraction still failed. A non-zero count
+    # here points at a parser regression against Zoopla's RSC payload shape.
+    missing_coords = [
+        d
+        for d in ordered
+        if not _looks_unparsed(d) and (d.latitude is None or d.longitude is None)
+    ]
+    if missing_coords:
+        context.log.warning(
+            "%d listing(s) parsed but missing coordinates (e.g. %s).",
+            len(missing_coords),
+            missing_coords[0].listing_id,
+        )
     context.log.info("Returning %d enriched Zoopla listing(s).", len(ordered))
     context.add_output_metadata({
         "alert_count": len(zoopla_property_alerts),
         "total_count": len(ordered),
         "cache_hit_count": len(results) - len(to_fetch),
         "fetched_count": len(to_fetch),
+        "missing_coords_count": len(missing_coords),
     })
     return ordered
