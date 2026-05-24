@@ -243,7 +243,7 @@ def parse_zoopla_listing_html(html: str, url: str) -> ZooplaListingDetail:
     description = _parse_description(soup)
     more_info = _parse_more_info(soup)
     latitude, longitude = _parse_coordinates(soup)
-    image_urls = _parse_image_urls(soup, listing_ld)
+    image_urls = _parse_image_urls(soup, listing_ld, listing_id)
     floorplan_urls = _parse_floorplan_urls(soup)
 
     price_gbp: int | None = None
@@ -382,44 +382,66 @@ def _parse_more_info(soup: BeautifulSoup) -> dict[str, str]:
     return result
 
 
-_ZOOCDN_IMAGE = re.compile(r'https://lid\.zoocdn\.com/u/\d+/\d+/[^"\\]+')
+_IMAGE_URL_TEMPLATE = "https://lid.zoocdn.com/u/1024/768/{filename}"
 
 
-def _parse_image_urls(soup: BeautifulSoup, listing_ld: dict) -> list[str]:
-    seen: set[str] = set()
-    urls: list[str] = []
+def _find_image_galleries(node: Any) -> Iterator[tuple[str | None, list[str]]]:
+    """Yield ``(listing_id, filenames)`` for each photo gallery in an RSC tree.
 
-    def _add(url: str) -> None:
-        if url not in seen:
-            seen.add(url)
-            urls.append(url)
+    Zoopla emits the gallery as a ``propertyImage`` array of
+    ``{"caption": ..., "filename": ...}`` objects (filenames only, no host) on the
+    listing-detail object, which also carries the ``listingId``.  Other
+    ``propertyImage`` values on the page are scalar RSC references or single hero
+    URLs and are ignored.
+    """
+    if isinstance(node, dict):
+        gallery = node.get("propertyImage")
+        if (
+            isinstance(gallery, list)
+            and gallery
+            and all(isinstance(item, dict) and "filename" in item for item in gallery)
+        ):
+            listing_id = node.get("listingId")
+            yield (
+                str(listing_id) if listing_id is not None else None,
+                [item["filename"] for item in gallery],
+            )
+        for value in node.values():
+            yield from _find_image_galleries(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _find_image_galleries(item)
 
-    # Prefer the largest variant from the RSC payloads
-    rsc_urls: dict[str, tuple[int, int]] = {}
-    buf = _rsc_buffer(soup)
-    for match in _ZOOCDN_IMAGE.finditer(buf):
-        raw = match.group(0)
-        parts = raw.split("/")
-        try:
-            w, h = int(parts[-3]), int(parts[-2])
-        except (ValueError, IndexError):
-            _add(raw)
-            continue
-        filename = parts[-1]
-        prev = rsc_urls.get(filename)
-        if prev is None or w * h > prev[0] * prev[1]:
-            rsc_urls[filename] = (w, h)
 
-    for filename, (w, h) in rsc_urls.items():
-        _add(f"https://lid.zoocdn.com/u/{w}/{h}/{filename}")
+def _parse_image_urls(
+    soup: BeautifulSoup, listing_ld: dict, listing_id: str
+) -> list[str]:
+    """Extract the listing's photo gallery from the RSC ``propertyImage`` array.
 
-    # Fall back to the JSON-LD image if RSC found nothing
-    if not urls:
-        ld_img = listing_ld.get("image")
-        if ld_img:
-            _add(ld_img)
+    Prefers the gallery whose ``listingId`` matches this listing, so any
+    "similar properties" galleries elsewhere on the page are ignored.  Falls back
+    to the single JSON-LD hero image when no gallery is found.
+    """
+    galleries = [
+        gallery
+        for value in _iter_json_values(_rsc_buffer(soup))
+        for gallery in _find_image_galleries(value)
+    ]
 
-    return urls
+    filenames: list[str] | None = None
+    for gallery_listing_id, gallery_filenames in galleries:
+        if gallery_listing_id == listing_id:
+            filenames = gallery_filenames
+            break
+    if filenames is None and len(galleries) == 1:
+        filenames = galleries[0][1]
+
+    if filenames:
+        return [_IMAGE_URL_TEMPLATE.format(filename=fn) for fn in filenames]
+
+    # Fall back to the single JSON-LD hero image.
+    ld_img = listing_ld.get("image")
+    return [ld_img] if ld_img else []
 
 
 def _parse_floorplan_urls(soup: BeautifulSoup) -> list[str]:
