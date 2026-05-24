@@ -280,7 +280,7 @@ def _stream_batch_results(batch_id: str) -> Iterable[Any]:
 
 
 def _succeeded_text(result: Any) -> str:
-    """The ONLY place SDK shapes leak. Everything downstream is fully typed."""
+    """Pull the text payload off an untyped Anthropic succeeded result (SDK-shape boundary)."""
     return cast(str, result.result.message.content[0].text)
 
 
@@ -356,12 +356,12 @@ async def extract_attributes(
         bundle = results.setdefault(inp.listing_id, ExtractedAttributes())
         if inp.needs_floor_plan and inp.floor_plan_image_urls:
             try:
-                bundle.floor_plan, _ = floor_plan_cache.peek(inp.listing_id)
+                bundle.floor_plan = floor_plan_cache.get(inp.listing_id)
             except KeyError:
                 fp_misses.append(inp)
         if inp.needs_description and inp.description:
             try:
-                bundle.description, _ = description_cache.peek(inp.listing_id)
+                bundle.description = description_cache.get(inp.listing_id)
             except KeyError:
                 desc_misses.append(inp)
 

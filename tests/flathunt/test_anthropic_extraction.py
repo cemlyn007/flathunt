@@ -2,6 +2,7 @@
 
 import asyncio
 import itertools
+import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -333,3 +334,54 @@ class TestExtractAttributes:
         assert out["1"].floor_plan is None
         with pytest.raises(KeyError):
             fp_cache.get("1")
+
+
+class TestExtractAttributesCacheSemantics:
+    def test_partial_cache_hit_only_fetches_missing_dimension(self, tmp_path):
+        # floor plan already cached; description must be fetched.
+        fp_cache, _ = _caches(tmp_path)
+        fp_cache.update([("1", FloorPlanResult(total_sqm=70.0))])
+        inputs = [
+            ListingExtractionInput(
+                listing_id="1",
+                description="band C 2 bed",
+                floor_plan_image_urls=["http://x/1.jpg"],
+                needs_floor_plan=True,
+                needs_description=True,
+            )
+        ]
+        results = [_fake_result("desc_1", json_text='{"council_tax_band":"C"}')]
+        out, _, _ = _run(inputs, results, tmp_path)
+        assert out["1"].floor_plan is not None
+        assert out["1"].floor_plan.total_sqm == pytest.approx(70.0)  # from cache
+        assert out["1"].description is not None
+        assert out["1"].description.council_tax_band == "C"  # freshly fetched
+
+    def test_expired_cache_entry_is_re_extracted(self, tmp_path):
+        # A stale-timestamped floor-plan row (older than TTL) must NOT be served;
+        # extract_attributes should re-extract and return the fresh value.
+        # We patch _purge_expired so the stale row survives cache construction,
+        # and can then only be skipped by a TTL-aware reader (get), not peek.
+        with patch("flathunt.cache.ModelCache._purge_expired"):
+            fp_cache, _ = _caches(tmp_path)
+            stale_item = fp_cache._adapter.dump_json(
+                FloorPlanResult(total_sqm=99.0)
+            ).decode()
+            fp_cache._conn.execute(
+                "INSERT OR REPLACE INTO cache (key, timestamp, item) VALUES (?, ?, ?)",
+                ("1", time.time() - 10**9, stale_item),
+            )
+            fp_cache._conn.commit()
+            inputs = [
+                ListingExtractionInput(
+                    listing_id="1",
+                    description=None,
+                    floor_plan_image_urls=["http://x/1.jpg"],
+                    needs_floor_plan=True,
+                    needs_description=False,
+                )
+            ]
+            results = [_fake_result("fp_1", json_text='{"total":59.0,"units":"sq m"}')]
+            out, _, _ = _run(inputs, results, tmp_path)
+        assert out["1"].floor_plan is not None
+        assert out["1"].floor_plan.total_sqm == pytest.approx(59.0)  # fresh, not 99.0
