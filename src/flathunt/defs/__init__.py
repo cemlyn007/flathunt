@@ -23,7 +23,11 @@ from flathunt.defs.resources import (
     TflResource,
 )
 from flathunt.defs.rightmove_email import (
+    rightmove_email_candidate_properties,
+    rightmove_email_extracted_attributes,
+    rightmove_email_matched_ids,
     rightmove_email_matched_properties,
+    rightmove_email_property_details,
     rightmove_email_sensor,
     rightmove_enriched_properties,
     rightmove_notified_properties,
@@ -71,7 +75,11 @@ all_assets = [
     zoopla_matched_properties,
     zoopla_notified_properties,
     rightmove_property_alerts,
+    rightmove_email_property_details,
     rightmove_enriched_properties,
+    rightmove_email_candidate_properties,
+    rightmove_email_matched_ids,
+    rightmove_email_extracted_attributes,
     rightmove_email_matched_properties,
     rightmove_notified_properties,
 ]
@@ -112,7 +120,11 @@ rightmove_email_job = dg.define_asset_job(
     name="rightmove_email",
     selection=dg.AssetSelection.assets(
         "rightmove_property_alerts",
+        "rightmove_email_property_details",
         "rightmove_enriched_properties",
+        "rightmove_email_candidate_properties",
+        "rightmove_email_matched_ids",
+        "rightmove_email_extracted_attributes",
         "rightmove_email_matched_properties",
         "rightmove_notified_properties",
     ),
