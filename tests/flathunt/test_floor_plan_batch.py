@@ -1,17 +1,22 @@
 """Tests for the shared Anthropic-batch helpers in flathunt.floor_plan_batch."""
 
+import asyncio
 import itertools
+from typing import cast
 
 import pytest
 
+from flathunt.cache import ModelCache
 from flathunt.floor_plan_batch import (
     BATCH_POLL_BACKOFF,
     BATCH_POLL_INITIAL_DELAY,
     BATCH_POLL_MAX_DELAY,
     calculate_backoff_delay,
     extract_json_from_response,
+    get_floor_plan_sqm,
     parse_floor_plan_result,
 )
+from rightmove.floor_plan import FloorPlanSizeExtractor
 
 
 class TestCalculateBackoffDelay:
@@ -80,3 +85,38 @@ class TestParseFloorPlanResult:
         total_sqm, breakdown_csv = parse_floor_plan_result("{}")
         assert total_sqm is None
         assert breakdown_csv is None
+
+
+class TestGetFloorPlanSqm:
+    def test_returns_cached_value_without_extracting(self, tmp_path):
+        cache: ModelCache[tuple[float | None, str | None]] = ModelCache(
+            tuple[float | None, str | None], tmp_path / "fp.db"
+        )
+        cache.update([("42", (88.0, None))])
+        # extractor is never called on a cache hit; cast a dummy to satisfy types.
+        result = asyncio.run(
+            get_floor_plan_sqm(
+                42,
+                None,
+                cache,
+                cast(FloorPlanSizeExtractor, object()),
+                asyncio.Semaphore(1),
+            )
+        )
+        assert result == (88.0, None)
+
+    def test_no_floorplans_returns_none_and_records_miss(self, tmp_path):
+        cache: ModelCache[tuple[float | None, str | None]] = ModelCache(
+            tuple[float | None, str | None], tmp_path / "fp.db"
+        )
+        result = asyncio.run(
+            get_floor_plan_sqm(
+                7,
+                None,
+                cache,
+                cast(FloorPlanSizeExtractor, object()),
+                asyncio.Semaphore(1),
+            )
+        )
+        assert result == (None, None)
+        assert cache.get("7") == (None, None)

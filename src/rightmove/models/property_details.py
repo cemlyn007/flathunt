@@ -20,6 +20,21 @@ class _DetailLocation(pydantic.BaseModel):
     longitude: float
 
 
+class _Sizing(pydantic.BaseModel):
+    """A single size measurement from the detail page's ``sizings`` array."""
+
+    model_config = pydantic.ConfigDict(
+        alias_generator=pydantic.alias_generators.to_camel,
+        populate_by_name=True,
+        extra="ignore",
+    )
+
+    unit: str
+    display_unit: str | None = None
+    minimum_size: float | None = None
+    maximum_size: float | None = None
+
+
 class PropertyDetails(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(
         alias_generator=pydantic.alias_generators.to_camel,
@@ -33,6 +48,9 @@ class PropertyDetails(pydantic.BaseModel):
     tenure: Tenure | None = None
     text: PropertyText | None = None
     location: _DetailLocation | None = None
+    bedrooms: int | None = None
+    bathrooms: int | None = None
+    sizings: list[_Sizing] = []
 
     @property
     def tenure_type(self) -> str | None:
@@ -45,3 +63,11 @@ class PropertyDetails(pydantic.BaseModel):
     @property
     def description(self) -> str | None:
         return self.text.description if self.text else None
+
+    @property
+    def size_sqm(self) -> float | None:
+        """Return the floor area in square metres from ``sizings``, if present."""
+        for sizing in self.sizings:
+            if sizing.unit == "sqm":
+                return sizing.minimum_size
+        return None

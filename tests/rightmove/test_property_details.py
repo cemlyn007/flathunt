@@ -81,3 +81,23 @@ def test_resolve_handles_shared_references_and_primitives() -> None:
     resolved = _resolve(0, arr, {})
     assert resolved == {"a": {"v": "leaf"}, "b": {"v": "leaf"}}
     assert resolved["a"] is resolved["b"]
+
+
+def test_parse_bedrooms(property_details_html: str) -> None:
+    details = parse_property_details(property_details_html)
+    assert details.bedrooms == 2
+
+
+def test_parse_bathrooms(property_details_html: str) -> None:
+    details = parse_property_details(property_details_html)
+    assert details.bathrooms == 2
+
+
+def test_parse_size_sqm(property_details_html: str) -> None:
+    details = parse_property_details(property_details_html)
+    assert details.size_sqm == pytest.approx(82.0)
+
+
+def test_size_sqm_none_when_sizings_empty(property_133551089_html: str) -> None:
+    details = parse_property_details(property_133551089_html)
+    assert details.size_sqm is None
