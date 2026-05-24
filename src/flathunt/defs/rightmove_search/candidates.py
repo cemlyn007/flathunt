@@ -24,6 +24,33 @@ logger = logging.getLogger(__name__)
 _SEEN_IDS_DB = "seen_property_ids.db"
 
 
+def _candidate_predicate(
+    p: rightmove.models.MapProperty,
+    search_criteria: SearchCriteriaResource,
+) -> bool:
+    """Return True if *p* passes the cheap candidate filter.
+
+    A ``None`` value for ``number_of_images`` or ``number_of_floorplans``
+    is treated as *unknown* and does NOT cause rejection — the property is
+    kept so that downstream extraction can fill in the details.
+    ``property_url`` is a hard gate: a property without a URL is unusable.
+    """
+    return (
+        p.property_url is not None
+        and check_property_size(p, search_criteria.min_square_meters)
+        and (
+            p.number_of_images is None
+            or p.number_of_images > 2
+            or not search_criteria.has_images
+        )
+        and (
+            p.number_of_floorplans is None
+            or p.number_of_floorplans > 0
+            or not search_criteria.has_floorplans
+        )
+    )
+
+
 def _open_seen_ids_db(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
@@ -98,14 +125,7 @@ def candidate_properties(
     logger.info("Loaded %d previously seen property ID(s).", len(seen_ids))
 
     def predicate(p: rightmove.models.MapProperty) -> bool:
-        return (
-            p.property_url is not None
-            and check_property_size(p, search_criteria.min_square_meters)
-            and ((p.number_of_images or 0) > 2 or not search_criteria.has_images)
-            and (
-                (p.number_of_floorplans or 0) > 0 or not search_criteria.has_floorplans
-            )
-        )
+        return _candidate_predicate(p, search_criteria)
 
     logger.info(
         "Fetching %s properties within %d intersection polygon(s).",

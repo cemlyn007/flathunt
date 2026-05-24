@@ -79,12 +79,14 @@ def test_filter_by_commute_excludes_over_limit():
     assert [p for p, _ in result] == [prop_ok]
 
 
-def test_filter_by_commute_excludes_none_duration():
+def test_filter_by_commute_keeps_none_duration():
+    """A None (unknown) duration must not cause rejection — keep the property."""
     prop = make_property(id=1)
     durations = [[None, 15]]
     queries = [CommuteDest(-0.1, 51.5, 30), CommuteDest(-0.2, 51.6, 30)]
     result = filter_by_commute([prop], durations, queries)
-    assert result == []
+    assert len(result) == 1
+    assert result[0][0] is prop
 
 
 def test_filter_by_commute_empty_properties():

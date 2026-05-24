@@ -89,14 +89,15 @@ def filter_by_commute(
             destination and its time limit.
 
     Returns:
-        A list of ``(property, durations)`` pairs where every duration is
-        non-``None`` and within the corresponding query's maximum.
+        A list of ``(property, durations)`` pairs where no known duration
+        exceeds the corresponding query's maximum.  Properties with unknown
+        (``None``) durations are retained — they cannot be proven to fail.
     """
     return [
         (prop, prop_durations)
         for prop, prop_durations in zip(properties, durations, strict=True)
-        if all(
-            d is not None and d <= query.max_duration
+        if not any(
+            d is not None and d > query.max_duration
             for d, query in zip(prop_durations, queries, strict=True)
         )
     ]
