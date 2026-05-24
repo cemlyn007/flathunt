@@ -1,8 +1,10 @@
 """Tests for the shared Anthropic-batch helpers in flathunt.anthropic_extraction."""
 
+import asyncio
 import itertools
+from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import dagster as dg
 import pytest
@@ -11,6 +13,8 @@ from flathunt.anthropic_extraction import (
     BATCH_POLL_BACKOFF,
     BATCH_POLL_INITIAL_DELAY,
     BATCH_POLL_MAX_DELAY,
+    DESCRIPTION_CACHE_TTL,
+    FLOOR_PLAN_CACHE_TTL,
     SQFT_TO_SQM,
     ExtractedAttributes,
     ExtractedPropertyInfo,
@@ -18,13 +22,16 @@ from flathunt.anthropic_extraction import (
     ExtractionRequest,
     FloorPlanExtraction,
     FloorPlanResult,
+    ListingExtractionInput,
     RequestMeta,
     _parse_batch_results,
     build_description_request,
     build_floor_plan_request,
     calculate_backoff_delay,
+    extract_attributes,
     extract_json_from_response,
 )
+from flathunt.cache import ModelCache
 
 
 def _fake_result(
@@ -180,3 +187,149 @@ class TestParseBatchResults:
         )
         assert desc["1"].council_tax_band == "C" and desc["1"].bedrooms == 2
         assert fp == {}
+
+
+def _caches(
+    tmp_path: Path,
+) -> tuple[ModelCache[FloorPlanResult], ModelCache[ExtractedPropertyInfo]]:
+    fp = ModelCache(FloorPlanResult, tmp_path / "fp.db", ttl=FLOOR_PLAN_CACHE_TTL)
+    desc = ModelCache(
+        ExtractedPropertyInfo, tmp_path / "desc.db", ttl=DESCRIPTION_CACHE_TTL
+    )
+    return fp, desc
+
+
+def _run(
+    inputs: list[ListingExtractionInput],
+    batch_results: list[Any],
+    tmp_path: Path,
+    *,
+    expect_submit: bool = True,
+) -> tuple[
+    dict[str, ExtractedAttributes],
+    ModelCache[FloorPlanResult],
+    ModelCache[ExtractedPropertyInfo],
+]:
+    fp_cache, desc_cache = _caches(tmp_path)
+    http_resp = MagicMock()
+    http_resp.content = b"\xff\xd8\xff fake"
+    http_resp.raise_for_status = MagicMock()
+    http_client = MagicMock()
+    http_client.__aenter__ = AsyncMock(return_value=http_client)
+    http_client.__aexit__ = AsyncMock(return_value=None)
+    http_client.get = AsyncMock(return_value=http_resp)
+    with (
+        patch(
+            "flathunt.anthropic_extraction.httpx.AsyncClient", return_value=http_client
+        ),
+        patch("flathunt.anthropic_extraction.submit_batch", return_value="b1") as sub,
+        patch(
+            "flathunt.anthropic_extraction.poll_batch_completion",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "flathunt.anthropic_extraction._stream_batch_results",
+            return_value=iter(batch_results),
+        ),
+    ):
+        out = asyncio.run(
+            extract_attributes(inputs, fp_cache, desc_cache, dg.build_asset_context())
+        )
+        if not expect_submit:
+            sub.assert_not_called()
+        return out, fp_cache, desc_cache
+
+
+class TestExtractAttributes:
+    def test_floor_plan_and_description_both_extracted(self, tmp_path: Path) -> None:
+        inputs = [
+            ListingExtractionInput(
+                listing_id="1",
+                description="2 bed flat band C",
+                floor_plan_image_urls=["http://x/1.jpg"],
+                needs_floor_plan=True,
+                needs_description=True,
+            )
+        ]
+        results = [
+            _fake_result("fp_1", json_text='{"total":59.0,"units":"sq m"}'),
+            _fake_result("desc_1", json_text='{"council_tax_band":"C","bedrooms":2}'),
+        ]
+        out, fp_cache, desc_cache = _run(inputs, results, tmp_path)
+        assert out["1"].floor_plan is not None
+        assert out["1"].floor_plan.total_sqm == pytest.approx(59.0)
+        assert out["1"].description is not None
+        assert out["1"].description.bedrooms == 2
+        assert fp_cache.get("1").total_sqm == pytest.approx(59.0)
+        assert desc_cache.get("1").council_tax_band == "C"
+
+    def test_cache_hit_skips_submit(self, tmp_path: Path) -> None:
+        fp_cache, _ = _caches(tmp_path)
+        fp_cache.update([("1", FloorPlanResult(total_sqm=80.0))])
+        inputs = [
+            ListingExtractionInput(
+                listing_id="1",
+                description=None,
+                floor_plan_image_urls=["http://x/1.jpg"],
+                needs_floor_plan=True,
+                needs_description=False,
+            )
+        ]
+        out, _, _ = _run(inputs, [], tmp_path, expect_submit=False)
+        assert out["1"].floor_plan is not None
+        assert out["1"].floor_plan.total_sqm == pytest.approx(80.0)
+
+    def test_no_requests_when_nothing_needed(self, tmp_path: Path) -> None:
+        inputs = [
+            ListingExtractionInput(
+                listing_id="1",
+                description=None,
+                floor_plan_image_urls=[],
+                needs_floor_plan=False,
+                needs_description=False,
+            )
+        ]
+        out, _, _ = _run(inputs, [], tmp_path, expect_submit=False)
+        assert out["1"].floor_plan is None and out["1"].description is None
+
+    def test_all_image_downloads_fail_means_no_request_no_cache(
+        self, tmp_path: Path
+    ) -> None:
+        fp_cache, desc_cache = _caches(tmp_path)
+        http_client = MagicMock()
+        http_client.__aenter__ = AsyncMock(return_value=http_client)
+        http_client.__aexit__ = AsyncMock(return_value=None)
+        http_client.get = AsyncMock(side_effect=Exception("boom"))
+        inputs = [
+            ListingExtractionInput(
+                listing_id="1",
+                description=None,
+                floor_plan_image_urls=["http://x/1.jpg"],
+                needs_floor_plan=True,
+                needs_description=False,
+            )
+        ]
+        with (
+            patch(
+                "flathunt.anthropic_extraction.httpx.AsyncClient",
+                return_value=http_client,
+            ),
+            patch("flathunt.anthropic_extraction.submit_batch") as sub,
+            patch(
+                "flathunt.anthropic_extraction.poll_batch_completion",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "flathunt.anthropic_extraction._stream_batch_results",
+                return_value=iter([]),
+            ),
+        ):
+            out = asyncio.run(
+                extract_attributes(
+                    inputs, fp_cache, desc_cache, dg.build_asset_context()
+                )
+            )
+            sub.assert_not_called()
+        assert out["1"].floor_plan is None
+        with pytest.raises(KeyError):
+            fp_cache.get("1")

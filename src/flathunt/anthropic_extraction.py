@@ -328,6 +328,83 @@ def _parse_batch_results(
     return floor_plans, descriptions
 
 
+async def _download_images(urls: list[str]) -> list[bytes]:
+    images: list[bytes] = []
+    for url in urls:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, timeout=30.0)
+                response.raise_for_status()
+            images.append(response.content)
+        except Exception:
+            logger.exception("Failed to download floor plan image %s — skipping.", url)
+    return images
+
+
+async def extract_attributes(
+    inputs: list[ListingExtractionInput],
+    floor_plan_cache: ModelCache[FloorPlanResult],
+    description_cache: ModelCache[ExtractedPropertyInfo],
+    context: dg.AssetExecutionContext,
+) -> dict[str, ExtractedAttributes]:
+    results: dict[str, ExtractedAttributes] = {}
+    fp_misses: list[ListingExtractionInput] = []
+    desc_misses: list[ListingExtractionInput] = []
+
+    # Phase 0: cache resolve
+    for inp in inputs:
+        bundle = results.setdefault(inp.listing_id, ExtractedAttributes())
+        if inp.needs_floor_plan and inp.floor_plan_image_urls:
+            try:
+                bundle.floor_plan, _ = floor_plan_cache.peek(inp.listing_id)
+            except KeyError:
+                fp_misses.append(inp)
+        if inp.needs_description and inp.description:
+            try:
+                bundle.description, _ = description_cache.peek(inp.listing_id)
+            except KeyError:
+                desc_misses.append(inp)
+
+    # Phase 1: collect requests
+    requests: list[ExtractionRequest] = []
+    for inp in fp_misses:
+        images = await _download_images(inp.floor_plan_image_urls)
+        if images:
+            requests.append(build_floor_plan_request(inp.listing_id, images))
+    requests.extend(
+        build_description_request(inp.listing_id, inp.description)
+        for inp in desc_misses
+        if inp.description
+    )
+
+    if not requests:
+        context.log.info("No extraction requests collected; skipping batch phase.")
+        return results
+
+    # Phase 2: run batch
+    meta_by_custom_id: dict[str, RequestMeta] = {
+        r.request["custom_id"]: r.meta for r in requests
+    }
+    batch_id = submit_batch([r.request for r in requests], context)
+    await poll_batch_completion(batch_id, context)
+    loop = asyncio.get_running_loop()
+    floor_plans, descriptions = await loop.run_in_executor(
+        None, lambda: _parse_batch_results(batch_id, meta_by_custom_id, context)
+    )
+
+    # Phase 3: cache writes + merge
+    if floor_plans:
+        floor_plan_cache.update(list(floor_plans.items()))
+    if descriptions:
+        description_cache.update(list(descriptions.items()))
+    for listing_id, fp in floor_plans.items():
+        results.setdefault(listing_id, ExtractedAttributes()).floor_plan = fp
+    for listing_id, desc in descriptions.items():
+        results.setdefault(listing_id, ExtractedAttributes()).description = desc
+
+    return results
+
+
 def parse_floor_plan_result(
     json_content: str,
 ) -> tuple[float | None, str | None]:
