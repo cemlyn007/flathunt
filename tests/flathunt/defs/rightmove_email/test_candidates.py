@@ -75,6 +75,7 @@ def _prop(
     price_amount: int | None = 400_000,
     latitude: float | None = 51.5,
     longitude: float | None = -0.1,
+    display_size: str | None = None,
 ) -> FinalProperty:
     """Build a minimal FinalProperty for testing."""
     price = (
@@ -88,6 +89,7 @@ def _prop(
         price=price,
         latitude=latitude,
         longitude=longitude,
+        display_size=display_size,
     )
 
 
@@ -280,4 +282,40 @@ class TestNullPhotoCountKeptWhenHasImages:
         result = _run_asset([prop], _alert(rm), criteria=criteria)
         assert prop in result, (
             "Property with null photo_count must not be excluded when has_images=True"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Filter 5 (structured size) — null-safe tests
+# ---------------------------------------------------------------------------
+
+
+class TestKnownTooSmallStructuredSizeExcluded:
+    def test_known_too_small_structured_size_excluded(self) -> None:
+        """A property with a known structured size below the minimum is excluded.
+
+        "40 sqm" parses to 40.0 sqm; with min_square_meters=50 it must be rejected.
+        """
+        rm = _rm_property("200009")
+        prop = _prop("200009", latitude=51.5, longitude=-0.1, display_size="40 sqm")
+        criteria = _make_criteria()  # min_square_meters=50.0
+        result = _run_asset([prop], _alert(rm), criteria=criteria)
+        assert prop not in result, (
+            "Property with known size below minimum must be excluded by the size filter"
+        )
+
+
+class TestUnknownSizeKept:
+    def test_unknown_size_kept(self) -> None:
+        """A property with display_size=None must pass the size filter (null-safe).
+
+        Unknown size cannot confirm the property is too small; the safe choice
+        is to keep the property for downstream evaluation.
+        """
+        rm = _rm_property("200010")
+        prop = _prop("200010", latitude=51.5, longitude=-0.1, display_size=None)
+        criteria = _make_criteria()  # min_square_meters=50.0
+        result = _run_asset([prop], _alert(rm), criteria=criteria)
+        assert prop in result, (
+            "Property with null display_size must not be excluded by the size filter"
         )

@@ -4,7 +4,7 @@ from shapely.geometry.polygon import Polygon
 
 from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.geometry import wgs84_to_bng
-from flathunt.models import FinalProperty
+from flathunt.models import FinalProperty, parse_display_size_sqm
 from rightmove.email_models import RightmoveProperty, RightmovePropertyAlert
 
 __all__ = ["rightmove_email_candidate_properties"]
@@ -129,13 +129,29 @@ def rightmove_email_candidate_properties(
             )
     after_isochrone = len(isochrone_passed)
 
+    # Filter 5: cheap structured size — only reject KNOWN-too-small; unknown passes.
+    size_passed: list[FinalProperty] = []
+    for prop in isochrone_passed:
+        sqm = parse_display_size_sqm(prop.display_size) if prop.display_size else None
+        if sqm is not None and sqm < search_criteria.min_square_meters:
+            context.log.info(
+                "Property %s structured size %.1f sqm below minimum %.1f; excluding.",
+                prop.id,
+                sqm,
+                search_criteria.min_square_meters,
+            )
+            continue
+        size_passed.append(prop)
+    after_size = len(size_passed)
+
     context.log.info(
-        "Candidate filters: total=%d price=%d floorplans=%d photos=%d isochrone=%d",
+        "Candidate filters: total=%d price=%d floorplans=%d photos=%d isochrone=%d size=%d",
         total,
         after_price,
         after_floorplans,
         after_photos,
         after_isochrone,
+        after_size,
     )
     context.add_output_metadata({
         "total_count": total,
@@ -143,6 +159,7 @@ def rightmove_email_candidate_properties(
         "after_floorplans": after_floorplans,
         "after_photos": after_photos,
         "after_isochrone": after_isochrone,
-        "candidate_count": after_isochrone,
+        "after_size": after_size,
+        "candidate_count": after_size,
     })
-    return isochrone_passed
+    return size_passed

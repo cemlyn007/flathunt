@@ -85,12 +85,12 @@ def rightmove_email_matched_ids(
             prop.id,
         )
 
-    flat_to_froms: list[tuple[float, float, float, float]] = [
-        (prop.longitude, prop.latitude, dest.lon, dest.lat)
-        for prop in with_coords
-        for dest in dests
-        if prop.longitude is not None and prop.latitude is not None
-    ]
+    flat_to_froms: list[tuple[float, float, float, float]] = []
+    for prop in with_coords:
+        assert prop.longitude is not None and prop.latitude is not None
+        flat_to_froms.extend(
+            (prop.longitude, prop.latitude, dest.lon, dest.lat) for dest in dests
+        )
     total = len(flat_to_froms)
     context.log.info(
         "Fetching TfL commute durations for %d property(-ies) x %d destination(s).",

@@ -23,8 +23,8 @@ def rightmove_notified_properties(
     smtp: SmtpResource,
     rightmove_email_matched_properties: list[FinalProperty],
 ) -> None:
-    rightmove_enriched_properties = rightmove_email_matched_properties
-    if not rightmove_enriched_properties:
+    final_properties = rightmove_email_matched_properties
+    if not final_properties:
         context.log.info("No Rightmove properties after enrichment — skipping email.")
         context.add_output_metadata({
             "total_count": 0,
@@ -36,7 +36,7 @@ def rightmove_notified_properties(
     if not smtp.to_addresses:
         context.log.warning("smtp.to_addresses is empty — skipping email notification.")
         context.add_output_metadata({
-            "total_count": len(rightmove_enriched_properties),
+            "total_count": len(final_properties),
             "already_notified_count": 0,
             "new_count": 0,
         })
@@ -46,13 +46,11 @@ def rightmove_notified_properties(
     already_notified = load_notified_ids(db_path)
 
     new_properties = [
-        p
-        for p in rightmove_enriched_properties
-        if property_key(p) not in already_notified
+        p for p in final_properties if property_key(p) not in already_notified
     ]
     context.log.info(
         "%d Rightmove enriched, %d already notified, %d new.",
-        len(rightmove_enriched_properties),
+        len(final_properties),
         len(already_notified),
         len(new_properties),
     )
@@ -60,7 +58,7 @@ def rightmove_notified_properties(
     if not new_properties:
         context.log.info("All Rightmove properties already notified — skipping email.")
         context.add_output_metadata({
-            "total_count": len(rightmove_enriched_properties),
+            "total_count": len(final_properties),
             "already_notified_count": len(already_notified),
             "new_count": 0,
         })
@@ -79,7 +77,7 @@ def rightmove_notified_properties(
         "Recorded %d new Rightmove IDs in %s.", len(new_properties), db_path
     )
     context.add_output_metadata({
-        "total_count": len(rightmove_enriched_properties),
+        "total_count": len(final_properties),
         "already_notified_count": len(already_notified),
         "new_count": len(new_properties),
     })
