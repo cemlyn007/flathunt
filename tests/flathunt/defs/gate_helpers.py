@@ -29,5 +29,13 @@ def drain_gate(gen: Any) -> tuple[list[Any], list[dg.AssetObservation]]:
     events = list(gen)
     outputs = [e for e in events if isinstance(e, dg.Output)]
     observations = [e for e in events if isinstance(e, dg.AssetObservation)]
+    # Enforce the gate contract so a malformed gate fails the test rather than
+    # slipping through: a gate yields at most one Output, and when it yields no
+    # Output (the skip path) it must emit exactly one observation.
+    assert len(outputs) <= 1, f"gate yielded {len(outputs)} Outputs, expected <=1"
+    if not outputs:
+        assert len(observations) == 1, (
+            f"skipping gate must yield exactly one observation, got {len(observations)}"
+        )
     value = outputs[0].value if outputs else []
     return value, observations
