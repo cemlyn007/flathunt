@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 
 import dagster as dg
@@ -25,14 +26,14 @@ def _build_commute_destinations(queries: QueriesResource) -> list[CommuteDest]:
     ]
 
 
-@dg.asset(group_name="rightmove_search")
+@dg.asset(group_name="rightmove_search", output_required=False)
 def matched_property_ids(
     context: dg.AssetExecutionContext,
     queries: QueriesResource,
     tfl_resource: TflResource,
     cache: CacheResource,
     candidate_properties: list[rightmove.models.MapProperty],
-) -> list[MatchedProperty]:
+) -> Iterator[dg.Output[list[MatchedProperty]] | dg.AssetObservation]:
     """Filter candidate properties by real TfL commute times and return matching IDs with durations.
 
     Journey durations from each property to every configured destination are
@@ -54,7 +55,11 @@ def matched_property_ids(
     """
     if not candidate_properties:
         logger.info("No candidate properties to evaluate.")
-        return []
+        yield dg.AssetObservation(
+            asset_key=context.asset_key,
+            metadata={"candidate_count": 0, "matched_count": 0},
+        )
+        return
 
     dests = _build_commute_destinations(queries)
 
@@ -101,8 +106,11 @@ def matched_property_ids(
         len(result),
         len(candidate_properties),
     )
-    context.add_output_metadata({
+    metadata = {
         "candidate_count": len(candidate_properties),
         "matched_count": len(result),
-    })
-    return result
+    }
+    if not result:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(result, metadata=metadata)

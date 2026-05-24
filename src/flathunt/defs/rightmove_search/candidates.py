@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import dagster as dg
@@ -75,13 +75,13 @@ def _save_seen_ids(path: Path, ids: Iterable[int]) -> None:
         )
 
 
-@dg.asset(group_name="rightmove_search")
+@dg.asset(group_name="rightmove_search", output_required=False)
 def candidate_properties(
     context: dg.AssetExecutionContext,
     search_criteria: SearchCriteriaResource,
     cache: CacheResource,
     isochrone_intersection: list[Polygon],
-) -> list[rightmove.models.MapProperty]:
+) -> Iterator[dg.Output[list[rightmove.models.MapProperty]] | dg.AssetObservation]:
     """Fetch and filter Rightmove properties within the isochrone intersection area.
 
     Tiles the bounding box of the intersection polygons and queries Rightmove
@@ -109,7 +109,10 @@ def candidate_properties(
     non_empty = [p for p in isochrone_intersection if not p.is_empty]
     if not non_empty:
         logger.warning("Isochrone intersection is empty; no properties to fetch.")
-        return []
+        yield dg.AssetObservation(
+            asset_key=context.asset_key, metadata={"property_count": 0}
+        )
+        return
 
     wgs84_polys = [poly_bng_to_wgs84(p) for p in non_empty]
     bounding_polygon = box(*unary_union(wgs84_polys).bounds)
@@ -168,5 +171,8 @@ def candidate_properties(
     _save_seen_ids(seen_ids_path, (p.id for p in properties))
     logger.info("Updated seen property IDs in %s.", seen_ids_path)
 
-    context.add_output_metadata({"property_count": len(properties)})
-    return properties
+    metadata = {"property_count": len(properties)}
+    if not properties:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(properties, metadata=metadata)

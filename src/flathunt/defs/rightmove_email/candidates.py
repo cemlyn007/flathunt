@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+
 import dagster as dg
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
@@ -10,14 +12,14 @@ from rightmove.email_models import RightmoveProperty, RightmovePropertyAlert
 __all__ = ["rightmove_email_candidate_properties"]
 
 
-@dg.asset(group_name="rightmove_email")
+@dg.asset(group_name="rightmove_email", output_required=False)
 def rightmove_email_candidate_properties(
     context: dg.AssetExecutionContext,
     search_criteria: SearchCriteriaResource,
     rightmove_property_alerts: list[RightmovePropertyAlert],
     rightmove_enriched_properties: list[FinalProperty],
     isochrone_intersection: list[Polygon],
-) -> list[FinalProperty]:
+) -> Iterator[dg.Output[list[FinalProperty]] | dg.AssetObservation]:
     """Filter enriched Rightmove email properties by cheap criteria.
 
     Applies price, floorplan count, photo count, and isochrone filters so that
@@ -153,7 +155,7 @@ def rightmove_email_candidate_properties(
         after_isochrone,
         after_size,
     )
-    context.add_output_metadata({
+    metadata = {
         "total_count": total,
         "after_price": after_price,
         "after_floorplans": after_floorplans,
@@ -161,5 +163,8 @@ def rightmove_email_candidate_properties(
         "after_isochrone": after_isochrone,
         "after_size": after_size,
         "candidate_count": after_size,
-    })
-    return size_passed
+    }
+    if not size_passed:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(size_passed, metadata=metadata)

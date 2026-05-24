@@ -13,8 +13,9 @@ null/unknown.  Properties with no coordinates must be KEPT (commute-unknown path
 not excluded.
 """
 
+from collections.abc import Iterator
 from datetime import datetime
-from typing import cast
+from typing import Any, cast
 
 import dagster as dg
 from shapely.geometry import Point, box
@@ -27,6 +28,7 @@ from flathunt.geometry import wgs84_to_bng
 from flathunt.models import FinalProperty
 from rightmove.email_models import RightmoveProperty, RightmovePropertyAlert
 from rightmove.models import Price
+from tests.flathunt.defs.gate_helpers import drain_gate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -126,16 +128,19 @@ def _run_asset(
     if isochrone is None:
         isochrone = [_LONDON_POLY]
     context = dg.build_asset_context()
-    return cast(
-        list[FinalProperty],
-        rightmove_email_candidate_properties(
-            context=context,
-            search_criteria=criteria,
-            rightmove_property_alerts=alerts,
-            rightmove_enriched_properties=props,
-            isochrone_intersection=isochrone,
-        ),
+    value, _ = drain_gate(
+        cast(
+            Iterator[Any],
+            rightmove_email_candidate_properties(
+                context=context,
+                search_criteria=criteria,
+                rightmove_property_alerts=alerts,
+                rightmove_enriched_properties=props,
+                isochrone_intersection=isochrone,
+            ),
+        )
     )
+    return cast(list[FinalProperty], value)
 
 
 # ---------------------------------------------------------------------------

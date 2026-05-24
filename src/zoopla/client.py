@@ -87,7 +87,10 @@ class ZooplaClient:
                 self._playwright = None
 
     async def _new_context(self) -> BrowserContext:
-        assert self._browser is not None
+        if self._browser is None:
+            raise RuntimeError(
+                "Browser not started; use ZooplaClient as an async context manager."
+            )
         context = await self._browser.new_context(
             user_agent=_USER_AGENT,
             locale="en-GB",

@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 
 import dagster as dg
 from shapely.geometry import Point
@@ -12,13 +13,13 @@ from zoopla.models import ZooplaListingDetail
 logger = logging.getLogger(__name__)
 
 
-@dg.asset(group_name="zoopla")
+@dg.asset(group_name="zoopla", output_required=False)
 def zoopla_candidate_properties(
     context: dg.AssetExecutionContext,
     search_criteria: SearchCriteriaResource,
     zoopla_enriched_properties: list[ZooplaListingDetail],
     isochrone_intersection: list[Polygon],
-) -> list[ZooplaListingDetail]:
+) -> Iterator[dg.Output[list[ZooplaListingDetail]] | dg.AssetObservation]:
     """Filter enriched Zoopla listings by cheap criteria before AI extraction.
 
     Applies price, photo count, isochrone, and structured-size filters so that
@@ -120,12 +121,15 @@ def zoopla_candidate_properties(
         after_isochrone,
         after_size,
     )
-    context.add_output_metadata({
+    metadata = {
         "total_count": total,
         "after_price": after_price,
         "after_photos": after_photos,
         "after_isochrone": after_isochrone,
         "after_size": after_size,
         "candidate_count": after_size,
-    })
-    return size_passed
+    }
+    if not size_passed:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(size_passed, metadata=metadata)

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from collections.abc import Iterator
 from pathlib import Path
 
 import dagster as dg
@@ -18,14 +19,14 @@ logger = logging.getLogger(__name__)
 __all__ = ["rightmove_email_matched_ids"]
 
 
-@dg.asset(group_name="rightmove_email")
+@dg.asset(group_name="rightmove_email", output_required=False)
 def rightmove_email_matched_ids(
     context: dg.AssetExecutionContext,
     queries: QueriesResource,
     tfl_resource: TflResource,
     cache: CacheResource,
     rightmove_email_candidate_properties: list[FinalProperty],
-) -> list[MatchedProperty]:
+) -> Iterator[dg.Output[list[MatchedProperty]] | dg.AssetObservation]:
     """Filter candidate Rightmove email listings by TfL commute times.
 
     Mirrors ``zoopla_matched_ids``.  Only listings where every configured
@@ -45,8 +46,11 @@ def rightmove_email_matched_ids(
     """
     if not rightmove_email_candidate_properties:
         logger.info("No candidate Rightmove email properties to evaluate.")
-        context.add_output_metadata({"candidate_count": 0, "matched_count": 0})
-        return []
+        yield dg.AssetObservation(
+            asset_key=context.asset_key,
+            metadata={"candidate_count": 0, "matched_count": 0},
+        )
+        return
 
     dests = [
         CommuteDest(lon=q.lon, lat=q.lat, max_duration=q.max_duration)
@@ -60,11 +64,14 @@ def rightmove_email_matched_ids(
             MatchedProperty(property_id=prop.id, commute_durations=[])
             for prop in rightmove_email_candidate_properties
         ]
-        context.add_output_metadata({
-            "candidate_count": len(rightmove_email_candidate_properties),
-            "matched_count": len(result),
-        })
-        return result
+        yield dg.Output(
+            result,
+            metadata={
+                "candidate_count": len(rightmove_email_candidate_properties),
+                "matched_count": len(result),
+            },
+        )
+        return
 
     # Split candidates: listings without coordinates skip TfL lookup and are kept
     # as commute-unknown; listings with coordinates are evaluated against dests.
@@ -87,7 +94,10 @@ def rightmove_email_matched_ids(
 
     flat_to_froms: list[tuple[float, float, float, float]] = []
     for prop in with_coords:
-        assert prop.longitude is not None and prop.latitude is not None
+        if prop.longitude is None or prop.latitude is None:
+            raise ValueError(
+                f"Property {prop.id} in with_coords is missing coordinates."
+            )
         flat_to_froms.extend(
             (prop.longitude, prop.latitude, dest.lon, dest.lat) for dest in dests
         )
@@ -149,8 +159,11 @@ def rightmove_email_matched_ids(
         len(matched),
         len(rightmove_email_candidate_properties),
     )
-    context.add_output_metadata({
+    metadata = {
         "candidate_count": len(rightmove_email_candidate_properties),
         "matched_count": len(matched),
-    })
-    return matched
+    }
+    if not matched:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(matched, metadata=metadata)

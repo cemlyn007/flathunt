@@ -5,6 +5,7 @@ All Anthropic batch work has moved to the ``extracted_attributes`` asset.
 """
 
 import logging
+from collections.abc import Iterator
 
 import dagster as dg
 
@@ -78,7 +79,9 @@ def _to_final_property(
     )
 
 
-@dg.asset(group_name="rightmove_search", io_manager_key="fs_io_manager")
+@dg.asset(
+    group_name="rightmove_search", io_manager_key="fs_io_manager", output_required=False
+)
 def matched_properties(
     context: dg.AssetExecutionContext,
     search_criteria: SearchCriteriaResource,
@@ -86,7 +89,7 @@ def matched_properties(
     candidate_properties: list[rightmove.models.MapProperty],
     rightmove_property_details: dict[int, rightmove.models.PropertyDetails | None],
     extracted_attributes: dict[str, ExtractedAttributes],
-) -> list[FinalProperty]:
+) -> Iterator[dg.Output[list[FinalProperty]] | dg.AssetObservation]:
     """Merge matched IDs with property details and extracted attributes, then filter by size.
 
     Consumes the output of ``extracted_attributes`` (Anthropic batch extraction) and
@@ -137,8 +140,11 @@ def matched_properties(
         len(result),
         len(finals),
     )
-    context.add_output_metadata({
+    metadata = {
         "matched_count": len(matched_property_ids),
         "final_count": len(result),
-    })
-    return result
+    }
+    if not result:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(result, metadata=metadata)

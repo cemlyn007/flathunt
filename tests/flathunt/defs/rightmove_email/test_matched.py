@@ -27,6 +27,7 @@ from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.defs.rightmove_email.matched import rightmove_email_matched_properties
 from flathunt.models import FinalProperty, MatchedProperty
 from rightmove.models import Price
+from tests.flathunt.defs.gate_helpers import drain_gate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -74,8 +75,7 @@ def _run_asset(
     cache = _make_cache_mock(tmp_path)
     search_criteria = _make_search_criteria(min_square_meters=min_sqm)
     context = dg.build_asset_context()
-    return cast(
-        list[FinalProperty],
+    value, _ = drain_gate(
         rightmove_email_matched_properties(
             context=context,
             search_criteria=search_criteria,
@@ -83,8 +83,9 @@ def _run_asset(
             rightmove_email_matched_ids=matched_ids,
             rightmove_email_candidate_properties=candidates,
             rightmove_email_extracted_attributes=extracted,
-        ),
+        )
     )
+    return cast(list[FinalProperty], value)
 
 
 # ---------------------------------------------------------------------------
