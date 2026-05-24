@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -65,7 +66,7 @@ def _merge(
     return prop.model_copy(update=updates)
 
 
-@dg.asset(group_name="rightmove_email")
+@dg.asset(group_name="rightmove_email", output_required=False)
 def rightmove_email_matched_properties(
     context: dg.AssetExecutionContext,
     search_criteria: SearchCriteriaResource,
@@ -73,7 +74,7 @@ def rightmove_email_matched_properties(
     rightmove_email_matched_ids: list[MatchedProperty],
     rightmove_email_candidate_properties: list[FinalProperty],
     rightmove_email_extracted_attributes: dict[str, ExtractedAttributes],
-) -> list[FinalProperty]:
+) -> Iterator[dg.Output[list[FinalProperty]] | dg.AssetObservation]:
     """Merge ExtractedAttributes into candidate FinalProperty objects and apply size filter.
 
     All cheap filters (price, photos, isochrone) and the commute filter have
@@ -133,8 +134,11 @@ def rightmove_email_matched_properties(
     db_path = Path(cache.data_dir) / _EMAIL_MATCHES_DB
     _record_matched_ids(db_path, [str(p.id) for p in size_passed])
 
-    context.add_output_metadata({
+    metadata = {
         "matched_count": len(rightmove_email_matched_ids),
         "final_count": len(size_passed),
-    })
-    return size_passed
+    }
+    if not size_passed:
+        yield dg.AssetObservation(asset_key=context.asset_key, metadata=metadata)
+        return
+    yield dg.Output(size_passed, metadata=metadata)
