@@ -1,6 +1,7 @@
 """Tests for the shared Anthropic-batch helpers in flathunt.anthropic_extraction."""
 
 import itertools
+from typing import Any
 
 import pytest
 
@@ -12,8 +13,11 @@ from flathunt.anthropic_extraction import (
     ExtractedAttributes,
     ExtractedPropertyInfo,
     ExtractionKind,
+    ExtractionRequest,
     FloorPlanExtraction,
     FloorPlanResult,
+    build_description_request,
+    build_floor_plan_request,
     calculate_backoff_delay,
     extract_json_from_response,
 )
@@ -88,3 +92,38 @@ class TestDomainModels:
     def test_floor_plan_extraction_get_total_sqm_sqft(self):
         e = FloorPlanExtraction(total=1000.0, units="sq ft")
         assert e.get_total_sqm() == pytest.approx(1000.0 * SQFT_TO_SQM)
+
+
+class TestRequestBuilders:
+    def test_floor_plan_request_has_one_text_and_all_images(self):
+        req = build_floor_plan_request(
+            "123", [b"\xff\xd8\xff img1", b"\xff\xd8\xff img2"]
+        )
+        assert isinstance(req, ExtractionRequest)
+        assert req.meta.kind == "floor_plan"
+        assert req.meta.listing_id == "123"
+        assert req.request["custom_id"] == "fp_123"
+        params: Any = req.request["params"]
+        content: Any = next(iter(params["messages"]))["content"]
+        assert content[0]["type"] == "text"
+        image_blocks = [c for c in content if c["type"] == "image"]
+        assert len(image_blocks) == 2
+
+    def test_description_request_prompt_lists_all_seven_fields(self):
+        req = build_description_request(
+            "123", "A lovely 2 bed flat, council tax band C."
+        )
+        assert req.meta.kind == "description"
+        assert req.request["custom_id"] == "desc_123"
+        params: Any = req.request["params"]
+        text: Any = next(iter(params["messages"]))["content"]
+        for field in (
+            "tenure_type",
+            "years_remaining_on_lease",
+            "annual_service_charge",
+            "annual_ground_rent",
+            "council_tax_band",
+            "bedrooms",
+            "bathrooms",
+        ):
+            assert field in text

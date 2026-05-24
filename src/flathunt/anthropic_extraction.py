@@ -6,19 +6,29 @@ their own detail models into ``ListingExtractionInput`` at the boundary.
 """
 
 import asyncio
+import base64
 import logging
+import re
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal, cast
 
 import dagster as dg
 import httpx
 import pydantic
+from anthropic.types.message_create_params import (
+    MessageCreateParamsNonStreaming,
+    OutputConfigParam,
+)
+from anthropic.types.message_param import MessageParam
 from anthropic.types.messages.batch_create_params import Request
 
 import rightmove.models
 from flathunt.cache import ModelCache
 from rightmove.anthropic_config import (
+    MODEL,
+    build_output_config,
+    detect_image_format,
     get_client,
 )
 from rightmove.floor_plan import (
@@ -110,6 +120,36 @@ class ListingExtractionInput(pydantic.BaseModel):
     needs_description: bool
 
 
+FLOOR_PLAN_PROMPT = (
+    "You are shown one or more images that are all floor plan pages for a SINGLE "
+    "property. Considering ALL of them together, determine the floor area(s):\n"
+    "\n"
+    "1. If a TOTAL floor area is clearly labeled in any image (e.g. 'Total: 93 sqm', "
+    "'Gross: 100 m²'): return the total value and units.\n"
+    "2. If only individual floor/room sizes are shown across the images with NO "
+    "total: return a breakdown with each floor's usable internal area and units.\n"
+    "3. If no size information is shown or it is too ambiguous/complex: return null "
+    "for total, null for breakdown, and null for units.\n"
+    "\n"
+    "For usable area, exclude balconies, terraces, gardens, attics, and rooms with "
+    "ceiling height below 1.5m. Prefer sq m if both units are present."
+)
+
+DESCRIPTION_PROMPT = (
+    "Extract property details from this residential property listing description. "
+    "Return a JSON object with these fields:\n"
+    "- tenure_type: one of 'LEASEHOLD', 'FREEHOLD', 'SHARE_OF_FREEHOLD', or null\n"
+    "- years_remaining_on_lease: integer years remaining, or null\n"
+    "- annual_service_charge: yearly amount in GBP (number only, no currency), or null\n"
+    "- annual_ground_rent: annual amount in GBP (number only, no currency), or null\n"
+    "- council_tax_band: single letter A-I, or null\n"
+    "- bedrooms: integer number of bedrooms, or null\n"
+    "- bathrooms: integer number of bathrooms, or null\n\n"
+    "If a field is not mentioned, use null. Extract only information explicitly "
+    "stated in the description."
+)
+
+
 def calculate_backoff_delay(poll_count: int) -> int:
     """Calculate exponential backoff delay in seconds.
 
@@ -117,6 +157,55 @@ def calculate_backoff_delay(poll_count: int) -> int:
     """
     delay = int(BATCH_POLL_INITIAL_DELAY * (BATCH_POLL_BACKOFF**poll_count))
     return min(delay, BATCH_POLL_MAX_DELAY)
+
+
+def build_floor_plan_request(listing_id: str, images: list[bytes]) -> ExtractionRequest:
+    """Build a typed batch request for floor plan extraction across all images."""
+    image_blocks: list[dict[str, Any]] = [
+        {
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": detect_image_format(image),
+                "data": base64.b64encode(image).decode("ascii"),
+            },
+        }
+        for image in images
+    ]
+    content: list[dict[str, Any]] = [{"type": "text", "text": FLOOR_PLAN_PROMPT}]
+    content.extend(image_blocks)
+    output_config = cast(OutputConfigParam, build_output_config(FloorPlanExtraction))
+    messages = cast(list[MessageParam], [{"role": "user", "content": content}])
+    request = Request(
+        custom_id=f"fp_{listing_id}",
+        params=MessageCreateParamsNonStreaming(
+            model=MODEL, max_tokens=1024, output_config=output_config, messages=messages
+        ),
+    )
+    return ExtractionRequest(
+        meta=RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id=listing_id),
+        request=request,
+    )
+
+
+def build_description_request(listing_id: str, description: str) -> ExtractionRequest:
+    """Build a typed batch request for property description extraction."""
+    clean = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", description)).strip()
+    output_config = cast(OutputConfigParam, build_output_config(ExtractedPropertyInfo))
+    messages = cast(
+        list[MessageParam],
+        [{"role": "user", "content": f"{DESCRIPTION_PROMPT}\n\nDescription:\n{clean}"}],
+    )
+    request = Request(
+        custom_id=f"desc_{listing_id}",
+        params=MessageCreateParamsNonStreaming(
+            model=MODEL, max_tokens=256, output_config=output_config, messages=messages
+        ),
+    )
+    return ExtractionRequest(
+        meta=RequestMeta(kind=ExtractionKind.DESCRIPTION, listing_id=listing_id),
+        request=request,
+    )
 
 
 def submit_batch(

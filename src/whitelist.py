@@ -2,10 +2,12 @@
 
 from flathunt.anthropic_extraction import (
     ExtractedAttributes,
-    ExtractionRequest,
     ListingExtractionInput,
+    build_description_request,
+    build_floor_plan_request,
 )
 
 _ = ExtractedAttributes
-_ = ExtractionRequest
 _ = ListingExtractionInput
+_ = build_description_request
+_ = build_floor_plan_request
