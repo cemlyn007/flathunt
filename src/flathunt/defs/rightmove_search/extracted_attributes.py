@@ -21,10 +21,10 @@ from flathunt.models import MatchedProperty, parse_display_size_sqm
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["extracted_attributes"]
+__all__ = ["extracted_attributes", "rightmove_needs_description"]
 
 
-def _rightmove_needs_description(
+def rightmove_needs_description(
     details: rightmove.models.PropertyDetails | None,
 ) -> bool:
     if details is None:
@@ -86,7 +86,7 @@ async def extracted_attributes(
                 description=details.description if details else None,
                 floor_plan_image_urls=urls,
                 needs_floor_plan=(not size_known) and bool(urls),
-                needs_description=_rightmove_needs_description(details)
+                needs_description=rightmove_needs_description(details)
                 and bool(details and details.description),
             )
         )
