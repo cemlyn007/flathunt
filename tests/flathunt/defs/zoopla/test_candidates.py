@@ -21,6 +21,7 @@ from shapely.geometry import Point, box
 from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.defs.zoopla.candidates import zoopla_candidate_properties
 from flathunt.geometry import wgs84_to_bng
+from tests.flathunt.defs.gate_helpers import drain_gate
 from zoopla.models import ZooplaListingDetail
 
 # ---------------------------------------------------------------------------
@@ -105,15 +106,15 @@ def _run_asset(
     if isochrone is None:
         isochrone = [_LONDON_POLY]
     context = dg.build_asset_context()
-    return cast(
-        list[ZooplaListingDetail],
+    value, _ = drain_gate(
         zoopla_candidate_properties(
             context=context,
             search_criteria=criteria,
             zoopla_enriched_properties=listings,
             isochrone_intersection=isochrone,
-        ),
+        )
     )
+    return cast(list[ZooplaListingDetail], value)
 
 
 # ---------------------------------------------------------------------------
