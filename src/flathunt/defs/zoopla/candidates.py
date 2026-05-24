@@ -4,9 +4,9 @@ import dagster as dg
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
 
+from flathunt.anthropic_extraction import SQFT_TO_SQM
 from flathunt.defs.resources import SearchCriteriaResource
 from flathunt.geometry import wgs84_to_bng
-from rightmove.floor_plan import _SQFT_TO_SQM
 from zoopla.models import ZooplaListingDetail
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ def zoopla_candidate_properties(
     size_passed: list[ZooplaListingDetail] = []
     for detail in isochrone_passed:
         if detail.floor_area_sqft is not None:
-            sqm = detail.floor_area_sqft * _SQFT_TO_SQM
+            sqm = detail.floor_area_sqft * SQFT_TO_SQM
             if sqm < search_criteria.min_square_meters:
                 context.log.info(
                     "Listing %s structured size %.1f sqm below minimum %.1f; excluding.",

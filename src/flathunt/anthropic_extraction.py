@@ -24,19 +24,12 @@ from anthropic.types.message_create_params import (
 from anthropic.types.message_param import MessageParam
 from anthropic.types.messages.batch_create_params import Request
 
-import rightmove.models
 from flathunt.cache import ModelCache
 from rightmove.anthropic_config import (
     MODEL,
     build_output_config,
     detect_image_format,
     get_client,
-)
-from rightmove.floor_plan import (
-    FloorPlanExtraction as _LegacyFloorPlanExtraction,
-)
-from rightmove.floor_plan import (
-    FloorPlanSizeExtractor,
 )
 
 logger = logging.getLogger(__name__)
@@ -403,126 +396,3 @@ async def extract_attributes(
         results.setdefault(listing_id, ExtractedAttributes()).description = desc
 
     return results
-
-
-def parse_floor_plan_result(
-    json_content: str,
-) -> tuple[float | None, str | None]:
-    """Parse a floor-plan extraction JSON response into (total_sqm, breakdown_csv).
-
-    Returns (None, None) if the extraction is empty or returned no data.
-    Raises ValueError / pydantic.ValidationError on parse failure (caller logs).
-    """
-    extraction = pydantic.TypeAdapter(FloorPlanExtraction | None).validate_json(
-        json_content
-    )
-    if extraction is None or extraction.is_empty():
-        return (None, None)
-    return extraction.get_total_sqm(), extraction.get_breakdown_csv()
-
-
-_LLM_CALL_INTERVAL = 0.5  # seconds between LLM calls
-
-
-async def _extract_all_floor_plans(
-    prop_id: int,
-    details: rightmove.models.PropertyDetails | None,
-    extractor: FloorPlanSizeExtractor,
-    llm_semaphore: asyncio.Semaphore,
-) -> _LegacyFloorPlanExtraction | None:
-    """Extract sizes from all floor plan images, aggregating results intelligently.
-
-    - Prefers total size if found in any image
-    - Falls back to breakdown (per-floor) if only breakdowns are available
-    - Returns None if ambiguous or no sizes found
-    """
-    if details is None or not details.floorplans:
-        logger.warning("Property %d has no floor plan URLs in page model.", prop_id)
-        return None
-
-    all_extractions: list[_LegacyFloorPlanExtraction] = []
-
-    for i, floor_plan in enumerate(details.floorplans):
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(floor_plan.url, timeout=30.0)
-                response.raise_for_status()
-
-            async with llm_semaphore:
-                extraction = await extractor.extract(response.content)
-                await asyncio.sleep(_LLM_CALL_INTERVAL)
-
-            if extraction is not None:
-                all_extractions.append(extraction)
-                logger.info(
-                    "Extracted floor plan %d for property %d: total=%s, breakdown=%s",
-                    i,
-                    prop_id,
-                    extraction.total,
-                    extraction.breakdown,
-                )
-        except Exception:
-            logger.exception(
-                "Failed to extract floor plan %d for property %d — continuing.",
-                i,
-                prop_id,
-            )
-
-    if not all_extractions:
-        logger.info("No floor plan sizes extracted for property %d.", prop_id)
-        return None
-
-    # Aggregate: prefer total over breakdown
-    for extraction in all_extractions:
-        if extraction.total is not None:
-            logger.info(
-                "Using total size %.1f %s for property %d from %d floor plans.",
-                extraction.total,
-                extraction.units,
-                prop_id,
-                len(all_extractions),
-            )
-            return extraction
-
-    # If no total found, use first extraction's breakdown
-    return all_extractions[0]
-
-
-async def get_floor_plan_sqm(
-    prop_id: int,
-    details: rightmove.models.PropertyDetails | None,
-    cache: ModelCache[tuple[float | None, str | None]],
-    extractor: FloorPlanSizeExtractor,
-    llm_semaphore: asyncio.Semaphore,
-) -> tuple[float | None, str | None]:
-    """Return (total_sqm, breakdown_csv) using cache or LLM extraction.
-
-    Only writes to the cache on a successful extraction attempt so that
-    transient failures (network errors, rate limits) are retried on the
-    next run rather than being permanently recorded as missing.
-    """
-    cache_key = str(prop_id)
-    try:
-        return cache.get(cache_key)
-    except KeyError:
-        pass
-
-    total_sqm: float | None = None
-    breakdown_csv: str | None = None
-
-    try:
-        extraction = await _extract_all_floor_plans(
-            prop_id, details, extractor, llm_semaphore
-        )
-        if extraction is not None:
-            total_sqm = extraction.get_total_sqm()
-            breakdown_csv = extraction.get_breakdown_csv()
-
-        cache.update([(cache_key, (total_sqm, breakdown_csv))])
-    except Exception:
-        logger.exception(
-            "Failed to extract floor plan size for property %d — keeping property.",
-            prop_id,
-        )
-
-    return (total_sqm, breakdown_csv)

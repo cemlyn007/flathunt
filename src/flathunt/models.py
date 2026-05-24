@@ -1,6 +1,6 @@
 import pydantic
 
-from rightmove.floor_plan import _SQFT_TO_SQM
+from flathunt.anthropic_extraction import SQFT_TO_SQM
 from rightmove.models import Price
 
 # ============================================================================
@@ -27,7 +27,7 @@ def parse_display_size_sqm(display_size: str | None) -> float | None:
     if display_size.endswith(" sq. ft."):
         try:
             square_ft = int(display_size.removesuffix(" sq. ft.").replace(",", ""))
-            return float(int(square_ft * _SQFT_TO_SQM))
+            return float(int(square_ft * SQFT_TO_SQM))
         except (ValueError, AttributeError):
             return None
     elif display_size.endswith(" sqm"):

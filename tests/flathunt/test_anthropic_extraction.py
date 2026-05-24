@@ -91,6 +91,46 @@ class TestExtractJsonFromResponse:
         assert extract_json_from_response(plain) == plain
 
 
+class TestFloorPlanExtractionModel:
+    def test_is_empty_all_none(self):
+        e = FloorPlanExtraction(total=None, breakdown=None, units=None)
+        assert e.is_empty() is True
+
+    def test_is_empty_false_with_total(self):
+        e = FloorPlanExtraction(total=93.0, breakdown=None, units="sq m")
+        assert e.is_empty() is False
+
+    def test_is_empty_false_with_breakdown(self):
+        e = FloorPlanExtraction(total=None, breakdown=[45.0, 47.0], units="sq m")
+        assert e.is_empty() is False
+
+    def test_get_total_sqm_empty(self):
+        e = FloorPlanExtraction(total=None, breakdown=None, units=None)
+        assert e.get_total_sqm() is None
+
+    def test_get_breakdown_csv_empty(self):
+        e = FloorPlanExtraction(total=None, breakdown=None, units=None)
+        assert e.get_breakdown_csv() is None
+
+    def test_breakdown_only_sqm_returns_max(self):
+        e = FloorPlanExtraction(total=None, breakdown=[45.0, 47.0, 33.0], units="sq m")
+        assert e.get_total_sqm() == 47.0
+        assert e.get_breakdown_csv() == "45.0,47.0,33.0"
+
+    def test_breakdown_only_sqft_converts_to_sqm(self):
+        e = FloorPlanExtraction(total=None, breakdown=[500.0], units="sq ft")
+        total_sqm = e.get_total_sqm()
+        assert total_sqm is not None and abs(total_sqm - 46.45152) < 0.01
+
+    def test_breakdown_only_no_units_returns_none(self):
+        e = FloorPlanExtraction(total=None, breakdown=[45.0, 47.0], units=None)
+        assert e.get_total_sqm() is None
+
+    def test_get_total_sqm_sqft(self):
+        e = FloorPlanExtraction(total=1000.0, units="sq ft")
+        assert e.get_total_sqm() == pytest.approx(1000.0 * SQFT_TO_SQM)
+
+
 class TestDomainModels:
     def test_floor_plan_result_defaults_to_none(self):
         r = FloorPlanResult()
@@ -115,10 +155,6 @@ class TestDomainModels:
     def test_extraction_kind_values(self):
         assert ExtractionKind.FLOOR_PLAN == "floor_plan"
         assert ExtractionKind.DESCRIPTION == "description"
-
-    def test_floor_plan_extraction_get_total_sqm_sqft(self):
-        e = FloorPlanExtraction(total=1000.0, units="sq ft")
-        assert e.get_total_sqm() == pytest.approx(1000.0 * SQFT_TO_SQM)
 
 
 class TestRequestBuilders:
