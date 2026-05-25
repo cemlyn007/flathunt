@@ -69,6 +69,7 @@ def _to_final_property(
         extracted_annual_ground_rent=desc.annual_ground_rent if desc else None,
         extracted_council_tax_band=desc.council_tax_band if desc else None,
         commute_durations=commute_durations,
+        is_below_ground=attrs.is_below_ground() if attrs else None,
     )
 
 
@@ -171,7 +172,7 @@ def zoopla_matched_properties(
         len(size_passed),
     )
 
-    result = [
+    finals = [
         _to_final_property(
             detail,
             durations_by_id.get(detail.listing_id, []),
@@ -179,6 +180,23 @@ def zoopla_matched_properties(
         )
         for detail in size_passed
     ]
+    below_ground_excluded = sum(
+        1
+        for fp in finals
+        if search_criteria.exclude_below_ground and fp.is_below_ground is True
+    )
+    result = [
+        fp
+        for fp in finals
+        if not (search_criteria.exclude_below_ground and fp.is_below_ground is True)
+    ]
+    context.log.info(
+        "%d / %d propert(ies) remain after below-ground filtering "
+        "(%d excluded below-ground).",
+        len(result),
+        len(finals),
+        below_ground_excluded,
+    )
 
     metadata = {
         "total_count": total,
