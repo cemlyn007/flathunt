@@ -34,13 +34,16 @@ from tests.flathunt.defs.gate_helpers import drain_gate
 # ---------------------------------------------------------------------------
 
 
-def _make_search_criteria(min_square_meters: float = 30.0) -> SearchCriteriaResource:
+def _make_search_criteria(
+    min_square_meters: float = 30.0, exclude_below_ground: bool = True
+) -> SearchCriteriaResource:
     return SearchCriteriaResource(
         min_budget=100_000,
         max_budget=900_000,
         min_square_meters=min_square_meters,
         has_floorplans=False,
         has_images=False,
+        exclude_below_ground=exclude_below_ground,
     )
 
 
@@ -71,9 +74,12 @@ def _run_asset(
     extracted: dict[str, ExtractedAttributes],
     tmp_path: Path,
     min_sqm: float = 30.0,
+    exclude_below_ground: bool = True,
 ) -> list[FinalProperty]:
     cache = _make_cache_mock(tmp_path)
-    search_criteria = _make_search_criteria(min_square_meters=min_sqm)
+    search_criteria = _make_search_criteria(
+        min_square_meters=min_sqm, exclude_below_ground=exclude_below_ground
+    )
     context = dg.build_asset_context()
     value, _ = drain_gate(
         rightmove_email_matched_properties(
@@ -185,3 +191,82 @@ class TestMatchesDB:
                 "SELECT property_id FROM email_matches WHERE property_id = ?", ("4",)
             ).fetchall()
         assert len(rows) == 1, "Property id 4 must be recorded in email_matches table"
+
+
+# ---------------------------------------------------------------------------
+# Below-ground filter
+# ---------------------------------------------------------------------------
+
+
+class TestBelowGroundFilter:
+    def test_below_ground_excluded_by_default(self, tmp_path: Path) -> None:
+        candidate = _base_candidate(prop_id=10)
+        matched_ids = [MatchedProperty(property_id=10, commute_durations=[20])]
+        extracted = {
+            "10": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        result = _run_asset(matched_ids, [candidate], extracted, tmp_path)
+        assert result == []
+
+    def test_below_ground_kept_when_filter_disabled(self, tmp_path: Path) -> None:
+        candidate = _base_candidate(prop_id=11)
+        matched_ids = [MatchedProperty(property_id=11, commute_durations=[20])]
+        extracted = {
+            "11": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        result = _run_asset(
+            matched_ids, [candidate], extracted, tmp_path, exclude_below_ground=False
+        )
+        assert len(result) == 1
+        assert result[0].is_below_ground is True
+
+    def test_conflicting_below_ground_kept(self, tmp_path: Path) -> None:
+        candidate = _base_candidate(prop_id=12)
+        matched_ids = [MatchedProperty(property_id=12, commute_durations=[20])]
+        extracted = {
+            "12": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=False),
+            )
+        }
+        result = _run_asset(matched_ids, [candidate], extracted, tmp_path)
+        assert len(result) == 1
+        assert result[0].is_below_ground is None
+
+    def test_confirmed_above_ground_kept(self, tmp_path: Path) -> None:
+        candidate = _base_candidate(prop_id=13)
+        matched_ids = [MatchedProperty(property_id=13, commute_durations=[20])]
+        extracted = {
+            "13": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=False),
+            )
+        }
+        result = _run_asset(matched_ids, [candidate], extracted, tmp_path)
+        assert len(result) == 1
+        assert result[0].is_below_ground is False
+
+    def test_below_ground_not_recorded_in_db(self, tmp_path: Path) -> None:
+        candidate = _base_candidate(prop_id=14)
+        matched_ids = [MatchedProperty(property_id=14, commute_durations=[20])]
+        extracted = {
+            "14": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        _run_asset(matched_ids, [candidate], extracted, tmp_path)
+
+        db_path = tmp_path / "rightmove_email_matches.db"
+        if not db_path.exists():
+            return  # DB not created → property was definitely not recorded
+        with sqlite3.connect(db_path) as conn:
+            rows = conn.execute(
+                "SELECT property_id FROM email_matches WHERE property_id = ?", ("14",)
+            ).fetchall()
+        assert rows == [], "Below-ground property must not be written to matches DB"
