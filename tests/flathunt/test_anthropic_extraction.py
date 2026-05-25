@@ -172,7 +172,7 @@ class TestRequestBuilders:
         image_blocks = [c for c in content if c["type"] == "image"]
         assert len(image_blocks) == 2
 
-    def test_description_request_prompt_lists_all_seven_fields(self):
+    def test_description_request_prompt_lists_all_fields(self):
         req = build_description_request(
             "123", "A lovely 2 bed flat, council tax band C."
         )
@@ -188,6 +188,7 @@ class TestRequestBuilders:
             "council_tax_band",
             "bedrooms",
             "bathrooms",
+            "below_ground",
         ):
             assert field in text
 
@@ -210,6 +211,7 @@ class TestParseBatchResults:
         meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
         fp, _ = self._parse([_fake_result("fp_1", json_text="null")], meta)
         assert "1" in fp and fp["1"].total_sqm is None and fp["1"].breakdown_csv is None
+        assert fp["1"].below_ground is None
 
     def test_errored_produces_no_entry(self):
         meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
@@ -224,6 +226,38 @@ class TestParseBatchResults:
         )
         assert desc["1"].council_tax_band == "C" and desc["1"].bedrooms == 2
         assert fp == {}
+
+    def test_floor_plan_carries_below_ground_with_area(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, _ = self._parse(
+            [
+                _fake_result(
+                    "fp_1",
+                    json_text='{"total":59.0,"units":"sq m","below_ground":true}',
+                )
+            ],
+            meta,
+        )
+        assert fp["1"].total_sqm == pytest.approx(59.0)
+        assert fp["1"].below_ground is True
+
+    def test_floor_plan_carries_below_ground_without_area(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, _ = self._parse(
+            [_fake_result("fp_1", json_text='{"below_ground":true}')],
+            meta,
+        )
+        assert fp["1"].total_sqm is None
+        assert fp["1"].breakdown_csv is None
+        assert fp["1"].below_ground is True
+
+    def test_description_carries_below_ground(self):
+        meta = {"desc_1": RequestMeta(kind=ExtractionKind.DESCRIPTION, listing_id="1")}
+        _, desc = self._parse(
+            [_fake_result("desc_1", json_text='{"below_ground":false}')],
+            meta,
+        )
+        assert desc["1"].below_ground is False
 
 
 def _caches(

@@ -53,6 +53,7 @@ class FloorPlanExtraction(pydantic.BaseModel):
     total: float | None = None
     breakdown: list[float] | None = None
     units: Literal["sq m", "sq ft"] | None = None
+    below_ground: bool | None = None
 
     def is_empty(self) -> bool:
         return self.total is None and self.breakdown is None and self.units is None
@@ -78,6 +79,7 @@ class FloorPlanExtraction(pydantic.BaseModel):
 class FloorPlanResult(pydantic.BaseModel):
     total_sqm: float | None = None
     breakdown_csv: str | None = None
+    below_ground: bool | None = None
 
 
 class ExtractedPropertyInfo(pydantic.BaseModel):
@@ -88,6 +90,7 @@ class ExtractedPropertyInfo(pydantic.BaseModel):
     council_tax_band: str | None = None
     bedrooms: int | None = None
     bathrooms: int | None = None
+    below_ground: bool | None = None
 
 
 class ExtractedAttributes(pydantic.BaseModel):
@@ -127,6 +130,15 @@ FLOOR_PLAN_PROMPT = (
     "\n"
     "For usable area, exclude balconies, terraces, gardens, attics, and rooms with "
     "ceiling height below 1.5m. Prefer sq m if both units are present."
+    "\n\n"
+    "Separately, set below_ground based on the property's MAIN living space:\n"
+    "- true ONLY if the entire or main living area is on a lower-ground or "
+    "basement floor (e.g. every habitable room is labelled 'Lower Ground Floor' "
+    "or 'Basement').\n"
+    "- false if the main living area is at or above ground level, including "
+    "split-level layouts spanning a ground floor and a lower floor, or a house "
+    "that merely includes a basement room.\n"
+    "- null if the floor level cannot be determined from the plan(s)."
 )
 
 DESCRIPTION_PROMPT = (
@@ -138,7 +150,12 @@ DESCRIPTION_PROMPT = (
     "- annual_ground_rent: annual amount in GBP (number only, no currency), or null\n"
     "- council_tax_band: single letter A-I, or null\n"
     "- bedrooms: integer number of bedrooms, or null\n"
-    "- bathrooms: integer number of bathrooms, or null\n\n"
+    "- bathrooms: integer number of bathrooms, or null\n"
+    "- below_ground: true ONLY if the main/entire living area is below street "
+    "level (a lower-ground floor flat or basement flat); false if at or above "
+    "ground level (including split-level homes spanning ground and a lower "
+    "floor, or a house that merely has a basement room); null if not "
+    "determinable from the text\n\n"
     "If a field is not mentioned, use null. Extract only information explicitly "
     "stated in the description."
 )
@@ -303,12 +320,18 @@ def _parse_batch_results(
                 extraction = pydantic.TypeAdapter(
                     FloorPlanExtraction | None
                 ).validate_json(json_content)
-                if extraction is None or extraction.is_empty():
+                if extraction is None:
                     floor_plans[meta.listing_id] = FloorPlanResult()
+                elif extraction.is_empty():
+                    # No area data, but below_ground may still be present — carry it.
+                    floor_plans[meta.listing_id] = FloorPlanResult(
+                        below_ground=extraction.below_ground
+                    )
                 else:
                     floor_plans[meta.listing_id] = FloorPlanResult(
                         total_sqm=extraction.get_total_sqm(),
                         breakdown_csv=extraction.get_breakdown_csv(),
+                        below_ground=extraction.below_ground,
                     )
             else:
                 descriptions[meta.listing_id] = pydantic.TypeAdapter(
