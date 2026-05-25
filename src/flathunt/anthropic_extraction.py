@@ -97,6 +97,26 @@ class ExtractedAttributes(pydantic.BaseModel):
     floor_plan: FloorPlanResult | None = None
     description: ExtractedPropertyInfo | None = None
 
+    def is_below_ground(self) -> bool | None:
+        """Reconcile the floor-plan and description below-ground signals.
+
+        Conservative agreement: ``True`` only when at least one source says
+        below-ground and neither contradicts it; ``False`` only when at least
+        one says above-ground and neither says below-ground; ``None`` when both
+        are unknown or the two sources directly conflict.
+        """
+        signals = [
+            self.floor_plan.below_ground if self.floor_plan else None,
+            self.description.below_ground if self.description else None,
+        ]
+        has_true = any(s is True for s in signals)
+        has_false = any(s is False for s in signals)
+        if has_true and not has_false:
+            return True
+        if has_false and not has_true:
+            return False
+        return None
+
 
 class RequestMeta(pydantic.BaseModel):
     kind: ExtractionKind

@@ -406,6 +406,42 @@ class TestExtractAttributes:
             fp_cache.get("1")
 
 
+class TestIsBelowGround:
+    @pytest.mark.parametrize(
+        "fp_signal,desc_signal,expected",
+        [
+            (True, True, True),
+            (True, None, True),
+            (None, True, True),
+            (False, False, False),
+            (False, None, False),
+            (None, False, False),
+            (None, None, None),
+            (True, False, None),
+            (False, True, None),
+        ],
+    )
+    def test_reconcile(self, fp_signal, desc_signal, expected):
+        attrs = ExtractedAttributes(
+            floor_plan=FloorPlanResult(below_ground=fp_signal),
+            description=ExtractedPropertyInfo(below_ground=desc_signal),
+        )
+        assert attrs.is_below_ground() is expected
+
+    def test_reconcile_missing_sources(self):
+        assert ExtractedAttributes().is_below_ground() is None
+
+    def test_reconcile_only_floor_plan(self):
+        attrs = ExtractedAttributes(floor_plan=FloorPlanResult(below_ground=True))
+        assert attrs.is_below_ground() is True
+
+    def test_reconcile_only_description(self):
+        attrs = ExtractedAttributes(
+            description=ExtractedPropertyInfo(below_ground=False)
+        )
+        assert attrs.is_below_ground() is False
+
+
 class TestExtractAttributesCacheSemantics:
     def test_partial_cache_hit_only_fetches_missing_dimension(self, tmp_path):
         # floor plan already cached; description must be fetched.
