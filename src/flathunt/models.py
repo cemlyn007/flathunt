@@ -105,5 +105,8 @@ class FinalProperty(pydantic.BaseModel):
     latitude: float | None = None
     longitude: float | None = None
 
+    # Below-ground prediction (reconciled from floor-plan + description signals)
+    is_below_ground: bool | None = None
+
     # Source identifier for notification DB namespacing
     source: str = "rightmove"
