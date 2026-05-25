@@ -92,8 +92,13 @@ def _details(
     return rightmove.models.PropertyDetails.model_validate(raw)
 
 
-def _search_criteria(min_square_meters: float = 30.0) -> SearchCriteriaResource:
-    return SearchCriteriaResource(min_square_meters=min_square_meters)
+def _search_criteria(
+    min_square_meters: float = 30.0, exclude_below_ground: bool = True
+) -> SearchCriteriaResource:
+    return SearchCriteriaResource(
+        min_square_meters=min_square_meters,
+        exclude_below_ground=exclude_below_ground,
+    )
 
 
 def _run(
@@ -102,8 +107,9 @@ def _run(
     details: dict[int, rightmove.models.PropertyDetails | None],
     extracted: dict[str, ExtractedAttributes],
     min_sqm: float = 30.0,
+    exclude_below_ground: bool = True,
 ):
-    sc = _search_criteria(min_sqm)
+    sc = _search_criteria(min_sqm, exclude_below_ground)
     value, _ = drain_gate(
         matched_properties(
             context=dg.build_asset_context(),
@@ -168,3 +174,76 @@ class TestMatchedProperties:
 
         assert len(result) == 1
         assert result[0].extracted_sqm is None
+
+
+class TestBelowGroundFilter:
+    def test_below_ground_excluded_by_default(self):
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        detail = _details(id="1", size_sqm=None)
+        attrs = {
+            "1": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        result = _run(matched, [candidate], {1: detail}, attrs, min_sqm=30.0)
+        assert result == []
+
+    def test_below_ground_kept_when_filter_disabled(self):
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        detail = _details(id="1", size_sqm=None)
+        attrs = {
+            "1": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        result = _run(
+            matched,
+            [candidate],
+            {1: detail},
+            attrs,
+            min_sqm=30.0,
+            exclude_below_ground=False,
+        )
+        assert len(result) == 1
+        assert result[0].is_below_ground is True
+
+    def test_unknown_below_ground_kept(self):
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        detail = _details(id="1", size_sqm=None)
+        attrs = {"1": ExtractedAttributes()}  # both signals None -> None
+        result = _run(matched, [candidate], {1: detail}, attrs, min_sqm=30.0)
+        assert len(result) == 1
+        assert result[0].is_below_ground is None
+
+    def test_conflicting_signals_kept(self):
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        detail = _details(id="1", size_sqm=None)
+        attrs = {
+            "1": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=False),
+            )
+        }
+        result = _run(matched, [candidate], {1: detail}, attrs, min_sqm=30.0)
+        assert len(result) == 1
+        assert result[0].is_below_ground is None
+
+    def test_above_ground_kept(self):
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        detail = _details(id="1", size_sqm=None)
+        attrs = {
+            "1": ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=False),
+                description=ExtractedPropertyInfo(below_ground=False),
+            )
+        }
+        result = _run(matched, [candidate], {1: detail}, attrs, min_sqm=30.0)
+        assert len(result) == 1
+        assert result[0].is_below_ground is False

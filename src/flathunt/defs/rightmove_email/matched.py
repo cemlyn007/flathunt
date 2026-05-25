@@ -58,6 +58,7 @@ def _merge(
         "extracted_annual_service_charge": desc.annual_service_charge if desc else None,
         "extracted_annual_ground_rent": desc.annual_ground_rent if desc else None,
         "extracted_council_tax_band": desc.council_tax_band if desc else None,
+        "is_below_ground": attrs.is_below_ground(),
     }
     if prop.bedrooms is None and desc and desc.bedrooms is not None:
         updates["bedrooms"] = desc.bedrooms
@@ -116,6 +117,9 @@ def rightmove_email_matched_properties(
     # Unknown size (both None) → KEPT, consistent with prior behaviour.
     size_passed: list[FinalProperty] = []
     for fp in merged:
+        if search_criteria.exclude_below_ground and fp.is_below_ground is True:
+            context.log.info("Property %s is below ground; excluding.", fp.id)
+            continue
         sqm = (
             parse_display_size_sqm(fp.display_size)
             if fp.display_size

@@ -76,6 +76,7 @@ def _to_final_property(
         extracted_annual_service_charge=desc.annual_service_charge if desc else None,
         extracted_annual_ground_rent=desc.annual_ground_rent if desc else None,
         extracted_council_tax_band=desc.council_tax_band if desc else None,
+        is_below_ground=attrs.is_below_ground(),
     )
 
 
@@ -126,7 +127,11 @@ def matched_properties(
         )
 
     result = []
+    below_ground_excluded = 0
     for fp in finals:
+        if search_criteria.exclude_below_ground and fp.is_below_ground is True:
+            below_ground_excluded += 1
+            continue
         sqm = (
             parse_display_size_sqm(fp.display_size)
             if fp.display_size
@@ -136,9 +141,11 @@ def matched_properties(
             result.append(fp)
 
     logger.info(
-        "%d / %d propert(ies) remain after floor plan size filtering.",
+        "%d / %d propert(ies) remain after below-ground and size filtering "
+        "(%d excluded below-ground).",
         len(result),
         len(finals),
+        below_ground_excluded,
     )
     metadata = {
         "matched_count": len(matched_property_ids),

@@ -45,3 +45,4 @@ class SearchCriteriaResource(dg.ConfigurableResource):
     has_floorplans: bool = True
     has_images: bool = True
     min_square_meters: float = 75.0
+    exclude_below_ground: bool = True

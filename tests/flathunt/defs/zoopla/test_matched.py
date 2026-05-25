@@ -285,8 +285,13 @@ class TestSizeFilterBelowThresholdStructuredExcludes:
 # ---------------------------------------------------------------------------
 
 
-def _search_criteria(min_square_meters: float = 30.0) -> SearchCriteriaResource:
-    return SearchCriteriaResource(min_square_meters=min_square_meters)
+def _search_criteria(
+    min_square_meters: float = 30.0, exclude_below_ground: bool = True
+) -> SearchCriteriaResource:
+    return SearchCriteriaResource(
+        min_square_meters=min_square_meters,
+        exclude_below_ground=exclude_below_ground,
+    )
 
 
 def _run_asset(
@@ -294,11 +299,15 @@ def _run_asset(
     candidates: list[ZooplaListingDetail],
     extracted: dict[str, ExtractedAttributes],
     min_square_meters: float = 30.0,
+    exclude_below_ground: bool = True,
 ) -> list[FinalProperty]:
     value, _ = drain_gate(
         zoopla_matched_properties(
             context=dg.build_asset_context(),
-            search_criteria=_search_criteria(min_square_meters=min_square_meters),
+            search_criteria=_search_criteria(
+                min_square_meters=min_square_meters,
+                exclude_below_ground=exclude_below_ground,
+            ),
             zoopla_matched_ids=matched_ids,
             zoopla_candidate_properties=candidates,
             zoopla_extracted_attributes=extracted,
@@ -376,3 +385,71 @@ class TestZooplaMatchedPropertiesAsset:
         results = _run_asset(matched_ids, [listing], attrs, min_square_meters=50.0)
 
         assert len(results) == 1
+
+    def test_below_ground_excluded_by_default(self) -> None:
+        listing_id = "99010"
+        listing = _make_listing(listing_id, floor_area_sqft=None)
+        matched_ids = [
+            MatchedProperty(property_id=int(listing_id), commute_durations=[10])
+        ]
+        attrs = {
+            listing_id: ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        results = _run_asset(matched_ids, [listing], attrs, min_square_meters=30.0)
+        assert results == []
+
+    def test_below_ground_kept_when_filter_disabled(self) -> None:
+        listing_id = "99011"
+        listing = _make_listing(listing_id, floor_area_sqft=None)
+        matched_ids = [
+            MatchedProperty(property_id=int(listing_id), commute_durations=[10])
+        ]
+        attrs = {
+            listing_id: ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=True),
+            )
+        }
+        results = _run_asset(
+            matched_ids,
+            [listing],
+            attrs,
+            min_square_meters=30.0,
+            exclude_below_ground=False,
+        )
+        assert len(results) == 1
+        assert results[0].is_below_ground is True
+
+    def test_conflicting_below_ground_kept(self) -> None:
+        listing_id = "99012"
+        listing = _make_listing(listing_id, floor_area_sqft=None)
+        matched_ids = [
+            MatchedProperty(property_id=int(listing_id), commute_durations=[10])
+        ]
+        attrs = {
+            listing_id: ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=True),
+                description=ExtractedPropertyInfo(below_ground=False),
+            )
+        }
+        results = _run_asset(matched_ids, [listing], attrs, min_square_meters=30.0)
+        assert len(results) == 1
+        assert results[0].is_below_ground is None
+
+    def test_confirmed_above_ground_kept(self) -> None:
+        listing_id = "99013"
+        listing = _make_listing(listing_id, floor_area_sqft=None)
+        matched_ids = [
+            MatchedProperty(property_id=int(listing_id), commute_durations=[10])
+        ]
+        attrs = {
+            listing_id: ExtractedAttributes(
+                floor_plan=FloorPlanResult(below_ground=False),
+            )
+        }
+        results = _run_asset(matched_ids, [listing], attrs, min_square_meters=30.0)
+        assert len(results) == 1
+        assert results[0].is_below_ground is False

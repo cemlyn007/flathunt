@@ -172,7 +172,7 @@ class TestRequestBuilders:
         image_blocks = [c for c in content if c["type"] == "image"]
         assert len(image_blocks) == 2
 
-    def test_description_request_prompt_lists_all_seven_fields(self):
+    def test_description_request_prompt_lists_all_fields(self):
         req = build_description_request(
             "123", "A lovely 2 bed flat, council tax band C."
         )
@@ -188,6 +188,7 @@ class TestRequestBuilders:
             "council_tax_band",
             "bedrooms",
             "bathrooms",
+            "below_ground",
         ):
             assert field in text
 
@@ -210,6 +211,7 @@ class TestParseBatchResults:
         meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
         fp, _ = self._parse([_fake_result("fp_1", json_text="null")], meta)
         assert "1" in fp and fp["1"].total_sqm is None and fp["1"].breakdown_csv is None
+        assert fp["1"].below_ground is None
 
     def test_errored_produces_no_entry(self):
         meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
@@ -224,6 +226,38 @@ class TestParseBatchResults:
         )
         assert desc["1"].council_tax_band == "C" and desc["1"].bedrooms == 2
         assert fp == {}
+
+    def test_floor_plan_carries_below_ground_with_area(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, _ = self._parse(
+            [
+                _fake_result(
+                    "fp_1",
+                    json_text='{"total":59.0,"units":"sq m","below_ground":true}',
+                )
+            ],
+            meta,
+        )
+        assert fp["1"].total_sqm == pytest.approx(59.0)
+        assert fp["1"].below_ground is True
+
+    def test_floor_plan_carries_below_ground_without_area(self):
+        meta = {"fp_1": RequestMeta(kind=ExtractionKind.FLOOR_PLAN, listing_id="1")}
+        fp, _ = self._parse(
+            [_fake_result("fp_1", json_text='{"below_ground":true}')],
+            meta,
+        )
+        assert fp["1"].total_sqm is None
+        assert fp["1"].breakdown_csv is None
+        assert fp["1"].below_ground is True
+
+    def test_description_carries_below_ground(self):
+        meta = {"desc_1": RequestMeta(kind=ExtractionKind.DESCRIPTION, listing_id="1")}
+        _, desc = self._parse(
+            [_fake_result("desc_1", json_text='{"below_ground":false}')],
+            meta,
+        )
+        assert desc["1"].below_ground is False
 
 
 def _caches(
@@ -370,6 +404,42 @@ class TestExtractAttributes:
         assert out["1"].floor_plan is None
         with pytest.raises(KeyError):
             fp_cache.get("1")
+
+
+class TestIsBelowGround:
+    @pytest.mark.parametrize(
+        "fp_signal,desc_signal,expected",
+        [
+            (True, True, True),
+            (True, None, True),
+            (None, True, True),
+            (False, False, False),
+            (False, None, False),
+            (None, False, False),
+            (None, None, None),
+            (True, False, None),
+            (False, True, None),
+        ],
+    )
+    def test_reconcile(self, fp_signal, desc_signal, expected):
+        attrs = ExtractedAttributes(
+            floor_plan=FloorPlanResult(below_ground=fp_signal),
+            description=ExtractedPropertyInfo(below_ground=desc_signal),
+        )
+        assert attrs.is_below_ground() is expected
+
+    def test_reconcile_missing_sources(self):
+        assert ExtractedAttributes().is_below_ground() is None
+
+    def test_reconcile_only_floor_plan(self):
+        attrs = ExtractedAttributes(floor_plan=FloorPlanResult(below_ground=True))
+        assert attrs.is_below_ground() is True
+
+    def test_reconcile_only_description(self):
+        attrs = ExtractedAttributes(
+            description=ExtractedPropertyInfo(below_ground=False)
+        )
+        assert attrs.is_below_ground() is False
 
 
 class TestExtractAttributesCacheSemantics:
