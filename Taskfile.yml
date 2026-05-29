@@ -56,3 +56,12 @@ tasks:
   docker-down:
     cmds:
       - docker compose down
+
+  recover-failed-emails:
+    desc: |
+      Dry-run by default. Pass `-- --apply` to actually clear \Seen.
+      Re-batches IMAP alert emails whose Dagster runs failed (so the email
+      sensors will re-process them on the next tick). See
+      scripts/unmark_failed_email_runs.py for details.
+    cmds:
+      - docker compose exec dagster uv run python /app/scripts/unmark_failed_email_runs.py {{.CLI_ARGS}}

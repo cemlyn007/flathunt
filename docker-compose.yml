@@ -11,6 +11,7 @@ services:
       - .env
     volumes:
       - ./src:/app/src
+      - ./scripts:/app/scripts:ro
       - ./cache:/app/cache
       - ./.dagster:/app/.dagster
       - ./greater-london-251126-free:/app/greater-london-251126-free:ro
