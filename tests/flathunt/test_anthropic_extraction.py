@@ -1,8 +1,10 @@
 """Tests for the shared Anthropic-batch helpers in flathunt.anthropic_extraction."""
 
 import asyncio
+import gc
 import itertools
 import time
+import weakref
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -26,6 +28,7 @@ from flathunt.anthropic_extraction import (
     ListingExtractionInput,
     RequestMeta,
     _parse_batch_results,
+    _stream_batch_results,
     build_description_request,
     build_floor_plan_request,
     calculate_backoff_delay,
@@ -491,3 +494,82 @@ class TestExtractAttributesCacheSemantics:
             out, _, _ = _run(inputs, results, tmp_path)
         assert out["1"].floor_plan is not None
         assert out["1"].floor_plan.total_sqm == pytest.approx(59.0)  # fresh, not 99.0
+
+
+class TestStreamBatchResultsKeepsClientAlive:
+    """Regression for httpx.ReadError: [Errno 9] Bad file descriptor mid-stream.
+
+    The Anthropic SDK's JSONLDecoder (returned by ``client.messages.batches.results``)
+    holds only the ``httpx.Response`` — it does NOT hold a back-reference to the
+    ``Anthropic`` client. ``SyncHttpxClientWrapper.__del__`` calls ``self.close()``
+    which closes the transport and the underlying socket. So if the function that
+    creates the client returns the iterator and lets the ``client`` local fall out
+    of scope, the socket gets closed mid-stream and the next read fails with
+    ``[Errno 9] Bad file descriptor`` — observed in production for ~7% of batch
+    runs after the c644194 refactor.
+
+    The fix is to make ``_stream_batch_results`` a generator (``yield from``)
+    so the ``client`` local is captured in the generator's frame and stays alive
+    for the entire iteration.
+    """
+
+    def test_client_outlives_returned_iterator(self):
+        class _StreamingClient:
+            """Plain stand-in for anthropic.Anthropic with the call chain we touch.
+
+            Mirrors the SDK's behaviour: ``.results()`` returns a plain iterator
+            that does NOT hold a reference back to the client (just like
+            JSONLDecoder, which holds only the http_response).
+            """
+
+            def __init__(self, items: list[str]) -> None:
+                self._items = items
+                # Mirror SDK chain: client.messages.batches.results(batch_id).
+                self.messages = self
+                self.batches = self
+
+            def results(self, batch_id: str) -> Any:
+                return iter(self._items)
+
+        client_refs: list[weakref.ref[_StreamingClient]] = []
+
+        def fake_get_client() -> _StreamingClient:
+            client = _StreamingClient(items=["r1", "r2", "r3"])
+            client_refs.append(weakref.ref(client))
+            return client
+
+        with patch(
+            "flathunt.anthropic_extraction.get_client",
+            side_effect=fake_get_client,
+        ):
+            iterator = _stream_batch_results("batch_xyz")
+            # Start iteration so the generator frame is established and
+            # ``get_client()`` actually runs (generators don't execute their
+            # body until first ``next()``).
+            first = next(iterator)
+
+        assert first == "r1"
+
+        # CPython refcount cleanup is immediate at refcount=0, but be explicit
+        # to defend against future cycles and remain portable across runtimes.
+        gc.collect()
+
+        if client_refs[0]() is None:
+            raise AssertionError(
+                "_stream_batch_results released its Anthropic client before "
+                "the returned iterator was fully consumed. "
+                "SyncHttpxClientWrapper.__del__ would close the underlying "
+                "socket, and the next stream read would fail with "
+                "httpx.ReadError: [Errno 9] Bad file descriptor. Make "
+                "_stream_batch_results a generator (yield from ...) so the "
+                "client is held in the generator frame."
+            )
+
+        # Sanity: the iterator still produces the remaining items mid-stream.
+        assert list(iterator) == ["r2", "r3"]
+
+        # Once the iterator is gone, the client may be GC'd — confirms the
+        # test itself isn't accidentally pinning a reference.
+        del iterator
+        gc.collect()
+        assert client_refs[0]() is None

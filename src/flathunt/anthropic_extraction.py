@@ -9,7 +9,7 @@ import asyncio
 import base64
 import logging
 import re
-from collections.abc import Iterable
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal, cast
@@ -303,10 +303,20 @@ def extract_json_from_response(text: str) -> str:
     return text.strip()
 
 
-def _stream_batch_results(batch_id: str) -> Iterable[Any]:
-    """Seam for tests: returns the raw Anthropic batch results iterable."""
+def _stream_batch_results(batch_id: str) -> Iterator[Any]:
+    """Seam for tests: yields raw Anthropic batch results.
+
+    MUST be a generator (``yield from``), not a function that returns the SDK
+    iterator. The SDK's ``JSONLDecoder`` holds the streaming ``httpx.Response``
+    but NOT the ``Anthropic`` client. ``SyncHttpxClientWrapper.__del__`` closes
+    the underlying socket when the client is GC'd, so if ``client`` falls out
+    of scope while the iterator is still being consumed, the next stream read
+    fails with ``httpx.ReadError: [Errno 9] Bad file descriptor``. Capturing
+    ``client`` in the generator frame keeps it alive for the whole iteration.
+    See ``TestStreamBatchResultsKeepsClientAlive`` for the regression test.
+    """
     client = get_client()
-    return client.messages.batches.results(batch_id)
+    yield from client.messages.batches.results(batch_id)
 
 
 def _succeeded_text(result: Any) -> str:
