@@ -28,13 +28,15 @@ _USER_AGENT = (
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
-# Resolves once the RSC chunk that the parser scans for (uprn + coordinates)
+# Resolves once the RSC chunk that the parser scans for (outcode + coordinates)
 # is in the DOM. Both keywords appear in the same script regardless of JSON
-# escaping, since textContent returns the raw script source.
+# escaping, since textContent returns the raw script source. Anchoring on
+# `outcode` (not `uprn`) matches the parser: new-build (/new-homes/) listings
+# carry no uprn, so a uprn-gated wait always ran to the full timeout for them.
 _DATA_READY_PREDICATE = """
 () => Array.from(document.scripts).some(s => {
     const t = s.textContent || '';
-    return t.includes('coordinates') && t.includes('uprn');
+    return t.includes('coordinates') && t.includes('outcode');
 })
 """
 
