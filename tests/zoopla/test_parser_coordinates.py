@@ -1,4 +1,12 @@
-"""Tests for listing coordinate extraction from Zoopla listing pages."""
+"""Tests for listing coordinate extraction from Zoopla listing pages.
+
+The listing's location block pairs its coordinates with an ``outcode`` (postcode
+district).  Resale (``/for-sale/``) pages additionally tag the block with a
+``uprn`` and ``postalCode``; new-build (``/new-homes/``) units have no UPRN yet.
+The parser therefore anchors on ``outcode`` so both listing types resolve, while
+still ignoring the nearby-POI coordinates (stations, schools, EV-charging
+points, locality markers) that share the page but carry no ``outcode``.
+"""
 
 import json
 from pathlib import Path
@@ -35,17 +43,18 @@ def test_real_fixture_returns_listing_coordinates() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Group 2 — Nested shape: location with coordinates child + uprn sibling
+# Group 2 — Nested shape: resale location (coordinates child + uprn + outcode)
 # ---------------------------------------------------------------------------
 
 
-def test_nested_coordinates_under_location_are_extracted() -> None:
-    # Given  an object with nested coordinates and a sibling uprn key (current shape
-    #        emitted by Zoopla under analyticsEcommerce.location)
+def test_nested_coordinates_under_resale_location_are_extracted() -> None:
+    # Given  a resale location object with nested coordinates plus outcode, uprn
+    #        and postalCode siblings (current /for-sale/ shape)
     # When   _parse_coordinates is called
     # Then   latitude and longitude are pulled from the nested coordinates dict
     html = _wrap_rsc({
         "location": {
+            "outcode": "EC1V",
             "postalCode": "EC1V 7DX",
             "coordinates": {"latitude": 51.5, "longitude": -0.1},
             "uprn": "5300101867",
@@ -56,12 +65,34 @@ def test_nested_coordinates_under_location_are_extracted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Group 3 — Flat shape: latitude/longitude as siblings of uprn
+# Group 3 — New-build shape: coordinates + outcode, no uprn (regression guard)
 # ---------------------------------------------------------------------------
 
 
-def test_flat_coordinates_alongside_uprn_are_extracted() -> None:
-    # Given  an object with flat latitude/longitude alongside uprn (alternate
+def test_new_build_coordinates_without_uprn_are_extracted() -> None:
+    # Given  a new-build location object with coordinates and outcode but NO uprn
+    #        (the /new-homes/ shape — units have no UPRN yet)
+    # When   _parse_coordinates is called
+    # Then   the coordinates are still extracted.  Regression guard: the previous
+    #        uprn-only anchor silently returned (None, None) for every new-build
+    #        listing, which surfaced as a missing commute duration in the email.
+    html = _wrap_rsc({
+        "location": {
+            "outcode": "E16",
+            "coordinates": {"latitude": 51.511145, "longitude": 0.017929},
+        }
+    })
+    soup = BeautifulSoup(html, "html.parser")
+    assert _parse_coordinates(soup) == (51.511145, 0.017929)
+
+
+# ---------------------------------------------------------------------------
+# Group 4 — Flat shape: latitude/longitude as siblings of outcode
+# ---------------------------------------------------------------------------
+
+
+def test_flat_coordinates_alongside_outcode_are_extracted() -> None:
+    # Given  an object with flat latitude/longitude alongside an outcode (alternate
     #        shape Zoopla emits inside the address payload)
     # When   _parse_coordinates is called
     # Then   the flat fields are returned
@@ -70,8 +101,8 @@ def test_flat_coordinates_alongside_uprn_are_extracted() -> None:
             "fullAddress": "1 Test Street, London",
             "latitude": 52.0,
             "longitude": -0.2,
+            "outcode": "EC1V",
             "postcode": "EC1V 7DX",
-            "uprn": "1234567890",
         }
     })
     soup = BeautifulSoup(html, "html.parser")
@@ -79,15 +110,16 @@ def test_flat_coordinates_alongside_uprn_are_extracted() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Group 4 — EV charging stations are filtered out by uprn requirement
+# Group 5 — Nearby POIs without an outcode are filtered out
 # ---------------------------------------------------------------------------
 
 
-def test_ev_station_coordinates_without_uprn_are_ignored() -> None:
-    # Given  payload contains a coordinates object without uprn (EV station shape)
-    #        and a separate object with both uprn and listing coordinates
+def test_poi_coordinates_without_outcode_are_ignored() -> None:
+    # Given  payload contains nearby-POI coordinate objects without an outcode (an
+    #        EV station and a {address, coordinates, name} locality marker) plus a
+    #        separate listing object carrying both outcode and coordinates
     # When   _parse_coordinates is called
-    # Then   the listing coordinates are returned, not the EV station's
+    # Then   the listing coordinates are returned, not a POI's
     html = _wrap_rsc([
         {
             "name": "EV Station",
@@ -95,9 +127,14 @@ def test_ev_station_coordinates_without_uprn_are_ignored() -> None:
             "coordinates": {"latitude": 51.526651, "longitude": -0.099756},
         },
         {
+            "address": "Nearby Development",
+            "name": "Some Wharf",
+            "coordinates": {"latitude": 51.4, "longitude": -0.05},
+        },
+        {
             "location": {
+                "outcode": "EC1V",
                 "coordinates": {"latitude": 51.5, "longitude": -0.1},
-                "uprn": "5300101867",
             }
         },
     ])
@@ -106,12 +143,12 @@ def test_ev_station_coordinates_without_uprn_are_ignored() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Group 5 — Missing data returns (None, None)
+# Group 6 — Missing data returns (None, None)
 # ---------------------------------------------------------------------------
 
 
-def test_no_uprn_object_returns_none() -> None:
-    # Given  payload with coordinates but no object containing a uprn key
+def test_no_outcode_object_returns_none() -> None:
+    # Given  payload with coordinates but no object containing an outcode key
     # When   _parse_coordinates is called
     # Then   (None, None) is returned
     html = _wrap_rsc({"coordinates": {"latitude": 51.5, "longitude": -0.1}})

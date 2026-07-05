@@ -492,19 +492,25 @@ def _parse_floorplan_urls(soup: BeautifulSoup) -> list[str]:
 def _parse_coordinates(soup: BeautifulSoup) -> tuple[float | None, float | None]:
     """Find the listing's lat/lng in the RSC payload.
 
-    The listing's coordinates live in JSON objects keyed by ``uprn``, in two
-    shapes Zoopla currently emits:
+    The listing's location block pairs its coordinates with an ``outcode`` (the
+    postcode district, e.g. ``"E16"``), in two shapes Zoopla currently emits:
 
-    * ``{"coordinates": {"latitude": ..., "longitude": ...}, ..., "uprn": ...}``
-    * ``{"latitude": ..., "longitude": ..., ..., "uprn": ...}``
+    * ``{"coordinates": {"latitude": ..., "longitude": ...}, "outcode": ..., ...}``
+    * ``{"latitude": ..., "longitude": ..., "outcode": ..., ...}``
 
-    Requiring ``uprn`` filters out the dozens of nearby EV-charging-station
-    coordinate objects on the same page.
+    Anchoring on ``outcode`` covers both resale (``/for-sale/``) and new-build
+    (``/new-homes/``) listings.  Resale pages additionally tag this block with a
+    ``uprn`` and ``postalCode``, but new-build units have no UPRN yet, so the
+    previous ``uprn``-only anchor silently missed *every* ``/new-homes/`` listing
+    (leaving them commute-unknown).  ``outcode`` still excludes the dozens of
+    nearby-POI coordinate objects on the page (stations, schools, EV-charging
+    points, and the ``{address, coordinates, name}`` locality marker), none of
+    which carry an ``outcode``.
     """
     buf = _rsc_buffer(soup)
     for top in _iter_json_values(buf):
         for _, value in _walk(top):
-            if not isinstance(value, dict) or "uprn" not in value:
+            if not isinstance(value, dict) or "outcode" not in value:
                 continue
             coords = value.get("coordinates")
             if isinstance(coords, dict):
