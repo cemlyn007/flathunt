@@ -22,8 +22,10 @@ def rightmove_email_candidate_properties(
 ) -> Iterator[dg.Output[list[FinalProperty]] | dg.AssetObservation]:
     """Filter enriched Rightmove email properties by cheap criteria.
 
-    Applies price, floorplan count, photo count, and isochrone filters so that
-    only viable candidates reach the commute stage.  All filters are NULL-SAFE:
+    Applies a delisted filter, then price, floorplan count, photo count, and
+    isochrone filters so that only viable candidates reach the commute stage.
+    The delisted filter is NOT null-safe: it excludes only listings Rightmove
+    has confirmed (404/410) no longer exist. Every other filter IS null-safe:
     a property is rejected ONLY when the relevant value is present AND fails the
     test.  Unknown values always pass.
 
@@ -46,9 +48,22 @@ def rightmove_email_candidate_properties(
 
     total = len(rightmove_enriched_properties)
 
+    # Filter 0: delisted — NOT null-safe by design. Rightmove returned 404/410 for
+    # the detail page, confirming the listing is gone; every other filter below
+    # treats missing data as unknown-and-kept, but a confirmed delisting is excluded.
+    delisted_passed: list[FinalProperty] = []
+    for prop in rightmove_enriched_properties:
+        if prop.is_delisted:
+            context.log.info(
+                "Property %s confirmed delisted by Rightmove; excluding.", prop.id
+            )
+            continue
+        delisted_passed.append(prop)
+    after_delisted = len(delisted_passed)
+
     # Filter 1: price — null-safe: unknown price passes (cannot rule out in-budget).
     price_passed: list[FinalProperty] = []
-    for prop in rightmove_enriched_properties:
+    for prop in delisted_passed:
         amount = prop.price.amount if prop.price else None
         if amount is None:
             context.log.info(
@@ -147,8 +162,10 @@ def rightmove_email_candidate_properties(
     after_size = len(size_passed)
 
     context.log.info(
-        "Candidate filters: total=%d price=%d floorplans=%d photos=%d isochrone=%d size=%d",
+        "Candidate filters: total=%d delisted=%d price=%d floorplans=%d photos=%d "
+        "isochrone=%d size=%d",
         total,
+        after_delisted,
         after_price,
         after_floorplans,
         after_photos,
@@ -157,6 +174,7 @@ def rightmove_email_candidate_properties(
     )
     metadata = {
         "total_count": total,
+        "after_delisted": after_delisted,
         "after_price": after_price,
         "after_floorplans": after_floorplans,
         "after_photos": after_photos,

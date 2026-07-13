@@ -110,13 +110,17 @@ def _run(
     exclude_below_ground: bool = True,
 ):
     sc = _search_criteria(min_sqm, exclude_below_ground)
+    wrapped_details = {
+        pid: rightmove.models.PropertyDetailsFetchResult(details=d)
+        for pid, d in details.items()
+    }
     value, _ = drain_gate(
         matched_properties(
             context=dg.build_asset_context(),
             search_criteria=sc,
             matched_property_ids=matched,
             candidate_properties=candidates,
-            rightmove_property_details=details,
+            rightmove_property_details=wrapped_details,
             extracted_attributes=extracted,
         )
     )
@@ -174,6 +178,47 @@ class TestMatchedProperties:
 
         assert len(result) == 1
         assert result[0].extracted_sqm is None
+
+
+class TestDelistedFilter:
+    def test_confirmed_delisted_excluded(self):
+        """A listing Rightmove confirmed gone (404/410) is dropped, not blanked."""
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        sc = _search_criteria()
+        value, _ = drain_gate(
+            matched_properties(
+                context=dg.build_asset_context(),
+                search_criteria=sc,
+                matched_property_ids=matched,
+                candidate_properties=[candidate],
+                rightmove_property_details={
+                    1: rightmove.models.PropertyDetailsFetchResult(is_delisted=True)
+                },
+                extracted_attributes={},
+            )
+        )
+        assert value == []
+
+    def test_unknown_fetch_failure_not_excluded(self):
+        """A plain unknown/failed fetch (not confirmed-delisted) is kept, blank."""
+        matched = [MatchedProperty(property_id=1, commute_durations=[20])]
+        candidate = _map_property(id=1, display_size=None)
+        sc = _search_criteria()
+        value, _ = drain_gate(
+            matched_properties(
+                context=dg.build_asset_context(),
+                search_criteria=sc,
+                matched_property_ids=matched,
+                candidate_properties=[candidate],
+                rightmove_property_details={
+                    1: rightmove.models.PropertyDetailsFetchResult()
+                },
+                extracted_attributes={},
+            )
+        )
+        assert len(value) == 1
+        assert value[0].is_delisted is False
 
 
 class TestBelowGroundFilter:

@@ -5,6 +5,7 @@ from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import dagster as dg
+import httpx
 
 import rightmove.models
 from flathunt.defs.rightmove_email.property_details import (
@@ -76,7 +77,9 @@ def test_rightmove_email_property_details_fetches_each_unique_listing(
     ):
         result = asyncio.run(
             cast(
-                Coroutine[Any, Any, dict[str, rightmove.models.PropertyDetails | None]],
+                Coroutine[
+                    Any, Any, dict[str, rightmove.models.PropertyDetailsFetchResult]
+                ],
                 rightmove_email_property_details(
                     context=dg.build_asset_context(),
                     cache=cache,
@@ -128,7 +131,9 @@ def test_rightmove_email_property_details_dedupes_across_alerts(
     ):
         result = asyncio.run(
             cast(
-                Coroutine[Any, Any, dict[str, rightmove.models.PropertyDetails | None]],
+                Coroutine[
+                    Any, Any, dict[str, rightmove.models.PropertyDetailsFetchResult]
+                ],
                 rightmove_email_property_details(
                     context=dg.build_asset_context(),
                     cache=cache,
@@ -154,7 +159,9 @@ def test_rightmove_email_property_details_empty_alerts(tmp_path) -> None:
     ):
         result = asyncio.run(
             cast(
-                Coroutine[Any, Any, dict[str, rightmove.models.PropertyDetails | None]],
+                Coroutine[
+                    Any, Any, dict[str, rightmove.models.PropertyDetailsFetchResult]
+                ],
                 rightmove_email_property_details(
                     context=dg.build_asset_context(),
                     cache=cache,
@@ -165,3 +172,89 @@ def test_rightmove_email_property_details_empty_alerts(tmp_path) -> None:
 
     assert result == {}
     mock_client.get_property_details.assert_not_awaited()
+
+
+def test_rightmove_email_property_details_confirmed_delisted(tmp_path) -> None:
+    """A 404/410 response marks the listing confirmed-delisted, not just failed."""
+    alerts = [
+        RightmovePropertyAlert(
+            message_id="msg-1",
+            subject="New Rightmove properties",
+            received_at=datetime(2026, 5, 24, 9, 0, 0),
+            properties=[_make_prop("1")],
+        )
+    ]
+
+    cache = MagicMock()
+    cache.data_dir = str(tmp_path)
+
+    request = httpx.Request("GET", "https://www.rightmove.co.uk/properties/1")
+    response = httpx.Response(410, request=request)
+    error = httpx.HTTPStatusError("410 Gone", request=request, response=response)
+
+    mock_client = MagicMock()
+    mock_client.get_property_details = AsyncMock(side_effect=error)
+
+    with patch(
+        "flathunt.defs.rightmove_email.property_details.rightmove.api.Rightmove",
+        return_value=mock_client,
+    ):
+        result = asyncio.run(
+            cast(
+                Coroutine[
+                    Any, Any, dict[str, rightmove.models.PropertyDetailsFetchResult]
+                ],
+                rightmove_email_property_details(
+                    context=dg.build_asset_context(),
+                    cache=cache,
+                    rightmove_property_alerts=alerts,
+                ),
+            )
+        )
+
+    assert result["1"].is_delisted is True
+    assert result["1"].details is None
+
+
+def test_rightmove_email_property_details_transient_failure_not_delisted(
+    tmp_path,
+) -> None:
+    """A non-404/410 failure (timeout, 5xx, parse error) must NOT be treated as
+    confirmed-delisted -- that would silently drop listings on e.g. a parser
+    regression or rate-limiting, rather than surfacing it."""
+    alerts = [
+        RightmovePropertyAlert(
+            message_id="msg-1",
+            subject="New Rightmove properties",
+            received_at=datetime(2026, 5, 24, 9, 0, 0),
+            properties=[_make_prop("1")],
+        )
+    ]
+
+    cache = MagicMock()
+    cache.data_dir = str(tmp_path)
+
+    mock_client = MagicMock()
+    mock_client.get_property_details = AsyncMock(
+        side_effect=httpx.ConnectTimeout("timed out")
+    )
+
+    with patch(
+        "flathunt.defs.rightmove_email.property_details.rightmove.api.Rightmove",
+        return_value=mock_client,
+    ):
+        result = asyncio.run(
+            cast(
+                Coroutine[
+                    Any, Any, dict[str, rightmove.models.PropertyDetailsFetchResult]
+                ],
+                rightmove_email_property_details(
+                    context=dg.build_asset_context(),
+                    cache=cache,
+                    rightmove_property_alerts=alerts,
+                ),
+            )
+        )
+
+    assert result["1"].is_delisted is False
+    assert result["1"].details is None

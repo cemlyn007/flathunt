@@ -108,5 +108,9 @@ class FinalProperty(pydantic.BaseModel):
     # Below-ground prediction (reconciled from floor-plan + description signals)
     is_below_ground: bool | None = None
 
+    # Confirmed delisted by Rightmove (HTTP 404/410 on the detail page) —
+    # distinct from an unknown/failed detail fetch, which is NOT delisted.
+    is_delisted: bool = False
+
     # Source identifier for notification DB namespacing
     source: str = "rightmove"

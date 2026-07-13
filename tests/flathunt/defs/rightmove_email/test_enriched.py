@@ -28,16 +28,28 @@ def test_to_final_property_sets_beds_baths_and_api_size() -> None:
         bathrooms=2,
         sizings=[{"unit": "sqm", "minimumSize": 82, "maximumSize": 82}],
     )
-    fp = _to_final_property("123", "1 Test St", 500000, details)
+    fp = _to_final_property(
+        "123",
+        "1 Test St",
+        500000,
+        rightmove.models.PropertyDetailsFetchResult(details=details),
+    )
     assert fp.bedrooms == 2
     assert fp.bathrooms == 2
     assert fp.display_size == "82 sqm"
     assert fp.extracted_sqm is None
+    assert fp.is_delisted is False
 
 
 def test_to_final_property_uses_extracted_sqm_when_no_api_size() -> None:
     details = _details(bedrooms=3, bathrooms=1, sizings=[])
-    fp = _to_final_property("124", "2 Test St", None, details, extracted_sqm=70.0)
+    fp = _to_final_property(
+        "124",
+        "2 Test St",
+        None,
+        rightmove.models.PropertyDetailsFetchResult(details=details),
+        extracted_sqm=70.0,
+    )
     assert fp.bedrooms == 3
     assert fp.bathrooms == 1
     assert fp.display_size is None
@@ -50,6 +62,21 @@ def test_to_final_property_blank_when_details_missing() -> None:
     assert fp.bathrooms is None
     assert fp.display_size is None
     assert fp.extracted_sqm is None
+    assert fp.is_delisted is False
+
+
+def test_to_final_property_sets_is_delisted_when_confirmed_gone() -> None:
+    """A confirmed-delisted result blanks every field but is distinguishable
+    from a plain unknown/failed fetch via is_delisted."""
+    fp = _to_final_property(
+        "126",
+        "3 Test St",
+        None,
+        rightmove.models.PropertyDetailsFetchResult(is_delisted=True),
+    )
+    assert fp.is_delisted is True
+    assert fp.bedrooms is None
+    assert fp.display_size is None
 
 
 def _make_prop(
@@ -96,9 +123,9 @@ def test_rightmove_enriched_properties_assembles_from_details() -> None:
         sizings=[{"unit": "sqm", "minimumSize": 75, "maximumSize": 75}],
         location={"latitude": 51.5, "longitude": -0.1},
     )
-    details_by_id: dict[str, rightmove.models.PropertyDetails | None] = {
-        "1": details_1,
-        "2": None,
+    details_by_id: dict[str, rightmove.models.PropertyDetailsFetchResult] = {
+        "1": rightmove.models.PropertyDetailsFetchResult(details=details_1),
+        "2": rightmove.models.PropertyDetailsFetchResult(),
     }
 
     result = cast(
@@ -168,7 +195,9 @@ def test_rightmove_enriched_properties_dedupes_across_alerts() -> None:
             properties=[prop],
         ),
     ]
-    details_by_id: dict[str, rightmove.models.PropertyDetails | None] = {"1": None}
+    details_by_id: dict[str, rightmove.models.PropertyDetailsFetchResult] = {
+        "1": rightmove.models.PropertyDetailsFetchResult()
+    }
 
     result = cast(
         list[FinalProperty],

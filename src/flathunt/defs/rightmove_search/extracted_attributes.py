@@ -50,7 +50,7 @@ async def extracted_attributes(
     cache: CacheResource,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
-    rightmove_property_details: dict[int, rightmove.models.PropertyDetails | None],
+    rightmove_property_details: dict[int, rightmove.models.PropertyDetailsFetchResult],
 ) -> dict[str, ExtractedAttributes]:
     matched_set = {m.property_id for m in matched_property_ids}
     props_by_id = {p.id: p for p in candidate_properties if p.id in matched_set}
@@ -71,7 +71,8 @@ async def extracted_attributes(
         prop = props_by_id.get(matched.property_id)
         if prop is None:
             continue
-        details = rightmove_property_details.get(prop.id)
+        details_result = rightmove_property_details.get(prop.id)
+        details = details_result.details if details_result else None
         size_known = parse_display_size_sqm(prop.display_size) is not None or (
             details is not None and details.size_sqm is not None
         )

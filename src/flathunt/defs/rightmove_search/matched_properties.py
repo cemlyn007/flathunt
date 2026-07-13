@@ -19,12 +19,14 @@ logger = logging.getLogger(__name__)
 
 def _to_final_property(
     prop: rightmove.models.MapProperty,
-    details: rightmove.models.PropertyDetails | None,
+    details_result: rightmove.models.PropertyDetailsFetchResult | None,
     attrs: ExtractedAttributes,
     commute_durations: list[int | None],
 ) -> FinalProperty:
     """Build a FinalProperty from structured sources and pre-extracted attributes."""
-    lc = details.living_costs if details else None
+    structured = details_result.details if details_result else None
+    is_delisted = details_result.is_delisted if details_result else False
+    lc = structured.living_costs if structured else None
     desc = attrs.description
 
     # Size from extracted attributes
@@ -67,8 +69,10 @@ def _to_final_property(
             lc.ground_rent_percentage_increase if lc else None
         ),
         annual_service_charge=lc.annual_service_charge if lc else None,
-        tenure_type=details.tenure_type if details else None,
-        years_remaining_on_lease=details.years_remaining_on_lease if details else None,
+        tenure_type=structured.tenure_type if structured else None,
+        years_remaining_on_lease=structured.years_remaining_on_lease
+        if structured
+        else None,
         extracted_years_remaining_on_lease=desc.years_remaining_on_lease
         if desc
         else None,
@@ -77,6 +81,7 @@ def _to_final_property(
         extracted_annual_ground_rent=desc.annual_ground_rent if desc else None,
         extracted_council_tax_band=desc.council_tax_band if desc else None,
         is_below_ground=attrs.is_below_ground(),
+        is_delisted=is_delisted,
     )
 
 
@@ -88,7 +93,7 @@ def matched_properties(
     search_criteria: SearchCriteriaResource,
     matched_property_ids: list[MatchedProperty],
     candidate_properties: list[rightmove.models.MapProperty],
-    rightmove_property_details: dict[int, rightmove.models.PropertyDetails | None],
+    rightmove_property_details: dict[int, rightmove.models.PropertyDetailsFetchResult],
     extracted_attributes: dict[str, ExtractedAttributes],
 ) -> Iterator[dg.Output[list[FinalProperty]] | dg.AssetObservation]:
     """Merge matched IDs with property details and extracted attributes, then filter by size.
@@ -118,17 +123,21 @@ def matched_properties(
         prop = props_by_id.get(matched.property_id)
         if prop is None:
             continue
-        details = rightmove_property_details.get(prop.id)
+        details_result = rightmove_property_details.get(prop.id)
         attrs = extracted_attributes.get(str(prop.id), ExtractedAttributes())
         finals.append(
             _to_final_property(
-                prop, details, attrs, durations_by_id[matched.property_id]
+                prop, details_result, attrs, durations_by_id[matched.property_id]
             )
         )
 
     result = []
     below_ground_excluded = 0
+    delisted_excluded = 0
     for fp in finals:
+        if fp.is_delisted:
+            delisted_excluded += 1
+            continue
         if search_criteria.exclude_below_ground and fp.is_below_ground is True:
             below_ground_excluded += 1
             continue
@@ -141,10 +150,11 @@ def matched_properties(
             result.append(fp)
 
     logger.info(
-        "%d / %d propert(ies) remain after below-ground and size filtering "
-        "(%d excluded below-ground).",
+        "%d / %d propert(ies) remain after delisted, below-ground, and size "
+        "filtering (%d excluded delisted, %d excluded below-ground).",
         len(result),
         len(finals),
+        delisted_excluded,
         below_ground_excluded,
     )
     metadata = {

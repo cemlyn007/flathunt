@@ -16,6 +16,7 @@ from rightmove.models.matching_lozenges import MatchingLozenges
 from rightmove.models.price import Price
 from rightmove.models.product_label import ProductLabel
 from rightmove.models.property_details import PropertyDetails
+from rightmove.models.property_details_fetch_result import PropertyDetailsFetchResult
 from rightmove.models.property_image import PropertyImage
 from rightmove.models.property_images import PropertyImages
 from rightmove.models.street_view import StreetView
@@ -40,6 +41,7 @@ __all__ = [
     "Price",
     "ProductLabel",
     "PropertyDetails",
+    "PropertyDetailsFetchResult",
     "PropertyImage",
     "PropertyImages",
     "StreetView",

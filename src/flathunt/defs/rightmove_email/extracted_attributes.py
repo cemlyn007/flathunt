@@ -33,7 +33,7 @@ async def rightmove_email_extracted_attributes(
     cache: CacheResource,
     rightmove_email_matched_ids: list[MatchedProperty],
     rightmove_email_property_details: dict[
-        str, rightmove.models.PropertyDetails | None
+        str, rightmove.models.PropertyDetailsFetchResult
     ],
 ) -> dict[str, ExtractedAttributes]:
     fp_cache: ModelCache[FloorPlanResult] = ModelCache(
@@ -50,7 +50,8 @@ async def rightmove_email_extracted_attributes(
     inputs: list[ListingExtractionInput] = []
     for matched in rightmove_email_matched_ids:
         listing_id = str(matched.property_id)
-        details = rightmove_email_property_details.get(listing_id)
+        details_result = rightmove_email_property_details.get(listing_id)
+        details = details_result.details if details_result else None
         urls = (
             [fp.url for fp in details.floorplans]
             if details and details.floorplans

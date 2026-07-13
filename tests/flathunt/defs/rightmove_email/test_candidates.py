@@ -78,6 +78,7 @@ def _prop(
     latitude: float | None = 51.5,
     longitude: float | None = -0.1,
     display_size: str | None = None,
+    is_delisted: bool = False,
 ) -> FinalProperty:
     """Build a minimal FinalProperty for testing."""
     price = (
@@ -92,6 +93,7 @@ def _prop(
         latitude=latitude,
         longitude=longitude,
         display_size=display_size,
+        is_delisted=is_delisted,
     )
 
 
@@ -162,6 +164,31 @@ def test_geometry_sanity_outside() -> None:
     assert not _LONDON_POLY.contains(Point(e, n)), (
         f"Expected ({e:.0f}, {n:.0f}) to be outside the test polygon"
     )
+
+
+# ---------------------------------------------------------------------------
+# Filter 0 (delisted) — the one NOT-null-safe filter
+# ---------------------------------------------------------------------------
+
+
+class TestConfirmedDelistedExcluded:
+    def test_confirmed_delisted_excluded(self) -> None:
+        """A property Rightmove confirmed gone (404/410) is excluded, unlike every
+        other filter here which only rejects on a known, failing value."""
+        rm = _rm_property("200011")
+        prop = _prop("200011", latitude=51.5, longitude=-0.1, is_delisted=True)
+        result = _run_asset([prop], _alert(rm))
+        assert prop not in result, "Confirmed-delisted property must be excluded"
+
+
+class TestUnknownFetchFailureKept:
+    def test_unknown_fetch_failure_kept(self) -> None:
+        """A property whose detail fetch merely failed (is_delisted=False, blank
+        fields) is NOT excluded here -- only a confirmed delisting is."""
+        rm = _rm_property("200012")
+        prop = _prop("200012", latitude=51.5, longitude=-0.1, is_delisted=False)
+        result = _run_asset([prop], _alert(rm))
+        assert prop in result, "Unknown fetch failure must not be excluded"
 
 
 # ---------------------------------------------------------------------------

@@ -97,7 +97,7 @@ def _fake_result(
 def _run(
     matched: list[MatchedProperty],
     candidates: list[rightmove.models.MapProperty],
-    details: dict[int, rightmove.models.PropertyDetails | None],
+    details: dict[int, rightmove.models.PropertyDetailsFetchResult],
     batch_results: list,
     tmp_path,
     *,
@@ -159,7 +159,13 @@ class TestRightmoveExtractedAttributes:
             _fake_result("fp_1", json_text='{"total":59.0,"units":"sq m"}'),
             _fake_result("desc_1", json_text='{"council_tax_band":"C","bedrooms":2}'),
         ]
-        out = _run(matched, [candidate], {1: detail}, results, tmp_path)
+        out = _run(
+            matched,
+            [candidate],
+            {1: rightmove.models.PropertyDetailsFetchResult(details=detail)},
+            results,
+            tmp_path,
+        )
         assert out["1"].floor_plan.total_sqm == pytest.approx(59.0)
         assert out["1"].description.council_tax_band == "C"
 
@@ -181,6 +187,12 @@ class TestRightmoveExtractedAttributes:
         results = [
             _fake_result("desc_1", json_text='{"bedrooms":2}'),
         ]
-        out = _run(matched, [candidate], {1: detail}, results, tmp_path)
+        out = _run(
+            matched,
+            [candidate],
+            {1: rightmove.models.PropertyDetailsFetchResult(details=detail)},
+            results,
+            tmp_path,
+        )
         assert out["1"].floor_plan is None
         assert out["1"].description.bedrooms == 2

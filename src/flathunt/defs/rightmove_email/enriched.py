@@ -15,12 +15,15 @@ def _to_final_property(
     prop_listing_id: str,
     prop_address: str | None,
     prop_price_gbp: int | None,
-    details: rightmove.models.PropertyDetails | None,
+    details_result: rightmove.models.PropertyDetailsFetchResult | None,
     extracted_sqm: float | None = None,
 ) -> FinalProperty:
     price: rightmove.models.Price | None = None
     if prop_price_gbp is not None:
         price = rightmove.models.Price(amount=prop_price_gbp, frequency="static")
+
+    structured = details_result.details if details_result else None
+    is_delisted = details_result.is_delisted if details_result else False
 
     bedrooms: int | None = None
     bathrooms: int | None = None
@@ -37,22 +40,22 @@ def _to_final_property(
     latitude: float | None = None
     longitude: float | None = None
 
-    if details is not None:
-        bedrooms = details.bedrooms
-        bathrooms = details.bathrooms
-        if details.size_sqm is not None:
-            display_size = f"{details.size_sqm:.0f} sqm"
-        lc = details.living_costs
+    if structured is not None:
+        bedrooms = structured.bedrooms
+        bathrooms = structured.bathrooms
+        if structured.size_sqm is not None:
+            display_size = f"{structured.size_sqm:.0f} sqm"
+        lc = structured.living_costs
         council_tax_band = lc.council_tax_band
         annual_ground_rent = lc.annual_ground_rent
         ground_rent_review_period_in_years = lc.ground_rent_review_period_in_years
         ground_rent_percentage_increase = lc.ground_rent_percentage_increase
         annual_service_charge = lc.annual_service_charge
-        tenure_type = details.tenure_type
-        years_remaining_on_lease = details.years_remaining_on_lease
-        if details.location is not None:
-            latitude = details.location.latitude
-            longitude = details.location.longitude
+        tenure_type = structured.tenure_type
+        years_remaining_on_lease = structured.years_remaining_on_lease
+        if structured.location is not None:
+            latitude = structured.location.latitude
+            longitude = structured.location.longitude
 
     return FinalProperty(
         id=int(prop_listing_id),
@@ -73,6 +76,7 @@ def _to_final_property(
         years_remaining_on_lease=years_remaining_on_lease,
         latitude=latitude,
         longitude=longitude,
+        is_delisted=is_delisted,
     )
 
 
@@ -81,7 +85,7 @@ def rightmove_enriched_properties(
     context: dg.AssetExecutionContext,
     rightmove_property_alerts: list[RightmovePropertyAlert],
     rightmove_email_property_details: dict[
-        str, rightmove.models.PropertyDetails | None
+        str, rightmove.models.PropertyDetailsFetchResult
     ],
 ) -> list[FinalProperty]:
     deduped_props: dict[str, RightmoveProperty] = {}
