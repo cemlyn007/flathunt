@@ -4,7 +4,7 @@ import logging
 import os
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import geopandas as gpd
 import pandas as pd
@@ -293,7 +293,6 @@ def render_property_search_section() -> None:
     if channel != "RENT" and channel != "BUY":
         st.error("Invalid channel selected.")
         return
-    channel = cast(Literal["RENT", "BUY"], channel)
     if last_channel != channel:
         st.session_state.pop("properties", None)
 
